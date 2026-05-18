@@ -1,0 +1,8 @@
+{
+  "name": "Primary Flight Display (PFD)",
+  "description": "A web-based Primary Flight Display interpreting aircraft telemetry data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
