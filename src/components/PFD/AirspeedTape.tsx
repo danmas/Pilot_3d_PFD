@@ -50,9 +50,19 @@ export function AirspeedTape({ frame }: Props) {
          {autopilot.selectedSpeed !== null ? Math.round(autopilot.selectedSpeed).toString().padStart(3, '0') : "000"}
       </text>
 
-      {/* Current Value Marker - Thick yellow line extending from the tape right edge to the attitude center */}
+      {/* Center Black Indicator Box for Speed */}
       {air.valid && (
-        <line x1="205" y1="300" x2="235" y2="300" stroke="#FFEA00" strokeWidth="4" />
+        <g transform="translate(150, 300)">
+          {/* Black box pointing left */}
+          <path d="M 0 0 L 15 -25 L 90 -25 L 90 25 L 15 25 Z" fill="black" stroke="white" strokeWidth="1" transform="translate(-85, 0)" />
+          
+          <text x="-40" y="8" fill="white" fontSize="28" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+            {Math.round(speed)}
+          </text>
+
+          {/* Yellow trend / pointer line */}
+          <line x1="-10" y1="0" x2="85" y2="0" stroke="#FFEA00" strokeWidth="3" />
+        </g>
       )}
     </g>
   );

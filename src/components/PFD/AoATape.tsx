@@ -4,11 +4,12 @@ import { PFDFrame } from '../../types';
 interface Props { frame: PFDFrame; }
 
 export function AoATape({ frame }: Props) {
+  const { air, loads } = frame;
   const TAPE_COLOR = "#818181";
-  const aoa = 4.6; 
+  const aoa = air.aoaDeg ?? 4.6; 
 
   const getAoAY = (v: number) => {
-    return (4.6 - v) * 16.5; 
+    return (aoa - v) * 16.5; 
   };
 
   return (
@@ -41,7 +42,9 @@ export function AoATape({ frame }: Props) {
       
       {/* Bottom G meter text */}
       <text x="65" y="495" fill="white" fontSize="24" fontFamily="sans-serif">G</text>
-      <text x="115" y="495" fill="#FF9800" fontSize="24" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">- -</text>
+      <text x="115" y="495" fill={loads.g !== null ? "white" : "#FF9800"} fontSize="24" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
+        {loads.g !== null ? loads.g.toFixed(1) : "- -"}
+      </text>
     </g>
   );
 }

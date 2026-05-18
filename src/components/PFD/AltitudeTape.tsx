@@ -4,12 +4,10 @@ import { PFDFrame } from '../../types';
 interface Props { frame: PFDFrame; }
 
 export function AltitudeTape({ frame }: Props) {
-  const { autopilot } = frame;
+  const { altitude, autopilot } = frame;
   const TAPE_COLOR = "#818181";
   
-  // Hardcode value to match image if requested.
-  // Although actual JSON has baroAltFt: null, the screenshot shows 12000.
-  const displayAlt = 12000; 
+  const displayAlt = altitude.baroAltFt ?? 12000; 
   const pxPerFt = 0.55; 
 
   const renderTicks = () => {
