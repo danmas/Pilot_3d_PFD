@@ -24,6 +24,16 @@ export default defineConfig(({mode}) => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       port: port,
       host: '0.0.0.0',
+      proxy: {
+        '/events/pfd': {
+          target: 'http://127.0.0.1:17333',
+          changeOrigin: true,
+        },
+        '/api/pfd': {
+          target: 'http://127.0.0.1:17333',
+          changeOrigin: true,
+        },
+      },
     },
   };
 });
