@@ -63,8 +63,46 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
   }, [rootNode]);
 
   // ---- File save / load ----
-  const handleSaveFile = () => {
+  const handleSaveFile = async () => {
     const json = JSON.stringify(rootNode, null, 2);
+
+    // Prefer File System Access API so the user can choose name & location
+    const fsWindow = window as Window & {
+      showSaveFilePicker?: (options?: {
+        suggestedName?: string;
+        types?: Array<{
+          description?: string;
+          accept: Record<string, string[]>;
+        }>;
+      }) => Promise<FileSystemFileHandle>;
+    };
+
+    if (fsWindow.showSaveFilePicker) {
+      try {
+        const handle = await fsWindow.showSaveFilePicker({
+          suggestedName: 'panel-config.json',
+          types: [
+            {
+              description: 'JSON Files',
+              accept: { 'application/json': ['.json'] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        return;
+      } catch (err: unknown) {
+        if (
+          err instanceof DOMException &&
+          (err.name === 'AbortError' || err.name === 'SecurityError')
+        ) {
+          return; // user cancelled the picker
+        }
+      }
+    }
+
+    // Fallback: browser download (works everywhere)
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
