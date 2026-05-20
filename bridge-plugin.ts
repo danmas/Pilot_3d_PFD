@@ -80,8 +80,19 @@ const SYNC_MARKER = 0x544e;
 // PFD subset keys — imported from field-catalog, kept as mutable array for RawAvionicsFrame filtering
 const AVIONICS_FIELDS: readonly string[] = PFD_KEYS;
 
-// Shared payload schema — all 132 fields in out.json byte-order
-let payloadSchema: ParameterSchema = buildParameterSchema();
+// Full 132-field schema — used by raw monitor on port 14442
+const fullPayloadSchema: ParameterSchema = buildParameterSchema();
+
+// PFD-only schema: matches the 9-field binary layout on port 14444
+const pfdPayloadSchema: ParameterSchema = (() => {
+  const catalog = new Map(FIELD_CATALOG.map(e => [e.key, e]));
+  const schema: ParameterSchema = {};
+  for (const key of PFD_KEYS) {
+    const entry = catalog.get(key);
+    if (entry) schema[key] = { Type: entry.dataType as ParameterType };
+  }
+  return schema;
+})();
 
 // ── bridge state ───────────────────────────────────────────────────
 const sseClients = new Set<http.ServerResponse>();
@@ -161,7 +172,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           }
 
           if (!currentFrame) {
-            const decoded = decodePayload(message, payloadSchema);
+            const decoded = decodePayload(message, pfdPayloadSchema);
             if (rawPiggyback) feedRawData(decoded, message, now);
             publishDecodedFrame(decoded, now, captureDir);
             return;
@@ -174,7 +185,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           const frame = currentFrame;
           currentFrame = null;
           const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
-          const decoded = decodePayload(payload, payloadSchema);
+          const decoded = decodePayload(payload, pfdPayloadSchema);
           if (rawPiggyback) feedRawData(decoded, payload, now);
           publishDecodedFrame(decoded, now, captureDir, frame.counter);
         } catch (error) {
@@ -191,7 +202,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
       udpServer.bind(udpPort, udpHost, () => {
         const addr = udpServer!.address();
         console.log(`[BRIDGE] UDP udp://${addr.address}:${addr.port}`);
-        console.log(`[BRIDGE] schema ${Object.keys(payloadSchema).length} fields (field-catalog.ts)`);
+        console.log(`[BRIDGE] schema ${Object.keys(pfdPayloadSchema).length} pfd fields / ${Object.keys(fullPayloadSchema).length} full fields (field-catalog.ts)`);
         console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
       });
 
@@ -535,7 +546,7 @@ function startRawMonitor(port: number): RawMonitorState {
     rawLastHex = message.toString("hex").slice(0, 512);
     console.log(`[RAW-MONITOR] Packet #${rawReceivedPackets} received, ${message.length}B, hex: ${rawLastHex.slice(0, 40)}...`);
     try {
-      const decoded = decodePayload(message, payloadSchema);
+      const decoded = decodePayload(message, fullPayloadSchema);
       rawLastDecoded = decoded;
       rawReceivedFrames += 1;
       rawLastError = undefined;
