@@ -9,10 +9,11 @@ import { PFDFrame } from './types';
 import { sampleFrames } from './sample-data';
 import { PFD } from './components/PFD/PFD';
 import RawMonitor from './components/RawMonitor/RawMonitor';
+import { PanelBuilder } from './components/PanelBuilder';
 
 type DataMode = 'sample' | 'live';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
-type ViewPage = 'hub' | 'pfd' | 'rawMonitor';
+type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder';
 
 const LIVE_PFD_URL = '/events/pfd';
 
@@ -124,7 +125,7 @@ export default function App() {
           </div>
 
           {/* Cards */}
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-4 gap-6">
             {/* PFD Card */}
             <button
               onClick={() => { setCurrentView('pfd'); setDataMode('sample'); }}
@@ -160,6 +161,25 @@ export default function App() {
               </p>
               <div className="flex items-center gap-2 mt-4 text-emerald-400 text-sm font-medium">
                 <Zap className="w-4 h-4" /> Open Monitor &rarr;
+              </div>
+            </button>
+
+            {/* Panel Builder Card */}
+            <button
+              onClick={() => setCurrentView('panelBuilder')}
+              className="group relative bg-gradient-to-br from-amber-900/40 to-orange-900/40 border border-amber-500/20 rounded-2xl p-8 text-left hover:border-amber-400/50 hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-amber-500/10"
+            >
+              <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-amber-400 group-hover:animate-pulse" />
+              <div className="p-3 bg-amber-500/20 rounded-xl w-fit mb-5">
+                <LayoutDashboard className="w-8 h-8 text-amber-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Panel Builder</h2>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Design custom instrument layouts,<br />
+                drag-and-drop cockpit composition.
+              </p>
+              <div className="flex items-center gap-2 mt-4 text-amber-400 text-sm font-medium">
+                <Zap className="w-4 h-4" /> Open Builder &rarr;
               </div>
             </button>
 
@@ -203,6 +223,11 @@ export default function App() {
   // ═══════════════════════════════════════════════ RAW MONITOR VIEW
   if (currentView === 'rawMonitor') {
     return <RawMonitor onBack={() => setCurrentView('hub')} />;
+  }
+
+  // ═══════════════════════════════════════════════ PANEL BUILDER VIEW
+  if (currentView === 'panelBuilder') {
+    return <PanelBuilder onBack={() => setCurrentView('hub')} />;
   }
 
   // ═══════════════════════════════════════════════ PFD VIEW
