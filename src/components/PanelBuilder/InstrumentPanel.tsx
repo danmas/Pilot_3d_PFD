@@ -8,17 +8,19 @@ import { LayoutPanelTop, LayoutPanelLeft } from 'lucide-react';
 import { Instrument } from './Instrument';
 import { SplitContainer } from './SplitContainer';
 import type { PanelNode, SplitDirection } from './types';
+import type { PFDFrame } from '../../types';
 
 interface Props {
   node: PanelNode;
   onChange: (node: PanelNode) => void;
   onRemoveNode: () => void;
   isRoot?: boolean;
+  frame?: PFDFrame | null;
 }
 
 const newId = () => Math.random().toString(36).substring(2, 9);
 
-export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode, isRoot }) => {
+export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode, isRoot, frame }) => {
   if (node.type === 'split' && node.children) {
     return (
       <SplitContainer
@@ -30,11 +32,13 @@ export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode,
           node={node.children[0]}
           onChange={(child) => onChange({ ...node, children: [child, node.children![1]] })}
           onRemoveNode={() => onChange(node.children![1])}
+          frame={frame}
         />
         <InstrumentPanel
           node={node.children[1]}
           onChange={(child) => onChange({ ...node, children: [node.children![0], child] })}
           onRemoveNode={() => onChange(node.children![0])}
+          frame={frame}
         />
       </SplitContainer>
     );
@@ -124,6 +128,7 @@ export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode,
         <Instrument
           node={node}
           onRemove={() => onChange({ ...node, type: 'empty', instrumentId: undefined })}
+          frame={frame}
         />
       ) : (
         <div className="flex flex-col items-center justify-center w-full h-full text-gray-500 pointer-events-none gap-2">

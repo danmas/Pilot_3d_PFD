@@ -41,6 +41,25 @@ export const sampleFrame: PFDFrame = {
     "fdActive": null,
     "fdPitchCmdDeg": null,
     "fdRollCmdDeg": null
+  },
+  "engine": {
+    "n1": null,
+    "n2": null,
+    "fuelFlow": null,
+    "egt": null,
+    "oilPress": null,
+    "oilTemp": null,
+    "vibration": null
+  },
+  "surfaces": {
+    "flapL": 0,
+    "flapR": 0,
+    "slatL": 0,
+    "slatR": 0,
+    "phiST": null,
+    "deltaPB": null,
+    "deltaEPL": null,
+    "deltaEPR": null
   }
 };
 

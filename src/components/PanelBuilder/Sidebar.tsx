@@ -4,13 +4,19 @@
  */
 
 import React from 'react';
-import { INSTRUMENTS, getInstrumentIcon } from './instruments';
+import { getInstrumentIcon } from './instruments';
+import { getAllInstruments } from './registry';
+// Importing the Instruments barrel triggers self-registration of all
+// instrument components into the registry.
+import '../../components/Instruments';
 
 export const Sidebar: React.FC = () => {
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('instrumentId', id);
     e.dataTransfer.effectAllowed = 'copy';
   };
+
+  const instruments = getAllInstruments();
 
   return (
     <aside className="w-56 bg-[#161719] border-l border-[#2d2e30] flex flex-col z-20">
@@ -21,7 +27,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       <div className="flex-1 p-2 grid grid-cols-2 gap-2 content-start overflow-y-auto">
-        {INSTRUMENTS.map((inst) => {
+        {instruments.map((inst) => {
           const Icon = getInstrumentIcon(inst.iconName);
           return (
             <div
@@ -45,7 +51,7 @@ export const Sidebar: React.FC = () => {
         <div className="text-[9px] text-gray-500 leading-tight uppercase">
           Nodes:{' '}
           <span className="text-blue-400 text-xs font-mono">
-            {INSTRUMENTS.length} Elements
+            {instruments.length} Elements
           </span>
         </div>
         <div className="mt-3 flex gap-2 items-center">

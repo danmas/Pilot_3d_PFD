@@ -10,6 +10,7 @@ import { sampleFrames } from './sample-data';
 import { PFD } from './components/PFD/PFD';
 import RawMonitor from './components/RawMonitor/RawMonitor';
 import { PanelBuilder } from './components/PanelBuilder';
+import { TelemetryProvider } from './context/TelemetryContext';
 
 type DataMode = 'sample' | 'live';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
@@ -227,7 +228,11 @@ export default function App() {
 
   // ═══════════════════════════════════════════════ PANEL BUILDER VIEW
   if (currentView === 'panelBuilder') {
-    return <PanelBuilder onBack={() => setCurrentView('hub')} />;
+    return (
+      <TelemetryProvider frame={frame}>
+        <PanelBuilder onBack={() => setCurrentView('hub')} />
+      </TelemetryProvider>
+    );
   }
 
   // ═══════════════════════════════════════════════ PFD VIEW

@@ -8,6 +8,10 @@ import { ArrowLeft, Download, Upload } from 'lucide-react';
 import { InstrumentPanel } from './InstrumentPanel';
 import { Sidebar } from './Sidebar';
 import type { PanelNode } from './types';
+import { useTelemetry } from '../../context/TelemetryContext';
+// Importing the Instruments barrel triggers self-registration of all
+// instrument components into the registry.
+import '../Instruments';
 
 const STORAGE_KEY = 'pilot-panel-config';
 
@@ -24,6 +28,9 @@ interface PanelBuilderProps {
 }
 
 export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
+  // ---- Telemetry from context (live or sample, provided by parent) ----
+  const { frame } = useTelemetry();
+
   // ---- State: panel layout tree ----
   const [rootNode, setRootNode] = useState<PanelNode>(createEmptyRoot);
   const hasHydrated = useRef(false);
@@ -152,6 +159,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
               onChange={setRootNode}
               onRemoveNode={() => setRootNode(createEmptyRoot())}
               isRoot
+              frame={frame}
             />
           </div>
         </main>

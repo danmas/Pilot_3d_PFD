@@ -13,6 +13,10 @@ import {
   Navigation,
   Crosshair,
   Zap,
+  Mountain,
+  TrendingUp,
+  Cog,
+  Plane,
 } from 'lucide-react';
 import type React from 'react';
 import type { InstrumentDef } from './types';
@@ -34,6 +38,10 @@ export const INSTRUMENT_ICONS: Record<string, React.ElementType> = {
   Thermometer,
   Wind,
   Clock,
+  Mountain,
+  TrendingUp,
+  Cog,
+  Plane,
 };
 
 export const getInstrumentIcon = (iconName: string): React.ElementType => {

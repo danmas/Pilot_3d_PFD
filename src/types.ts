@@ -39,6 +39,25 @@ export interface PFDFrame {
     fdPitchCmdDeg: number | null;
     fdRollCmdDeg: number | null;
   };
+  engine?: {
+    n1: number | null;
+    n2: number | null;
+    fuelFlow: number | null;
+    egt: number | null;
+    oilPress: number | null;
+    oilTemp: number | null;
+    vibration: number | null;
+  };
+  surfaces?: {
+    flapL: number | null;
+    flapR: number | null;
+    slatL: number | null;
+    slatR: number | null;
+    phiST: number | null;
+    deltaPB: number | null;
+    deltaEPL: number | null;
+    deltaEPR: number | null;
+  };
   quality?: any;
   raw?: any;
 }
