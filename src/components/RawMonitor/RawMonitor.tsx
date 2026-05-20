@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, Radio, WifiOff, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Copy, Monitor } from 'lucide-react';
+import { FIELD_CATALOG } from '@/field-catalog';
 
 type ConnStatus = 'idle' | 'connecting' | 'receiving' | 'waiting' | 'error';
 
@@ -27,6 +28,15 @@ interface RawStatus {
 
 const DEFAULT_PORT = 14442;
 const RAW_SSE_URL = '/events/raw';
+
+// Build comment map from field-catalog (once, at module load)
+const COMMENT_MAP: Record<string, string> = {};
+for (const entry of FIELD_CATALOG) {
+  const truncated = entry.comment.length > 30
+    ? entry.comment.slice(0, 30) + '\u2026'
+    : entry.comment;
+  COMMENT_MAP[entry.key] = truncated;
+}
 
 interface Props {
   onBack: () => void;
@@ -51,13 +61,18 @@ export default function RawMonitor({ onBack }: Props) {
     if (eventSourceRef.current) eventSourceRef.current.close();
     setConnStatus('connecting');
     setError(null);
+    console.log('[RAW-MONITOR-UI] Connecting SSE to', RAW_SSE_URL);
     const es = new EventSource(RAW_SSE_URL);
     eventSourceRef.current = es;
 
-    es.addEventListener('open', () => setConnStatus('waiting'));
+    es.addEventListener('open', () => {
+      console.log('[RAW-MONITOR-UI] SSE connection opened');
+      setConnStatus('waiting');
+    });
     es.addEventListener('raw-frame', (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('[RAW-MONITOR-UI] raw-frame received, keys:', Object.keys(data.decoded || {}).length);
         setLastFrame(data);
         frameCountRef.current += 1;
         setConnStatus('receiving');
@@ -67,6 +82,7 @@ export default function RawMonitor({ onBack }: Props) {
     es.addEventListener('status', (event) => {
       try {
         const s: RawStatus = JSON.parse(event.data);
+        console.log('[RAW-MONITOR-UI] status received:', JSON.stringify(s));
         setStatus(s);
         setListening(s.active);
         if (s.active) {
@@ -76,6 +92,7 @@ export default function RawMonitor({ onBack }: Props) {
       } catch { /* ignore */ }
     });
     es.addEventListener('error', () => {
+      console.error('[RAW-MONITOR-UI] SSE error, readyState:', es.readyState);
       setConnStatus('error');
       setError('SSE connection lost. Retrying...');
     });
@@ -98,6 +115,7 @@ export default function RawMonitor({ onBack }: Props) {
     }
     setPort(p);
     setError(null);
+    console.log('[RAW-MONITOR-UI] startMonitor called, port=', p);
     try {
       const res = await fetch('/api/raw/start', {
         method: 'POST',
@@ -105,6 +123,7 @@ export default function RawMonitor({ onBack }: Props) {
         body: JSON.stringify({ port: p }),
       });
       const data = await res.json();
+      console.log('[RAW-MONITOR-UI] /api/raw/start response status=', res.status, 'data=', data);
       if (res.ok) {
         setListening(true);
         connectSSE();
@@ -112,6 +131,7 @@ export default function RawMonitor({ onBack }: Props) {
         setError(data.error || 'Failed to start monitor');
       }
     } catch (e) {
+      console.error('[RAW-MONITOR-UI] /api/raw/start failed:', e);
       setError(e instanceof Error ? e.message : 'Network error');
     }
   };
@@ -123,8 +143,7 @@ export default function RawMonitor({ onBack }: Props) {
     } catch { /* ignore */ }
     setListening(false);
     setConnStatus('idle');
-    setLastFrame(null);
-    setStatus(null);
+    // keep lastFrame and status visible for inspection
   };
 
   // ── cleanup ──
@@ -267,6 +286,7 @@ export default function RawMonitor({ onBack }: Props) {
                   <thead className="sticky top-0 bg-black/60">
                     <tr className="text-white/40 text-xs uppercase tracking-wider">
                       <th className="text-left px-4 py-2 font-medium">Parameter</th>
+                      <th className="text-left px-3 py-2 font-medium">Comment</th>
                       <th className="text-right px-4 py-2 font-medium">Value</th>
                     </tr>
                   </thead>
@@ -278,6 +298,9 @@ export default function RawMonitor({ onBack }: Props) {
                       >
                         <td className="px-4 py-2 text-white/70 font-mono text-xs">
                           {key}
+                        </td>
+                        <td className="px-3 py-2 text-white/30 text-xs italic max-w-[220px] truncate" title={COMMENT_MAP[key]}>
+                          {COMMENT_MAP[key] || ''}
                         </td>
                         <td className="px-4 py-2 text-right text-emerald-400 font-mono text-xs tabular-nums">
                           {Number.isFinite(value) ? (value as number).toFixed(4) : String(value)}

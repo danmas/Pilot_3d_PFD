@@ -4,6 +4,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { FIELD_CATALOG, buildParameterSchema, PFD_KEYS } from "./field-catalog";
 
 // ── types ──────────────────────────────────────────────────────────
 type ParameterType =
@@ -11,11 +12,6 @@ type ParameterType =
   | "UInt16" | "Int32" | "UInt32" | "Byte" | "UInt8" | "Int8";
 
 type ParameterSchema = Record<string, { Type: ParameterType }>;
-
-type UdpServerConfig = {
-  Port?: number;
-  Frames: Array<{ Sync?: string; Parameters?: ParameterSchema }>;
-};
 
 type CurrentFrame = {
   counter: number;
@@ -25,8 +21,8 @@ type CurrentFrame = {
 };
 
 type RawAvionicsFrame = {
-  RAltitude?: number; DME_DIST?: number; Heading1?: number;
-  RollAngle?: number; PitchAngle?: number; Ny?: number;
+  RadioAltitude?: number; DME_Distance?: number; MagneticHeading?: number;
+  RollAngle?: number; PitchAngle?: number; NormalG?: number;
   CAS?: number; Vy?: number; Time?: number;
 };
 
@@ -75,16 +71,17 @@ type RawMonitorState = {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
-const DEFAULT_CONFIG = path.join(PROJECT_ROOT, "FTI.Monitor_97003_Ver 2026_02", "UdpServerConfig.json");
 const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
 
-const AVIONICS_FIELDS = [
-  "RAltitude", "DME_DIST", "Heading1", "RollAngle", "PitchAngle",
-  "Ny", "CAS", "Vy", "Time",
-];
+// Schema is built directly from field-catalog.ts (single source of truth)
+// Sync marker: 0x544e = "TN" (tnparserrt marker packet)
+const SYNC_MARKER = 0x544e;
 
-// Shared payload schema – initialized by bridgePlugin, used by raw monitor
-let payloadSchema: ParameterSchema = {};
+// PFD subset keys — imported from field-catalog, kept as mutable array for RawAvionicsFrame filtering
+const AVIONICS_FIELDS: readonly string[] = PFD_KEYS;
+
+// Shared payload schema — all 132 fields in out.json byte-order
+let payloadSchema: ParameterSchema = buildParameterSchema();
 
 // ── bridge state ───────────────────────────────────────────────────
 const sseClients = new Set<http.ServerResponse>();
@@ -114,6 +111,8 @@ let rawLastPacketAtMs: number | undefined;
 let rawLastError: string | undefined;
 let rawMonitorPort = 14442;
 let rawCurrentFrame: CurrentFrame | null = null;
+let bridgeUdpPort = 14444;
+let rawPiggyback = false;
 
 // ── plugin entry ───────────────────────────────────────────────────
 export interface BridgeOptions {
@@ -127,25 +126,22 @@ export interface BridgeOptions {
 export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
   const udpHost = opts.udpHost ?? "0.0.0.0";
   const udpPort = opts.udpPort ?? 14444;
-  const configPath = opts.config ?? DEFAULT_CONFIG;
+  bridgeUdpPort = udpPort;
   const captureDir = opts.captureDir ?? DEFAULT_CAPTURE_DIR;
   captureEnabled = !opts.noCapture;
 
   let udpServer: dgram.Socket | undefined;
   let statusInterval: ReturnType<typeof setInterval> | undefined;
 
-  // read config once
-  const config = readJsonc<UdpServerConfig>(configPath);
-  const sync = parseSync(config.Frames[0]?.Sync ?? "0x544e");
-  const dataSchema = config.Frames[1]?.Parameters ?? {};
-  payloadSchema = buildPayloadSchema(dataSchema, AVIONICS_FIELDS);
+  // Schema from field-catalog.ts; sync is fixed 0x544e ("TN")
+  const sync = SYNC_MARKER;
 
   return {
     name: "pilot-bridge",
 
     configureServer(vite: ViteDevServer) {
       // ── UDP ────────────────────────────────────────────────
-      udpServer = dgram.createSocket("udp4");
+      udpServer = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
       udpServer.on("message", (message) => {
         const now = Date.now();
@@ -165,7 +161,9 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           }
 
           if (!currentFrame) {
-            publishDecodedFrame(decodePayload(message, payloadSchema), now, captureDir);
+            const decoded = decodePayload(message, payloadSchema);
+            if (rawPiggyback) feedRawData(decoded, message, now);
+            publishDecodedFrame(decoded, now, captureDir);
             return;
           }
 
@@ -176,7 +174,9 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           const frame = currentFrame;
           currentFrame = null;
           const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
-          publishDecodedFrame(decodePayload(payload, payloadSchema), now, captureDir, frame.counter);
+          const decoded = decodePayload(payload, payloadSchema);
+          if (rawPiggyback) feedRawData(decoded, payload, now);
+          publishDecodedFrame(decoded, now, captureDir, frame.counter);
         } catch (error) {
           lastError = error instanceof Error ? error.message : String(error);
           console.error(`[UDP ERROR] ${lastError}`);
@@ -191,7 +191,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
       udpServer.bind(udpPort, udpHost, () => {
         const addr = udpServer!.address();
         console.log(`[BRIDGE] UDP udp://${addr.address}:${addr.port}`);
-        console.log(`[BRIDGE] config ${configPath}`);
+        console.log(`[BRIDGE] schema ${Object.keys(payloadSchema).length} fields (field-catalog.ts)`);
         console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
       });
 
@@ -213,6 +213,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             handlePfdSse(res); return;
           }
           if (req.method === "GET" && url.pathname === "/events/raw") {
+            console.log(`[RAW-MONITOR] SSE client connecting (total: ${rawSseClients.size + 1})`);
             handleRawSse(res); return;
           }
 
@@ -253,12 +254,17 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           if (req.method === "POST" && url.pathname === "/api/raw/start") {
             const body = await readRequestBody(req);
             const port = body?.port ? Number(body.port) : rawMonitorPort;
+            console.log(`[RAW-MONITOR] API start requested, port=${port}, body=`, body);
             if (!Number.isFinite(port) || port < 1 || port > 65535) {
+              console.log(`[RAW-MONITOR] Invalid port: ${port}`);
               sendJson(res, { error: "Invalid port" }, 400); return;
             }
-            sendJson(res, startRawMonitor(port)); return;
+            const result = startRawMonitor(port);
+            console.log(`[RAW-MONITOR] startRawMonitor result:`, JSON.stringify(result));
+            sendJson(res, result); return;
           }
           if (req.method === "POST" && url.pathname === "/api/raw/stop") {
+            console.log(`[RAW-MONITOR] API stop requested`);
             stopRawMonitor();
             sendJson(res, getRawMonitorState()); return;
           }
@@ -342,9 +348,9 @@ function publishDecodedFrame(
     timeMs,
     receivedAt: new Date(receivedAtMs).toISOString(),
     source: "tnparser-udp-14444",
-    position: { mode: "dme", distance: fin(raw.DME_DIST), altitude: fin(raw.RAltitude) },
-    attitude: { headingDeg: fin(raw.Heading1), rollDeg: fin(raw.RollAngle), pitchDeg: fin(raw.PitchAngle) },
-    motion: { cas: fin(raw.CAS), vy: fin(raw.Vy), ny: fin(raw.Ny) },
+    position: { mode: "dme", distance: fin(raw.DME_Distance), altitude: fin(raw.RadioAltitude) },
+    attitude: { headingDeg: fin(raw.MagneticHeading), rollDeg: fin(raw.RollAngle), pitchDeg: fin(raw.PitchAngle) },
+    motion: { cas: fin(raw.CAS), vy: fin(raw.Vy), ny: fin(raw.NormalG) },
     raw,
   };
 
@@ -379,7 +385,7 @@ function buildPfdFrame(frame: FlightFrame): PfdFrame {
     },
     quality: {
       missing: ["baroAltFt", "aoaDeg", "selectedSpeed", "selectedAltitudeFt", "selectedHeadingDeg", "selectedVerticalSpeed", "fdActive", "fdPitchCmdDeg", "fdRollCmdDeg"],
-      unconfirmed: ["Vy units/sign", "Ny scale/origin", "RAltitude semantic meaning"],
+      unconfirmed: ["Vy units/sign", "NormalG scale/origin", "RadioAltitude semantic meaning"],
     },
     raw: frame.raw,
   };
@@ -422,12 +428,17 @@ function handleRawSse(res: http.ServerResponse): void {
   res.writeHead(200, { "Cache-Control": "no-cache", "Content-Type": "text/event-stream; charset=utf-8", Connection: "keep-alive", "X-Accel-Buffering": "no" });
   res.write("\n");
   rawSseClients.add(res);
+  console.log(`[RAW-MONITOR] SSE client connected, total clients: ${rawSseClients.size}`);
   sendSseTo(res, "status", getRawStatus());
   if (rawLastDecoded) sendSseTo(res, "raw-frame", { decoded: rawLastDecoded, hex: rawLastHex });
-  res.on("close", () => rawSseClients.delete(res));
+  res.on("close", () => {
+    rawSseClients.delete(res);
+    console.log(`[RAW-MONITOR] SSE client disconnected, remaining clients: ${rawSseClients.size}`);
+  });
 }
 
 function sendRawSse(event: string, data: unknown): void {
+  console.log(`[RAW-MONITOR] SSE broadcast "${event}" to ${rawSseClients.size} clients`);
   for (const c of rawSseClients) sendSseTo(c, event, data);
 }
 
@@ -459,13 +470,13 @@ function getPfdStatus(): object {
   };
 }
 
-function getRawStatus(): object {
+function getRawStatus() {
   return {
     port: rawMonitorPort,
-    active: Boolean(rawUdpServer),
+    active: Boolean(rawUdpServer) || rawPiggyback,
     receivedPackets: rawReceivedPackets,
     receivedFrames: rawReceivedFrames,
-    lastPacketAgeMs: rawLastPacketAtMs === undefined ? null : Date.now() - rawLastPacketAtMs,
+    lastPacketAgeMs: rawLastPacketAtMs ? Date.now() - rawLastPacketAtMs : null,
     lastDecodedKeys: rawLastDecoded ? Object.keys(rawLastDecoded).length : 0,
     sseClients: rawSseClients.size,
     lastError: rawLastError,
@@ -473,7 +484,39 @@ function getRawStatus(): object {
 }
 
 // ── raw monitor start/stop ─────────────────────────────────────────
+function feedRawData(decoded: Record<string, number>, rawMessage: Buffer, now: number): void {
+  rawReceivedPackets += 1;
+  rawLastPacketAtMs = now;
+  rawLastHex = rawMessage.toString("hex").slice(0, 512);
+
+  rawLastDecoded = decoded;
+  rawReceivedFrames += 1;
+  rawLastError = undefined;
+  console.log(`[RAW-MONITOR] Bridged frame #${rawReceivedFrames}, ${Object.keys(decoded).length} fields, SSE: ${rawSseClients.size}`);
+  sendRawSse("raw-frame", { decoded, hex: rawLastHex, receivedAt: new Date(now).toISOString() });
+  sendRawSse("status", getRawStatus());
+}
+
 function startRawMonitor(port: number): RawMonitorState {
+  console.log(`[RAW-MONITOR] startRawMonitor called, port=${port}, bridgePort=${bridgeUdpPort}`);
+
+  // Если порт совпадает с портом бриджа — piggyback (без своего сокета)
+  if (port === bridgeUdpPort) {
+    stopRawMonitor();
+    rawMonitorPort = port;
+    rawPiggyback = true;
+    rawLastError = undefined;
+    rawReceivedPackets = 0;
+    rawReceivedFrames = 0;
+    rawLastDecoded = null;
+    rawLastHex = null;
+    rawLastPacketAtMs = undefined;
+    console.log(`[RAW-MONITOR] Piggyback mode ON — tapping bridge pipeline on port ${port}`);
+    const state = getRawMonitorState();
+    console.log(`[RAW-MONITOR] Returning state: active=${state.active}, port=${state.port}, piggyback=yes`);
+    return state;
+  }
+
   stopRawMonitor();
   rawMonitorPort = port;
   rawLastError = undefined;
@@ -483,42 +526,51 @@ function startRawMonitor(port: number): RawMonitorState {
   rawLastHex = null;
   rawLastPacketAtMs = undefined;
 
-  rawUdpServer = dgram.createSocket("udp4");
+  console.log(`[RAW-MONITOR] Creating UDP socket with reuseAddr=true...`);
+  rawUdpServer = dgram.createSocket({ type: "udp4", reuseAddr: true });
   rawUdpServer.on("message", (message) => {
     const now = Date.now();
     rawReceivedPackets += 1;
     rawLastPacketAtMs = now;
     rawLastHex = message.toString("hex").slice(0, 512);
+    console.log(`[RAW-MONITOR] Packet #${rawReceivedPackets} received, ${message.length}B, hex: ${rawLastHex.slice(0, 40)}...`);
     try {
-      // Decode using the same payload schema as the main bridge
       const decoded = decodePayload(message, payloadSchema);
       rawLastDecoded = decoded;
       rawReceivedFrames += 1;
       rawLastError = undefined;
+      console.log(`[RAW-MONITOR] Frame #${rawReceivedFrames} decoded, ${Object.keys(decoded).length} fields, SSE clients: ${rawSseClients.size}`);
       sendRawSse("raw-frame", { decoded, hex: rawLastHex, receivedAt: new Date(now).toISOString() });
       sendRawSse("status", getRawStatus());
     } catch (error) {
       rawLastError = error instanceof Error ? error.message : String(error);
+      console.error(`[RAW-MONITOR] Decode error: ${rawLastError}`);
     }
   });
 
   rawUdpServer.on("error", (error) => {
     rawLastError = error.message;
+    console.error(`[RAW-MONITOR] Socket error: ${error.message}`, error);
     sendRawSse("status", getRawStatus());
   });
 
+  console.log(`[RAW-MONITOR] Binding to 0.0.0.0:${port}...`);
   rawUdpServer.bind(port, "0.0.0.0", () => {
     const addr = rawUdpServer!.address();
-    console.log(`[RAW-MONITOR] UDP udp://${addr.address}:${addr.port}`);
+    console.log(`[RAW-MONITOR] Bound successfully: udp://${addr.address}:${addr.port}`);
     sendRawSse("status", getRawStatus());
   });
 
-  return getRawMonitorState();
+  const state = getRawMonitorState();
+  console.log(`[RAW-MONITOR] Returning state: active=${state.active}, port=${state.port}`);
+  return state;
 }
 
 function stopRawMonitor(): void {
+  console.log(`[RAW-MONITOR] stopRawMonitor called, wasActive=${Boolean(rawUdpServer)}, piggyback=${rawPiggyback}`);
+  rawPiggyback = false;
   if (rawUdpServer) {
-    try { rawUdpServer.close(); } catch { /* ignore */ }
+    try { rawUdpServer.close(); console.log(`[RAW-MONITOR] Socket closed`); } catch (e) { console.error(`[RAW-MONITOR] Error closing socket:`, e); }
     rawUdpServer = undefined;
   }
   rawCurrentFrame = null;
@@ -528,7 +580,7 @@ function stopRawMonitor(): void {
 function getRawMonitorState(): RawMonitorState {
   return {
     port: rawMonitorPort,
-    active: Boolean(rawUdpServer),
+    active: Boolean(rawUdpServer) || rawPiggyback,
     receivedPackets: rawReceivedPackets,
     receivedFrames: rawReceivedFrames,
     lastPacketAtMs: rawLastPacketAtMs,
