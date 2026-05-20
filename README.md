@@ -1,4 +1,4 @@
-# Pilot 3D PFD — UDP bridge + PFD + viewer + raw monitor (merged)
+#+ Pilot 3D PFD — UDP bridge + PFD + viewer + raw monitor (merged)
 
 Единый проект: UDP-bridge (tnparserrt), диагностический viewer, Primary Flight Display, Raw Data Monitor. Один `npm run dev` — всё на порту 3410.
 
