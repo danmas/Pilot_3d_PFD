@@ -7,7 +7,7 @@ export function AltitudeTape({ frame }: Props) {
   const { altitude, autopilot } = frame;
   const TAPE_COLOR = "#818181";
   
-  const displayAlt = altitude.baroAltFt ?? 12000; 
+  const displayAlt = altitude.baroAltFt ?? altitude.radioAlt ?? 12000;
   const pxPerFt = 0.55; 
 
   const renderTicks = () => {
@@ -39,6 +39,8 @@ export function AltitudeTape({ frame }: Props) {
 
   return (
     <g>
+      <title>Лента барометрической высоты — сотни футов.
+      Источник: altitude.baroAltFt, altitude.radioAlt</title>
       {/* Background */}
       <rect x="600" y="60" width="55" height="460" fill={TAPE_COLOR} />
 
@@ -50,15 +52,21 @@ export function AltitudeTape({ frame }: Props) {
       </g>
 
       {/* Target alt cyans */}
-      <text x="627" y="45" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">
-        {autopilot.selectedAltitudeFt !== null ? Math.round(autopilot.selectedAltitudeFt) : "0200"}
-      </text>
+      <g>
+        <title>Заданная высота автопилота (Selected Altitude), футы.
+        Источник: autopilot.selectedAltitudeFt</title>
+        <text x="627" y="45" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">
+          {autopilot.selectedAltitudeFt !== null ? Math.round(autopilot.selectedAltitudeFt) : "0200"}
+        </text>
+      </g>
       
       {/* Bottom zeros */}
       <text x="627" y="550" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">000</text>
 
       {/* Center Black Indicator Box */}
       <g transform="translate(560, 300)">
+        <title>Текущая барометрическая высота. Зелёный текст — высота в метрах.
+        Источник: altitude.baroAltFt</title>
         <path d="M0,0 L15,-35 L100,-35 L100,35 L15,35 Z" fill="black" stroke="#FFEA00" strokeWidth="2" />
         <line x1="15" y1="-12" x2="100" y2="-12" stroke="#FFEA00" strokeWidth="1" />
         

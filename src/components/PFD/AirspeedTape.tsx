@@ -34,6 +34,8 @@ export function AirspeedTape({ frame }: Props) {
 
   return (
     <g>
+      <title>Лента приборной скорости — CAS (Calibrated Airspeed), узлы.
+      Источник: air.cas</title>
       {/* Background */}
       <rect x="150" y="60" width="55" height="460" fill={TAPE_COLOR} />
       
@@ -46,13 +48,19 @@ export function AirspeedTape({ frame }: Props) {
       </g>
       
       {/* Target top cyans */}
-      <text x="177" y="45" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">
-         {autopilot.selectedSpeed !== null ? Math.round(autopilot.selectedSpeed).toString().padStart(3, '0') : "000"}
-      </text>
+      <g>
+        <title>Заданная скорость автопилота (Selected Speed), узлы.
+        Источник: autopilot.selectedSpeed</title>
+        <text x="177" y="45" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">
+           {autopilot.selectedSpeed !== null ? Math.round(autopilot.selectedSpeed).toString().padStart(3, '0') : "000"}
+        </text>
+      </g>
 
       {/* Center Black Indicator Box for Speed */}
       {air.valid && (
         <g transform="translate(150, 300)">
+          <title>Текущая приборная скорость (CAS). Жёлтая линия — тренд изменения скорости.
+          Источник: air.cas</title>
           {/* Black box pointing left */}
           <path d="M 0 0 L 15 -25 L 90 -25 L 90 25 L 15 25 Z" fill="black" stroke="white" strokeWidth="1" transform="translate(-85, 0)" />
           

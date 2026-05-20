@@ -14,13 +14,19 @@ export function AoATape({ frame }: Props) {
 
   return (
     <g>
+      <title>Угол атаки (AoA — Angle of Attack) — угол между крылом и набегающим потоком, градусы.
+      Источник: air.aoaDeg</title>
       {/* Tape shape points left */}
       <path d="M 120 160 L 120 440 L 90 440 L 70 390 L 70 210 L 90 160 Z" fill={TAPE_COLOR} />
       
       {/* Top Green Number */}
-      <text x="100" y="145" fill="#00FF00" fontSize="20" textAnchor="middle" fontFamily="sans-serif">
-        {aoa.toFixed(1)}
-      </text>
+      <g>
+        <title>Текущий угол атаки, градусы.
+        Источник: air.aoaDeg</title>
+        <text x="100" y="145" fill="#00FF00" fontSize="20" textAnchor="middle" fontFamily="sans-serif">
+          {aoa.toFixed(1)}
+        </text>
+      </g>
 
       <g transform="translate(0, 300)">
         {/* Ticks 20 to -5 */}
@@ -41,10 +47,14 @@ export function AoATape({ frame }: Props) {
       <path d={`M 60 300 L 120 300`} stroke="#00FF00" strokeWidth="3" />
       
       {/* Bottom G meter text */}
-      <text x="65" y="495" fill="white" fontSize="24" fontFamily="sans-serif">G</text>
-      <text x="115" y="495" fill={loads.g !== null ? "white" : "#FF9800"} fontSize="24" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
-        {loads.g !== null ? loads.g.toFixed(1) : "- -"}
-      </text>
+      <g>
+        <title>Перегрузка G — текущая вертикальная перегрузка.
+        Источник: loads.g</title>
+        <text x="65" y="495" fill="white" fontSize="24" fontFamily="sans-serif">G</text>
+        <text x="115" y="495" fill={loads.g !== null ? "white" : "#FF9800"} fontSize="24" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
+          {loads.g !== null ? loads.g.toFixed(1) : "- -"}
+        </text>
+      </g>
     </g>
   );
 }

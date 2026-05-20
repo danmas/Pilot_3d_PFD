@@ -22,6 +22,8 @@ export function VerticalSpeed({ frame }: Props) {
 
   return (
     <g>
+      <title>Вариометр — вертикальная скорость (набор высоты / снижение), м/с. Зелёная линия — текущее значение.
+      Источник: altitude.verticalSpeed</title>
       <path d="M 680 160 L 730 160 L 730 440 L 680 440 L 660 390 L 660 210 Z" fill={TAPE_COLOR} />
       
       <g transform="translate(0, 300)">
@@ -43,8 +45,12 @@ export function VerticalSpeed({ frame }: Props) {
         <line x1="640" y1={getVsY(vs/1000)} x2="720" y2={getVsY(vs/1000)} stroke="#00FF00" strokeWidth="3" />
         
         {/* Cyan bracket bracket at 0 */}
-        <path d="M 670 -12 L 660 -12 L 660 12 L 670 12" fill="none" stroke="#00FFFF" strokeWidth="2" />
-        <rect x="663" y="-5" width="4" height="10" fill="#00FFFF" />
+        <g>
+          <title>Нулевая вертикальная скорость — горизонтальный полёт.
+          Источник: altitude.verticalSpeed</title>
+          <path d="M 670 -12 L 660 -12 L 660 12 L 670 12" fill="none" stroke="#00FFFF" strokeWidth="2" />
+          <rect x="663" y="-5" width="4" height="10" fill="#00FFFF" />
+        </g>
       </g>
     </g>
   );

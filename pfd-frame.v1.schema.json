@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pfd-frame.v1.schema.json",
+  "title": "PFD Frame v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "seq",
+    "timeMs",
+    "replayTimeMs",
+    "receivedAt",
+    "source",
+    "attitude",
+    "air",
+    "altitude",
+    "loads",
+    "nav",
+    "autopilot",
+    "quality",
+    "raw"
+  ],
+  "properties": {
+    "schema": { "const": "pfd-frame.v1" },
+    "seq": { "type": "number" },
+    "timeMs": { "type": "number" },
+    "replayTimeMs": { "type": ["number", "null"] },
+    "receivedAt": { "type": "string", "format": "date-time" },
+    "source": { "const": "tnparser-udp-14444" },
+    "attitude": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pitchDeg", "rollDeg", "headingDeg", "valid"],
+      "properties": {
+        "pitchDeg": { "type": ["number", "null"] },
+        "rollDeg": { "type": ["number", "null"] },
+        "headingDeg": { "type": ["number", "null"] },
+        "valid": { "type": "boolean" }
+      }
+    },
+    "air": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cas", "aoaDeg", "valid"],
+      "properties": {
+        "cas": { "type": ["number", "null"] },
+        "aoaDeg": { "type": ["number", "null"] },
+        "valid": { "type": "boolean" }
+      }
+    },
+    "altitude": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["radioAlt", "baroAltFt", "baroAltM", "verticalSpeed", "valid"],
+      "properties": {
+        "radioAlt": { "type": ["number", "null"] },
+        "baroAltFt": { "type": ["number", "null"] },
+        "baroAltM": { "type": ["number", "null"] },
+        "verticalSpeed": { "type": ["number", "null"] },
+        "valid": { "type": "boolean" }
+      }
+    },
+    "loads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ny", "g"],
+      "properties": {
+        "ny": { "type": ["number", "null"] },
+        "g": { "type": ["number", "null"] }
+      }
+    },
+    "nav": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dmeDistance", "selectedHeadingDeg"],
+      "properties": {
+        "dmeDistance": { "type": ["number", "null"] },
+        "selectedHeadingDeg": { "type": ["number", "null"] }
+      }
+    },
+    "autopilot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectedSpeed",
+        "selectedAltitudeFt",
+        "selectedVerticalSpeed",
+        "fdActive",
+        "fdPitchCmdDeg",
+        "fdRollCmdDeg"
+      ],
+      "properties": {
+        "selectedSpeed": { "type": ["number", "null"] },
+        "selectedAltitudeFt": { "type": ["number", "null"] },
+        "selectedVerticalSpeed": { "type": ["number", "null"] },
+        "fdActive": { "type": ["boolean", "null"] },
+        "fdPitchCmdDeg": { "type": ["number", "null"] },
+        "fdRollCmdDeg": { "type": ["number", "null"] }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["missing", "unconfirmed"],
+      "properties": {
+        "missing": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "unconfirmed": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "raw": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    }
+  }
+}

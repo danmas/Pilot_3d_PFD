@@ -69,6 +69,8 @@ export function AttitudeIndicator({ frame }: Props) {
       {/* Rotating Background & Pitch */}
       <g clipPath="url(#att-clip)">
         <g transform={`rotate(${-roll}) translate(0, ${yTranslate})`}>
+          <title>Авиагоризонт — положение самолёта относительно горизонта. Синий = небо, коричневый = земля.
+          Источник: attitude.pitchDeg, attitude.rollDeg</title>
           <rect x="-250" y="-300" width="500" height="600" fill={SKY} />
           <rect x="-250" y="0" width="500" height="300" fill={GND} />
           <line x1="-250" y1="0" x2="250" y2="0" stroke="white" strokeWidth="2" />
@@ -77,14 +79,20 @@ export function AttitudeIndicator({ frame }: Props) {
       </g>
 
       {/* Fixed Roll Scale Line */}
-      <path d={`M ${-160 * Math.sin(60*Math.PI/180)} ${-160 * Math.cos(60*Math.PI/180)} A 160 160 0 0 1 ${160 * Math.sin(60*Math.PI/180)} ${-160 * Math.cos(60*Math.PI/180)}`} fill="none" stroke="white" strokeWidth="2" />
-      {renderRollScaleTicks()}
+      <g>
+        <title>Шкала крена — угол наклона на левое/правое крыло в градусах.
+        Источник: attitude.rollDeg</title>
+        <path d={`M ${-160 * Math.sin(60*Math.PI/180)} ${-160 * Math.cos(60*Math.PI/180)} A 160 160 0 0 1 ${160 * Math.sin(60*Math.PI/180)} ${-160 * Math.cos(60*Math.PI/180)}`} fill="none" stroke="white" strokeWidth="2" />
+        {renderRollScaleTicks()}
+      </g>
       
       {/* Target Fixed Yellow Triangle Top */}
       <polygon points="0,-160 -10,-140 10,-140" fill="none" stroke="#FFEA00" strokeWidth="3" />
 
       {/* Rotating Roll Pointer beneath */}
       <g transform={`rotate(${-roll})`}>
+        <title>Жёлтый указатель текущего крена. Красный крест — индикатор бокового скольжения.
+        Источник: attitude.rollDeg</title>
         <g transform="translate(0, -140)">
            <polygon points="0,0 -12,18 12,18" fill="none" stroke="#FFEA00" strokeWidth="3" />
            <line x1="-25" y1="18" x2="25" y2="18" stroke="#FFEA00" strokeWidth="3" />
@@ -98,17 +106,26 @@ export function AttitudeIndicator({ frame }: Props) {
       <path d="M 160 0 L 175 -8 L 175 8 Z" fill="none" stroke="white" strokeWidth="2" />
       
       {/* FD Crosshairs */}
-      <line x1="-100" y1="0" x2="100" y2="0" stroke="#00FF00" strokeWidth="1.5" />
-      <line x1="0" y1="-100" x2="0" y2="100" stroke="#00FF00" strokeWidth="1.5" />
+      <g>
+        <title>Flight Director — команды автопилота: верт. линия = крен, гор. линия = тангаж.
+        Источник: autopilot.fdPitchCmdDeg, autopilot.fdRollCmdDeg</title>
+        <line x1="-100" y1="0" x2="100" y2="0" stroke="#00FF00" strokeWidth="1.5" />
+        <line x1="0" y1="-100" x2="0" y2="100" stroke="#00FF00" strokeWidth="1.5" />
+      </g>
 
       {/* Center Aircraft */}
-      <path d="M -130 0 L -40 0 L -40 18 L -25 18 L -25 4 L -130 4 Z" fill="black" stroke="#FFEA00" strokeWidth="2" />
-      <path d="M 130 0 L 40 0 L 40 18 L 25 18 L 25 4 L 130 4 Z" fill="black" stroke="#FFEA00" strokeWidth="2" />
-      <rect x="-5" y="-5" width="10" height="10" fill="black" stroke="#FFEA00" strokeWidth="2" />
+      <g>
+        <title>Символ самолёта — неподвижная точка отсчёта пространственного положения ЛА.</title>
+        <path d="M -130 0 L -40 0 L -40 18 L -25 18 L -25 4 L -130 4 Z" fill="black" stroke="#FFEA00" strokeWidth="2" />
+        <path d="M 130 0 L 40 0 L 40 18 L 25 18 L 25 4 L 130 4 Z" fill="black" stroke="#FFEA00" strokeWidth="2" />
+        <rect x="-5" y="-5" width="10" height="10" fill="black" stroke="#FFEA00" strokeWidth="2" />
+      </g>
 
       {/* Radio Altimeter Box at Bottom */}
       {altitude.valid && (
         <g transform="translate(0, 160)">
+          <title>Радиовысотомер (Radio Altimeter) — высота над поверхностью земли в футах.
+          Источник: altitude.radioAlt</title>
           <rect x="-40" y="-18" width="80" height="30" fill="black" />
           <text x="0" y="5" fill="#00FF00" fontSize="24" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
             {altitude.radioAlt !== null ? Math.round(altitude.radioAlt) : "5120"}
