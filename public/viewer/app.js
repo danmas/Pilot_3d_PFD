@@ -9,15 +9,26 @@ const state = {
   playbackTimeMs: 0,
 };
 
-const fields = [
-  "RAltitude",
-  "DME_DIST",
-  "Heading1",
-  "RollAngle",
+const PFD_KEYS = [
   "PitchAngle",
-  "Ny",
+  "RollAngle",
+  "MagneticHeading",
   "CAS",
+  "AoA",
+  "dec_BaroAltFt",
+  "BaroAltitude",
+  "dec_RadioAltFt",
   "Vy",
+  "NormalG",
+  "dec_G",
+  "DME_Distance",
+  "HeadingSelect",
+  "SpeedSelect",
+  "StandardAltitude",
+  "VerticalSpeedSelect",
+  "FlightDirectorOn",
+  "FD_PitchCmd",
+  "FD_RollCmd",
 ];
 
 const els = {
@@ -61,8 +72,9 @@ const els = {
   pfdJson: document.querySelector("#pfd-json"),
 };
 
-for (const field of fields) {
-  els[field] = document.querySelector(`#${field}`);
+for (const key of PFD_KEYS) {
+  const el = document.querySelector(`#${key}`);
+  if (el) els[key] = el;
 }
 
 els.liveMode.addEventListener("click", () => setMode("live"));
@@ -299,23 +311,24 @@ function showFrameByIndex(index) {
 
 function showFrame(frame) {
   const frameTime = getFrameTime(frame);
-  const pfdFrame = buildPfdFrame(frame);
-
   els.timeMs.textContent = formatNumber(frameTime);
   els.seekInput.value = Math.round(frameTime);
 
-  for (const field of fields) {
-    els[field].textContent = formatNumber(frame?.raw?.[field]);
+  // Show PFD subset in the PFD tab (flat keys)
+  for (const key of PFD_KEYS) {
+    if (els[key]) {
+      els[key].textContent = formatNumber(frame?.[key]);
+    }
   }
 
-  showPfdFrame(pfdFrame);
+  showPfdFrame(frame);
   els.frameJson.textContent = stringify(frame ?? {});
-  els.pfdJson.textContent = stringify(pfdFrame ?? {});
+  els.pfdJson.textContent = stringify(frame ?? {});
 }
 
 function showPfdFrame(frame) {
   if (!frame) {
-    els.pfdSchema.textContent = "pfd-frame.v1";
+    els.pfdSchema.textContent = "telemetry-frame.v1";
     els.pfdAttitude.textContent = "-";
     els.pfdAttitudeValid.textContent = "valid: -";
     els.pfdAir.textContent = "-";
@@ -331,85 +344,41 @@ function showPfdFrame(frame) {
     return;
   }
 
-  els.pfdSchema.textContent = `${frame.schema} #${frame.seq}`;
-  els.pfdAttitude.textContent = `P ${formatNumber(frame.attitude.pitchDeg)} / R ${formatNumber(frame.attitude.rollDeg)} / H ${formatNumber(frame.attitude.headingDeg)}`;
-  els.pfdAttitudeValid.textContent = `valid: ${frame.attitude.valid}`;
-  els.pfdAir.textContent = `CAS ${formatNumber(frame.air.cas)} / AoA ${formatNumber(frame.air.aoaDeg)}`;
-  els.pfdAirValid.textContent = `valid: ${frame.air.valid}`;
-  els.pfdAltitude.textContent = `RA ${formatNumber(frame.altitude.radioAlt)} / BARO ${formatNumber(frame.altitude.baroAltFt)} ft`;
-  els.pfdAltitudeValid.textContent = `valid: ${frame.altitude.valid}; metric ${formatNumber(frame.altitude.baroAltM)} m`;
-  els.pfdVspeed.textContent = formatNumber(frame.altitude.verticalSpeed);
-  els.pfdLoads.textContent = `Ny ${formatNumber(frame.loads.ny)} / G ${formatNumber(frame.loads.g)}`;
-  els.pfdNav.textContent = `DME ${formatNumber(frame.nav.dmeDistance)} / HDG bug ${formatNumber(frame.nav.selectedHeadingDeg)}`;
-  els.pfdAutopilot.textContent = `SPD ${formatNumber(frame.autopilot.selectedSpeed)} / ALT ${formatNumber(frame.autopilot.selectedAltitudeFt)} / FD ${formatBoolean(frame.autopilot.fdActive)}`;
-  els.pfdQuality.textContent = `missing ${frame.quality.missing.length}; unconfirmed ${frame.quality.unconfirmed.length}`;
-  els.pfdQualityDetail.textContent = [...frame.quality.missing, ...frame.quality.unconfirmed].join("; ");
-}
+  const pitch = finiteOrNull(frame.PitchAngle);
+  const roll = finiteOrNull(frame.RollAngle);
+  const heading = finiteOrNull(frame.MagneticHeading);
+  const cas = finiteOrNull(frame.CAS);
+  const aoa = finiteOrNull(frame.AoA);
+  const baroAltFt = finiteOrNull(frame.dec_BaroAltFt);
+  const radioAltFt = finiteOrNull(frame.dec_RadioAltFt);
+  const baroAltM = finiteOrNull(frame.BaroAltitude);
+  const vs = finiteOrNull(frame.Vy);
+  const ny = finiteOrNull(frame.NormalG);
+  const g = finiteOrNull(frame.dec_G);
+  const dme = finiteOrNull(frame.DME_Distance);
+  const hdgSel = finiteOrNull(frame.HeadingSelect);
+  const spdSel = finiteOrNull(frame.SpeedSelect);
+  const altSel = finiteOrNull(frame.StandardAltitude);
+  const vsSel = finiteOrNull(frame.VerticalSpeedSelect);
+  const fdOn = frame.FlightDirectorOn;
+  const fdPitch = finiteOrNull(frame.FD_PitchCmd);
+  const fdRoll = finiteOrNull(frame.FD_RollCmd);
 
-function buildPfdFrame(frame) {
-  if (!frame) {
-    return null;
-  }
+  const attValid = pitch !== null && roll !== null;
 
-  const baroAltFt = null;
-
-  return {
-    schema: "pfd-frame.v1",
-    seq: frame.seq ?? 0,
-    timeMs: frame.timeMs ?? 0,
-    replayTimeMs: frame.replayTimeMs,
-    receivedAt: frame.receivedAt ?? null,
-    source: frame.source ?? "tnparser-udp-14444",
-    attitude: {
-      pitchDeg: finiteOrNull(frame.attitude?.pitchDeg),
-      rollDeg: finiteOrNull(frame.attitude?.rollDeg),
-      headingDeg: finiteOrNull(frame.attitude?.headingDeg),
-      valid: Number.isFinite(frame.attitude?.pitchDeg) && Number.isFinite(frame.attitude?.rollDeg),
-    },
-    air: {
-      cas: finiteOrNull(frame.motion?.cas),
-      aoaDeg: null,
-      valid: Number.isFinite(frame.motion?.cas),
-    },
-    altitude: {
-      radioAlt: finiteOrNull(frame.position?.altitude),
-      baroAltFt,
-      baroAltM: feetToMeters(baroAltFt),
-      verticalSpeed: finiteOrNull(frame.motion?.vy),
-      valid: Number.isFinite(frame.position?.altitude) || Number.isFinite(frame.motion?.vy),
-    },
-    loads: {
-      ny: finiteOrNull(frame.motion?.ny),
-      g: null,
-    },
-    nav: {
-      dmeDistance: finiteOrNull(frame.position?.distance),
-      selectedHeadingDeg: null,
-    },
-    autopilot: {
-      selectedSpeed: null,
-      selectedAltitudeFt: null,
-      selectedVerticalSpeed: null,
-      fdActive: null,
-      fdPitchCmdDeg: null,
-      fdRollCmdDeg: null,
-    },
-    quality: {
-      missing: [
-        "baroAltFt",
-        "aoaDeg",
-        "selectedSpeed",
-        "selectedAltitudeFt",
-        "selectedHeadingDeg",
-        "selectedVerticalSpeed",
-        "fdActive",
-        "fdPitchCmdDeg",
-        "fdRollCmdDeg",
-      ],
-      unconfirmed: ["Vy units/sign", "Ny scale/origin", "RAltitude semantic meaning"],
-    },
-    raw: frame.raw ?? {},
-  };
+  els.pfdSchema.textContent = `${frame.schema ?? "telemetry-frame.v1"} #${frame.seq ?? 0}`;
+  els.pfdAttitude.textContent = `P ${formatNumber(pitch)} / R ${formatNumber(roll)} / H ${formatNumber(heading)}`;
+  els.pfdAttitudeValid.textContent = `valid: ${attValid}`;
+  els.pfdAir.textContent = `CAS ${formatNumber(cas)} / AoA ${formatNumber(aoa)}`;
+  els.pfdAirValid.textContent = `valid: ${cas !== null}`;
+  els.pfdAltitude.textContent = `RA ${formatNumber(radioAltFt)} ft / BARO ${formatNumber(baroAltFt)} ft`;
+  els.pfdAltitudeValid.textContent = `valid: ${baroAltFt !== null || radioAltFt !== null}; metric ${formatNumber(baroAltM)} m`;
+  els.pfdVspeed.textContent = formatNumber(vs);
+  els.pfdLoads.textContent = `Ny ${formatNumber(ny)} / G ${formatNumber(g)}`;
+  els.pfdNav.textContent = `DME ${formatNumber(dme)} / HDG bug ${formatNumber(hdgSel)}`;
+  els.pfdAutopilot.textContent = `SPD ${formatNumber(spdSel)} / ALT ${formatNumber(altSel)} / VS ${formatNumber(vsSel)} / FD ${formatBoolean(fdOn)}`;
+  els.pfdQuality.textContent = "flat telemetry-frame.v1";
+  els.pfdQualityDetail.textContent = `${PFD_KEYS.filter(k => frame[k] !== undefined && frame[k] !== null).length}/${PFD_KEYS.length} PFD keys present`;
 }
 
 function findFrameIndexAtOrAfter(timeMs) {
@@ -493,12 +462,8 @@ function finiteOrNull(value) {
   return Number.isFinite(value) ? value : null;
 }
 
-function feetToMeters(value) {
-  return value === null ? null : Math.round(value * 0.3048);
-}
-
 function formatBoolean(value) {
-  return typeof value === "boolean" ? String(value) : "-";
+  return typeof value === "boolean" ? String(value) : value !== null && value !== undefined ? String(value) : "-";
 }
 
 function formatNumber(value) {

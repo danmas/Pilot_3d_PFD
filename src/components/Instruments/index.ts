@@ -9,6 +9,7 @@ import './NavDisplayInstrument';
 import './AuxPanelInstrument';
 import './EngineDisplayInstrument';
 import './ConfigDisplayInstrument';
+import './PFD2Instrument';
 
 // Re-export registry helpers for convenience
 export {

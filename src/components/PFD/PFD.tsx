@@ -1,5 +1,5 @@
 import React from 'react';
-import { PFDFrame } from '../../types';
+import { TelemetryFrame } from '../../types';
 import { AttitudeIndicator } from './AttitudeIndicator';
 import { AirspeedTape } from './AirspeedTape';
 import { AltitudeTape } from './AltitudeTape';
@@ -7,7 +7,7 @@ import { VerticalSpeed } from './VerticalSpeed';
 import { AoATape } from './AoATape';
 
 interface PFDProps {
-  frame: PFDFrame;
+  frame: TelemetryFrame;
 }
 
 export function PFD({ frame }: PFDProps) {

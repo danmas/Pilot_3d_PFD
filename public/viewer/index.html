@@ -11,7 +11,7 @@
       <a href="/" class="back-btn" title="Back to Hub">← Hub</a>
       <div>
         <h1>3D Flight Viewer Pilot</h1>
-        <p>Live/replay диагностика потока tnparserrt UDP 14444</p>
+        <p>Live/replay диагностика потока tnparserrt UDP 14443</p>
       </div>
       <div class="status-card">
         <span id="connection-dot" class="dot"></span>
@@ -38,14 +38,16 @@
 
             <div class="flight-grid">
               <div class="metric"><span>Time</span><strong id="timeMs">-</strong></div>
-              <div class="metric"><span>RAltitude</span><strong id="RAltitude">-</strong></div>
-              <div class="metric"><span>DME_DIST</span><strong id="DME_DIST">-</strong></div>
-              <div class="metric"><span>Heading1</span><strong id="Heading1">-</strong></div>
+              <div class="metric"><span>dec_RadioAltFt</span><strong id="dec_RadioAltFt">-</strong></div>
+              <div class="metric"><span>dec_BaroAltFt</span><strong id="dec_BaroAltFt">-</strong></div>
+              <div class="metric"><span>DME_Distance</span><strong id="DME_Distance">-</strong></div>
+              <div class="metric"><span>MagneticHeading</span><strong id="MagneticHeading">-</strong></div>
               <div class="metric"><span>RollAngle</span><strong id="RollAngle">-</strong></div>
               <div class="metric"><span>PitchAngle</span><strong id="PitchAngle">-</strong></div>
-              <div class="metric"><span>Ny</span><strong id="Ny">-</strong></div>
+              <div class="metric"><span>NormalG</span><strong id="NormalG">-</strong></div>
               <div class="metric"><span>CAS</span><strong id="CAS">-</strong></div>
               <div class="metric"><span>Vy</span><strong id="Vy">-</strong></div>
+              <div class="metric"><span>AoA</span><strong id="AoA">-</strong></div>
             </div>
           </div>
 
@@ -98,9 +100,9 @@
         <div class="panel-title-row">
           <div>
             <h2>PFD / КПИ</h2>
-            <p class="muted">Синхронизировано с текущим кадром flight-frame.v1</p>
+            <p class="muted">Синхронизировано с текущим кадром telemetry-frame.v1</p>
           </div>
-          <span id="pfd-schema" class="pill">pfd-frame.v1</span>
+          <span id="pfd-schema" class="pill">telemetry-frame.v1</span>
         </div>
 
         <div class="pfd-grid">

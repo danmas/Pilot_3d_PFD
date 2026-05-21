@@ -1,3 +1,33 @@
+/**
+ * TelemetryFrame — плоский словарь всех декодированных параметров.
+ *
+ * КЛЮЧИ — канонические имена из field-catalog.ts (например, "PitchAngle", "CAS").
+ * Префикс dec_ — расчётные поля (отсутствуют в бинарном потоке парсера).
+ *
+ * Это ОСНОВНОЙ тип для всех потребителей телеметрии.
+ * Инструменты читают поля напрямую по имени, без промежуточного переименования.
+ */
+export type TelemetryFrame = {
+  [key: string]: number | null | string | undefined;
+  /** Метка схемы */
+  schema: string;
+  /** Порядковый номер фрейма */
+  seq: number;
+  /** Время фрейма в мс от первого получения */
+  timeMs: number;
+  /** Время реплея в мс (null в live-режиме) */
+  replayTimeMs: number | null;
+  /** ISO-8601 время получения */
+  receivedAt: string;
+  /** Источник данных */
+  source: string;
+};
+
+/**
+ * PFDFrame — устаревшая вложенная структура (оставлена для обратной совместимости).
+ * Новые инструменты должны использовать TelemetryFrame с прямыми ключами.
+ * @deprecated Используйте TelemetryFrame и читайте ключи field-catalog.ts напрямую.
+ */
 export interface PFDFrame {
   schema: string;
   seq: number;

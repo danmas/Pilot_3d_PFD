@@ -1,17 +1,31 @@
+/**
+ * Vite-plugin: UDP → SSE bridge for Pilot_3d_PFD.
+ *
+ * ПО УМОЛЧАНИЮ: слушает полный 132-полевой поток tnparserrt на порту 14443.
+ * Схема декодирования загружается из out.json при старте и сопоставляется
+ * с field-catalog.ts по ARINC param (двухпроходное сопоставление).
+ *
+ * Расчётные поля с префиксом dec_ добавляются после декодирования (applyDecFormulas).
+ */
+
 import type { Plugin, ViteDevServer } from "vite";
 import dgram from "node:dgram";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FIELD_CATALOG, buildParameterSchema, PFD_KEYS } from "./field-catalog";
+import { FIELD_CATALOG } from "./field-catalog";
+import {
+  loadOutJson,
+  findStreamForPort,
+  buildDecodeSchema,
+  decodePayload,
+  applyDecFormulas,
+  validateSchema,
+  type DecodeSchema,
+} from "./decoding";
 
 // ── types ──────────────────────────────────────────────────────────
-type ParameterType =
-  | "Float" | "Double" | "Int16" | "Short"
-  | "UInt16" | "Int32" | "UInt32" | "Byte" | "UInt8" | "Int8";
-
-type ParameterSchema = Record<string, { Type: ParameterType }>;
 
 type CurrentFrame = {
   counter: number;
@@ -20,36 +34,15 @@ type CurrentFrame = {
   chunks: Buffer[];
 };
 
-type RawAvionicsFrame = {
-  RadioAltitude?: number; DME_Distance?: number; MagneticHeading?: number;
-  RollAngle?: number; PitchAngle?: number; NormalG?: number;
-  CAS?: number; Vy?: number; Time?: number;
-};
-
-type FlightFrame = {
-  schema: "flight-frame.v1"; seq: number; timeMs: number;
-  receivedAt: string; source: "tnparser-udp-14444";
-  position: { mode: "dme"; distance: number | null; altitude: number | null };
-  attitude: { headingDeg: number | null; rollDeg: number | null; pitchDeg: number | null };
-  motion: { cas: number | null; vy: number | null; ny: number | null };
-  raw: RawAvionicsFrame;
-};
-
-type PfdFrame = {
-  schema: "pfd-frame.v1"; seq: number; timeMs: number;
-  replayTimeMs: number | null; receivedAt: string; source: "tnparser-udp-14444";
-  attitude: { pitchDeg: number | null; rollDeg: number | null; headingDeg: number | null; valid: boolean };
-  air: { cas: number | null; aoaDeg: number | null; valid: boolean };
-  altitude: { radioAlt: number | null; baroAltFt: number | null; baroAltM: number | null; verticalSpeed: number | null; valid: boolean };
-  loads: { ny: number | null; g: number | null };
-  nav: { dmeDistance: number | null; selectedHeadingDeg: number | null };
-  autopilot: {
-    selectedSpeed: number | null; selectedAltitudeFt: number | null;
-    selectedVerticalSpeed: number | null; fdActive: boolean | null;
-    fdPitchCmdDeg: number | null; fdRollCmdDeg: number | null;
-  };
-  quality: { missing: string[]; unconfirmed: string[] };
-  raw: RawAvionicsFrame;
+/** Плоский фрейм телеметрии — канонические ключи field-catalog.ts + dec_* */
+type TelemetryFrame = {
+  [key: string]: number | null | string | undefined;
+  schema: "telemetry-frame.v1";
+  seq: number;
+  timeMs: number;
+  replayTimeMs: number | null;
+  receivedAt: string;
+  source: string;
 };
 
 type Recording = {
@@ -73,26 +66,8 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
 const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
 
-// Schema is built directly from field-catalog.ts (single source of truth)
 // Sync marker: 0x544e = "TN" (tnparserrt marker packet)
 const SYNC_MARKER = 0x544e;
-
-// PFD subset keys — imported from field-catalog, kept as mutable array for RawAvionicsFrame filtering
-const AVIONICS_FIELDS: readonly string[] = PFD_KEYS;
-
-// Full 132-field schema — used by raw monitor on port 14442
-const fullPayloadSchema: ParameterSchema = buildParameterSchema();
-
-// PFD-only schema: matches the 9-field binary layout on port 14444
-const pfdPayloadSchema: ParameterSchema = (() => {
-  const catalog = new Map(FIELD_CATALOG.map(e => [e.key, e]));
-  const schema: ParameterSchema = {};
-  for (const key of PFD_KEYS) {
-    const entry = catalog.get(key);
-    if (entry) schema[key] = { Type: entry.dataType as ParameterType };
-  }
-  return schema;
-})();
 
 // ── bridge state ───────────────────────────────────────────────────
 const sseClients = new Set<http.ServerResponse>();
@@ -100,8 +75,8 @@ const pfdSseClients = new Set<http.ServerResponse>();
 const rawSseClients = new Set<http.ServerResponse>();
 
 let currentFrame: CurrentFrame | null = null;
-let currentFlightFrame: FlightFrame | null = null;
-let currentPfdFrame: PfdFrame | null = null;
+let currentTelemetryFrame: TelemetryFrame | null = null;
+let currentPfdFrame: TelemetryFrame | null = null;
 let firstReceiveTime: number | undefined;
 let receivedFrames = 0;
 let receivedPackets = 0;
@@ -122,8 +97,34 @@ let rawLastPacketAtMs: number | undefined;
 let rawLastError: string | undefined;
 let rawMonitorPort = 14442;
 let rawCurrentFrame: CurrentFrame | null = null;
-let bridgeUdpPort = 14444;
+let bridgeUdpPort = 14443;
 let rawPiggyback = false;
+
+// Схема декодирования загружается при старте один раз
+let decodeSchema: DecodeSchema | null = null;
+
+function ensureDecodeSchema(): DecodeSchema {
+  if (decodeSchema) return decodeSchema;
+  console.log("[BRIDGE] Loading decode schema from out.json...");
+  const outPath = path.resolve(PROJECT_ROOT, "out.json");
+  const configs = loadOutJson(__dirname, outPath);
+  const stream = findStreamForPort(configs, bridgeUdpPort);
+  if (!stream) {
+    throw new Error(
+      `[BRIDGE] No stream configured for port ${bridgeUdpPort} in out.json. ` +
+      `Check the JSON for a section with "port": "${bridgeUdpPort}".`
+    );
+  }
+  console.log(`[BRIDGE] Found ${stream.slots.length} slots for port ${bridgeUdpPort}`);
+  decodeSchema = buildDecodeSchema(stream.slots, FIELD_CATALOG);
+  const report = validateSchema(decodeSchema);
+  console.log("[BRIDGE] Schema validation report:");
+  console.log(report.report);
+  if (!report.valid) {
+    console.warn("[BRIDGE] ⚠ Schema VALIDATION WARNINGS — check out.json ↔ field-catalog.ts alignment");
+  }
+  return decodeSchema;
+}
 
 // ── plugin entry ───────────────────────────────────────────────────
 export interface BridgeOptions {
@@ -136,7 +137,7 @@ export interface BridgeOptions {
 
 export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
   const udpHost = opts.udpHost ?? "0.0.0.0";
-  const udpPort = opts.udpPort ?? 14444;
+  const udpPort = opts.udpPort ?? 14443;
   bridgeUdpPort = udpPort;
   const captureDir = opts.captureDir ?? DEFAULT_CAPTURE_DIR;
   captureEnabled = !opts.noCapture;
@@ -144,13 +145,16 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
   let udpServer: dgram.Socket | undefined;
   let statusInterval: ReturnType<typeof setInterval> | undefined;
 
-  // Schema from field-catalog.ts; sync is fixed 0x544e ("TN")
+  // Sync is fixed 0x544e ("TN")
   const sync = SYNC_MARKER;
 
   return {
     name: "pilot-bridge",
 
     configureServer(vite: ViteDevServer) {
+      // Загружаем схему при старте
+      const schema = ensureDecodeSchema();
+
       // ── UDP ────────────────────────────────────────────────
       udpServer = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
@@ -172,7 +176,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           }
 
           if (!currentFrame) {
-            const decoded = decodePayload(message, pfdPayloadSchema);
+            const decoded = decodePayload(message, schema);
             if (rawPiggyback) feedRawData(decoded, message, now);
             publishDecodedFrame(decoded, now, captureDir);
             return;
@@ -185,7 +189,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           const frame = currentFrame;
           currentFrame = null;
           const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
-          const decoded = decodePayload(payload, pfdPayloadSchema);
+          const decoded = decodePayload(payload, schema);
           if (rawPiggyback) feedRawData(decoded, payload, now);
           publishDecodedFrame(decoded, now, captureDir, frame.counter);
         } catch (error) {
@@ -202,7 +206,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
       udpServer.bind(udpPort, udpHost, () => {
         const addr = udpServer!.address();
         console.log(`[BRIDGE] UDP udp://${addr.address}:${addr.port}`);
-        console.log(`[BRIDGE] schema ${Object.keys(pfdPayloadSchema).length} pfd fields / ${Object.keys(fullPayloadSchema).length} full fields (field-catalog.ts)`);
+        console.log(`[BRIDGE] schema ${schema.mappings.length} fields / ${schema.frameBytes} bytes per frame (out.json→field-catalog.ts)`);
         console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
       });
 
@@ -249,7 +253,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
 
           // API: live current
           if (req.method === "GET" && url.pathname === "/api/live/current") {
-            sendJson(res, currentFlightFrame); return;
+            sendJson(res, currentTelemetryFrame); return;
           }
           if (req.method === "GET" && url.pathname === "/api/pfd/current") {
             sendJson(res, currentPfdFrame); return;
@@ -291,7 +295,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             const rec = getRecordingById(captureDir, decodeURIComponent(pfdRecMatch[1]));
             if (!rec) { sendJson(res, { error: "recording not found" }, 404); return; }
             const action = pfdRecMatch[2];
-            if (action === "meta") { sendJson(res, { ...readRecordingMeta(rec), schema: "pfd-frame.v1", sourceSchema: "flight-frame.v1" }); return; }
+            if (action === "meta") { sendJson(res, readRecordingMeta(rec)); return; }
             if (action === "frame") { sendJson(res, findClosestPfdFrame(rec, Number(url.searchParams.get("timeMs") ?? "0"))); return; }
             if (action === "range") {
               sendJson(res, readPfdFrameRange(rec,
@@ -302,7 +306,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             }
           }
 
-          // API: flight recordings
+          // API: recordings (telemetry)
           const recMatch = url.pathname.match(/^\/api\/recordings\/([^/]+)\/(meta|frame|range)$/);
           if (req.method === "GET" && recMatch) {
             const rec = getRecordingById(captureDir, decodeURIComponent(recMatch[1]));
@@ -340,69 +344,38 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
 }
 
 // ── frame pipeline ─────────────────────────────────────────────────
+
 function publishDecodedFrame(
-  decoded: Record<string, number>, receivedAtMs: number,
-  captureDir: string, counter?: number,
+  decoded: Record<string, number | null>,
+  receivedAtMs: number,
+  captureDir: string,
+  counter?: number,
 ): void {
   receivedFrames += 1;
-  const raw: RawAvionicsFrame = {};
-  for (const field of AVIONICS_FIELDS) {
-    const v = decoded[field];
-    if (Number.isFinite(v)) raw[field as keyof RawAvionicsFrame] = v;
-  }
-  if (firstReceiveTime === undefined) firstReceiveTime = receivedAtMs;
 
+  // Добавляем расчётные поля (dec_*)
+  const enriched = applyDecFormulas(decoded);
+
+  if (firstReceiveTime === undefined) firstReceiveTime = receivedAtMs;
   const timeMs = firstReceiveTime === undefined ? 0 : receivedAtMs - firstReceiveTime;
-  const frame: FlightFrame = {
-    schema: "flight-frame.v1",
+  const source = `tnparser-udp-${bridgeUdpPort}`;
+
+  const frame: TelemetryFrame = {
+    schema: "telemetry-frame.v1",
     seq: counter ?? receivedFrames,
     timeMs,
+    replayTimeMs: null,
     receivedAt: new Date(receivedAtMs).toISOString(),
-    source: "tnparser-udp-14444",
-    position: { mode: "dme", distance: fin(raw.DME_Distance), altitude: fin(raw.RadioAltitude) },
-    attitude: { headingDeg: fin(raw.MagneticHeading), rollDeg: fin(raw.RollAngle), pitchDeg: fin(raw.PitchAngle) },
-    motion: { cas: fin(raw.CAS), vy: fin(raw.Vy), ny: fin(raw.NormalG) },
-    raw,
+    source,
+    ...enriched,
   };
 
-  currentFlightFrame = frame;
-  currentPfdFrame = buildPfdFrame(frame);
+  currentTelemetryFrame = frame;
+  currentPfdFrame = frame;
   writeCaptureFrame(frame, captureDir);
   sendSse("frame", frame);
-  sendPfdSse("pfd-frame", currentPfdFrame);
+  sendPfdSse("pfd-frame", frame);
 }
-
-function buildPfdFrame(frame: FlightFrame): PfdFrame {
-  return {
-    schema: "pfd-frame.v1",
-    seq: frame.seq, timeMs: frame.timeMs, replayTimeMs: null,
-    receivedAt: frame.receivedAt, source: frame.source,
-    attitude: {
-      pitchDeg: frame.attitude.pitchDeg, rollDeg: frame.attitude.rollDeg,
-      headingDeg: frame.attitude.headingDeg,
-      valid: frame.attitude.pitchDeg !== null && frame.attitude.rollDeg !== null,
-    },
-    air: { cas: frame.motion.cas, aoaDeg: null, valid: frame.motion.cas !== null },
-    altitude: {
-      radioAlt: frame.position.altitude, baroAltFt: null, baroAltM: null,
-      verticalSpeed: frame.motion.vy,
-      valid: frame.position.altitude !== null || frame.motion.vy !== null,
-    },
-    loads: { ny: frame.motion.ny, g: null },
-    nav: { dmeDistance: frame.position.distance, selectedHeadingDeg: null },
-    autopilot: {
-      selectedSpeed: null, selectedAltitudeFt: null, selectedVerticalSpeed: null,
-      fdActive: null, fdPitchCmdDeg: null, fdRollCmdDeg: null,
-    },
-    quality: {
-      missing: ["baroAltFt", "aoaDeg", "selectedSpeed", "selectedAltitudeFt", "selectedHeadingDeg", "selectedVerticalSpeed", "fdActive", "fdPitchCmdDeg", "fdRollCmdDeg"],
-      unconfirmed: ["Vy units/sign", "NormalG scale/origin", "RadioAltitude semantic meaning"],
-    },
-    raw: frame.raw,
-  };
-}
-
-function fin(v: number | undefined): number | null { return Number.isFinite(v) ? v : null; }
 
 // ── SSE ────────────────────────────────────────────────────────────
 function handleSse(res: http.ServerResponse): void {
@@ -410,7 +383,7 @@ function handleSse(res: http.ServerResponse): void {
   res.write("\n");
   sseClients.add(res);
   sendSseTo(res, "status", getStatus("?", 0));
-  if (currentFlightFrame) sendSseTo(res, "frame", currentFlightFrame);
+  if (currentTelemetryFrame) sendSseTo(res, "frame", currentTelemetryFrame);
   res.on("close", () => sseClients.delete(res));
 }
 
@@ -449,18 +422,19 @@ function handleRawSse(res: http.ServerResponse): void {
 }
 
 function sendRawSse(event: string, data: unknown): void {
-  console.log(`[RAW-MONITOR] SSE broadcast "${event}" to ${rawSseClients.size} clients`);
+  // [SILENCED] console.log(`[RAW-MONITOR] SSE broadcast "${event}" to ${rawSseClients.size} clients`);
   for (const c of rawSseClients) sendSseTo(c, event, data);
 }
 
 // ── status ─────────────────────────────────────────────────────────
-function getStatus(udpHost: string, udpPort: number): object {
+function getStatus(udpHost: string, _udpPort: number): object {
   return {
-    udp: `udp://${udpHost}:${udpPort}`,
+    udp: `udp://${udpHost}:${bridgeUdpPort}`,
     receivedPackets, receivedFrames,
     lastPacketAgeMs: lastPacketAtMs === undefined ? null : Date.now() - lastPacketAtMs,
-    currentSeq: currentFlightFrame?.seq ?? null,
-    currentTimeMs: currentFlightFrame?.timeMs ?? null,
+    currentSeq: currentTelemetryFrame?.seq ?? null,
+    currentTimeMs: currentTelemetryFrame?.timeMs ?? null,
+    schema: "telemetry-frame.v1",
     capturePath, capture: getCaptureStatus(""),
     sseClients: sseClients.size, pfdSseClients: pfdSseClients.size, lastError,
   };
@@ -468,15 +442,14 @@ function getStatus(udpHost: string, udpPort: number): object {
 
 function getPfdStatus(): object {
   return {
-    schema: "pfd-frame.v1",
+    schema: "telemetry-frame.v1",
     live: "/events/pfd", current: "/api/pfd/current",
     receivedFrames,
     currentSeq: currentPfdFrame?.seq ?? null,
     currentTimeMs: currentPfdFrame?.timeMs ?? null,
     lastPacketAgeMs: lastPacketAtMs === undefined ? null : Date.now() - lastPacketAtMs,
     sseClients: pfdSseClients.size,
-    missing: currentPfdFrame?.quality.missing ?? [],
-    unconfirmed: currentPfdFrame?.quality.unconfirmed ?? [],
+    fieldCount: currentPfdFrame ? Object.keys(currentPfdFrame).filter(k => k !== "schema" && k !== "seq" && k !== "timeMs" && k !== "replayTimeMs" && k !== "receivedAt" && k !== "source").length : 0,
     lastError,
   };
 }
@@ -495,15 +468,15 @@ function getRawStatus() {
 }
 
 // ── raw monitor start/stop ─────────────────────────────────────────
-function feedRawData(decoded: Record<string, number>, rawMessage: Buffer, now: number): void {
+function feedRawData(decoded: Record<string, number | null>, rawMessage: Buffer, now: number): void {
   rawReceivedPackets += 1;
   rawLastPacketAtMs = now;
   rawLastHex = rawMessage.toString("hex").slice(0, 512);
 
-  rawLastDecoded = decoded;
+  rawLastDecoded = decoded as Record<string, number>;
   rawReceivedFrames += 1;
   rawLastError = undefined;
-  console.log(`[RAW-MONITOR] Bridged frame #${rawReceivedFrames}, ${Object.keys(decoded).length} fields, SSE: ${rawSseClients.size}`);
+  // [SILENCED] console.log(`[RAW-MONITOR] Bridged frame #${rawReceivedFrames}, ${Object.keys(decoded).length} fields, SSE: ${rawSseClients.size}`);
   sendRawSse("raw-frame", { decoded, hex: rawLastHex, receivedAt: new Date(now).toISOString() });
   sendRawSse("status", getRawStatus());
 }
@@ -546,11 +519,12 @@ function startRawMonitor(port: number): RawMonitorState {
     rawLastHex = message.toString("hex").slice(0, 512);
     console.log(`[RAW-MONITOR] Packet #${rawReceivedPackets} received, ${message.length}B, hex: ${rawLastHex.slice(0, 40)}...`);
     try {
-      const decoded = decodePayload(message, fullPayloadSchema);
-      rawLastDecoded = decoded;
+      const schema = ensureDecodeSchema();
+      const decoded = decodePayload(message, schema);
+      rawLastDecoded = decoded as Record<string, number>;
       rawReceivedFrames += 1;
       rawLastError = undefined;
-      console.log(`[RAW-MONITOR] Frame #${rawReceivedFrames} decoded, ${Object.keys(decoded).length} fields, SSE clients: ${rawSseClients.size}`);
+      // [SILENCED] console.log(`[RAW-MONITOR] Frame #${rawReceivedFrames} decoded, ${Object.keys(decoded).length} fields, SSE clients: ${rawSseClients.size}`);
       sendRawSse("raw-frame", { decoded, hex: rawLastHex, receivedAt: new Date(now).toISOString() });
       sendRawSse("status", getRawStatus());
     } catch (error) {
@@ -635,7 +609,7 @@ function closeCapture(): void {
   captureStream = undefined;
 }
 
-function writeCaptureFrame(frame: FlightFrame, captureDir: string): void {
+function writeCaptureFrame(frame: TelemetryFrame, captureDir: string): void {
   if (!captureEnabled) return;
   if (!captureStream) startCapture(captureDir);
   captureStream?.write(`${JSON.stringify(frame)}\n`);
@@ -667,24 +641,23 @@ function getRecordingById(dir: string, id: string): Recording | undefined {
 
 function readRecordingMeta(rec: Recording): object {
   const frames = readJsonLines(rec.path);
-  return { id: rec.id, fileName: rec.fileName, bytes: rec.bytes, modifiedAt: rec.modifiedAt, frames: frames.length, startTimeMs: frames[0]?.timeMs ?? null, endTimeMs: frames[frames.length - 1]?.timeMs ?? null, firstSeq: frames[0]?.seq ?? null, lastSeq: frames[frames.length - 1]?.seq ?? null };
+  return { id: rec.id, fileName: rec.fileName, bytes: rec.bytes, modifiedAt: rec.modifiedAt, schema: "telemetry-frame.v1", frames: frames.length, startTimeMs: frames[0]?.timeMs ?? null, endTimeMs: frames[frames.length - 1]?.timeMs ?? null, firstSeq: frames[0]?.seq ?? null, lastSeq: frames[frames.length - 1]?.seq ?? null };
 }
 
-function findClosestFrame(rec: Recording, timeMs: number): FlightFrame | null {
+function findClosestFrame(rec: Recording, timeMs: number): TelemetryFrame | null {
   const frames = readJsonLines(rec.path);
-  let best: FlightFrame | null = null; let bestD = Infinity;
+  let best: TelemetryFrame | null = null; let bestD = Infinity;
   for (const f of frames) { const d = Math.abs(f.timeMs - timeMs); if (d < bestD) { best = f; bestD = d; } }
   return best;
 }
 
-function findClosestPfdFrame(rec: Recording, timeMs: number): PfdFrame | null {
-  const f = findClosestFrame(rec, timeMs);
-  return f ? buildPfdFrame(f) : null;
+function findClosestPfdFrame(rec: Recording, timeMs: number): TelemetryFrame | null {
+  return findClosestFrame(rec, timeMs);
 }
 
-function readFrameRange(rec: Recording, fromMs?: number, toMs?: number, limit = 50000): FlightFrame[] {
+function readFrameRange(rec: Recording, fromMs?: number, toMs?: number, limit = 50000): TelemetryFrame[] {
   const frames = readJsonLines(rec.path);
-  const result: FlightFrame[] = [];
+  const result: TelemetryFrame[] = [];
   for (const f of frames) {
     if (fromMs !== undefined && f.timeMs < fromMs) continue;
     if (toMs !== undefined && f.timeMs > toMs) continue;
@@ -694,14 +667,21 @@ function readFrameRange(rec: Recording, fromMs?: number, toMs?: number, limit = 
   return result;
 }
 
-function readPfdFrameRange(rec: Recording, fromMs?: number, toMs?: number, limit = 50000): PfdFrame[] {
-  return readFrameRange(rec, fromMs, toMs, limit).map(buildPfdFrame);
+function readPfdFrameRange(rec: Recording, fromMs?: number, toMs?: number, limit = 50000): TelemetryFrame[] {
+  return readFrameRange(rec, fromMs, toMs, limit);
 }
 
-function readJsonLines(filePath: string): FlightFrame[] {
+function readJsonLines(filePath: string): TelemetryFrame[] {
   return fs.readFileSync(filePath, "utf8").split(/\r?\n/).filter(Boolean)
-    .map(l => JSON.parse(l) as FlightFrame)
-    .filter(f => f.schema === "flight-frame.v1" && Number.isFinite(f.timeMs));
+    .map(l => {
+      const obj = JSON.parse(l);
+      // Backward compat: accept old flight-frame.v1 and pfd-frame.v1 captures
+      if (obj.schema === "telemetry-frame.v1" || obj.schema === "flight-frame.v1" || obj.schema === "pfd-frame.v1") {
+        return obj as TelemetryFrame;
+      }
+      return null;
+    })
+    .filter((f): f is TelemetryFrame => f !== null && Number.isFinite(f.timeMs));
 }
 
 // ── viewer static ──────────────────────────────────────────────────
@@ -750,28 +730,6 @@ function optionalNumber(v: string | null): number | undefined {
   const n = Number(v); return Number.isFinite(n) ? n : undefined;
 }
 
-// ── JSONC ──────────────────────────────────────────────────────────
-function readJsonc<T>(filePath: string): T {
-  const raw = fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, "");
-  const noComments = stripComments(raw);
-  const noTrailing = noComments.replace(/,\s*([}\]])/g, "$1");
-  return JSON.parse(noTrailing) as T;
-}
-
-function stripComments(input: string): string {
-  let out = ""; let inStr = false; let esc = false;
-  for (let i = 0; i < input.length; i++) {
-    const c = input[i]; const n = input[i + 1];
-    if (inStr) { out += c; esc = c === "\\" && !esc; if (c === "\"" && !esc) inStr = false; if (c !== "\\") esc = false; continue; }
-    if (c === "\"") { inStr = true; out += c; continue; }
-    if (c === "/" && n === "/") { while (i < input.length && input[i] !== "\n") i++; out += "\n"; continue; }
-    out += c;
-  }
-  return out;
-}
-
-function parseSync(v: string): number { return v.startsWith("0x") ? parseInt(v.slice(2), 16) : Number(v); }
-
 // ── UDP decode ─────────────────────────────────────────────────────
 function isMarkerPacket(msg: Buffer, syncVal: number): boolean {
   return msg.length >= 10 && (msg.readUInt16BE(0) === syncVal || msg.readUInt16LE(0) === syncVal);
@@ -783,33 +741,4 @@ function parseMarkerPacket(msg: Buffer): { counter: number; dataCounters: number
   const dcs: number[] = [];
   for (let i = 0, off = 8; i < dc; i++, off += 2) dcs.push(msg.readUInt16LE(off));
   return { counter, dataCounters: dcs };
-}
-
-function buildPayloadSchema(schema: ParameterSchema, order: string[]): ParameterSchema {
-  const result: ParameterSchema = {};
-  for (const f of order) {
-    if (!schema[f]) { console.warn(`[WARN] field "${f}" missing in config`); continue; }
-    result[f] = schema[f];
-  }
-  return result;
-}
-
-function decodePayload(payload: Buffer, schema: ParameterSchema): Record<string, number> {
-  const result: Record<string, number> = {};
-  let off = 0;
-  for (const [name, def] of Object.entries(schema)) {
-    const sz = byteSize(def.Type);
-    if (off + sz > payload.length) break;
-    result[name] = readValue(payload, off, def.Type);
-    off += sz;
-  }
-  return result;
-}
-
-function byteSize(t: ParameterType): number {
-  switch (t) { case "Double": return 8; case "Float": case "Int32": case "UInt32": return 4; case "Int16": case "Short": case "UInt16": return 2; case "Byte": case "UInt8": case "Int8": return 1; default: throw new Error(`Unsupported type: ${t}`); }
-}
-
-function readValue(payload: Buffer, off: number, t: ParameterType): number {
-  switch (t) { case "Double": return payload.readDoubleLE(off); case "Float": return payload.readFloatLE(off); case "Int32": return payload.readInt32LE(off); case "UInt32": return payload.readUInt32LE(off); case "Int16": case "Short": return payload.readInt16LE(off); case "UInt16": return payload.readUInt16LE(off); case "Byte": case "UInt8": return payload.readUInt8(off); case "Int8": return payload.readInt8(off); default: throw new Error(`Unsupported type: ${t}`); }
 }

@@ -8,7 +8,7 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   const port = parseInt(env.PORT) || 3410;
   return {
-    plugins: [react(), tailwindcss(), bridgePlugin({udpPort: parseInt(env.UDP_PORT) || 14444, config: env.UDP_CONFIG || undefined, captureDir: env.CAPTURE_DIR || 'captures', noCapture: env.NO_CAPTURE === 'true'})],
+    plugins: [react(), tailwindcss(), bridgePlugin({udpPort: parseInt(env.UDP_PORT) || 14443, config: env.UDP_CONFIG || undefined, captureDir: env.CAPTURE_DIR || 'captures', noCapture: env.NO_CAPTURE === 'true'})],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

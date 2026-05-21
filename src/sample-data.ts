@@ -1,92 +1,48 @@
-import { PFDFrame } from './types';
+import { TelemetryFrame } from './types';
 
-// Original static frame
-export const sampleFrame: PFDFrame = {
-  "schema": "pfd-frame.v1",
+// Static frame for initial state (flat canonical keys from field-catalog.ts)
+export const sampleFrame: TelemetryFrame = {
+  "schema": "telemetry-frame.v1",
   "seq": 207132,
   "timeMs": 0,
   "replayTimeMs": 0,
   "receivedAt": "2026-05-18T08:07:17.214Z",
-  "source": "tnparser-udp-14444",
-  "attitude": {
-    "pitchDeg": 4.286693572998047,
-    "rollDeg": 0.17028671503067017,
-    "headingDeg": -138.70814514160156,
-    "valid": true
-  },
-  "air": {
-    "cas": 207.8125,
-    "aoaDeg": 4.6,
-    "valid": true
-  },
-  "altitude": {
-    "radioAlt": 5120,
-    "baroAltFt": 12000,
-    "baroAltM": 3658,
-    "verticalSpeed": -53,
-    "valid": true
-  },
-  "loads": {
-    "ny": -0.00650033401325345,
-    "g": null
-  },
-  "nav": {
-    "dmeDistance": 49.296875,
-    "selectedHeadingDeg": null
-  },
-  "autopilot": {
-    "selectedSpeed": 200,
-    "selectedAltitudeFt": 20000,
-    "selectedVerticalSpeed": null,
-    "fdActive": null,
-    "fdPitchCmdDeg": null,
-    "fdRollCmdDeg": null
-  },
-  "engine": {
-    "n1": null,
-    "n2": null,
-    "fuelFlow": null,
-    "egt": null,
-    "oilPress": null,
-    "oilTemp": null,
-    "vibration": null
-  },
-  "surfaces": {
-    "flapL": 0,
-    "flapR": 0,
-    "slatL": 0,
-    "slatR": 0,
-    "phiST": null,
-    "deltaPB": null,
-    "deltaEPL": null,
-    "deltaEPR": null
-  }
+  "source": "tnparser-udp-14443",
+  "PitchAngle": 4.286693572998047,
+  "RollAngle": 0.17028671503067017,
+  "MagneticHeading": -138.70814514160156,
+  "CAS": 207.8125,
+  "AoA": 4.6,
+  "dec_RadioAltFt": 5120,
+  "dec_BaroAltFt": 12000,
+  "BaroAltitude": 3658,
+  "Vy": -53,
+  "NormalG": -0.00650033401325345,
+  "dec_G": null,
+  "DME_Distance": 49.296875,
+  "HeadingSelect": null,
+  "SpeedSelect": 200,
+  "StandardAltitude": 20000,
+  "VerticalSpeedSelect": null,
+  "FlightDirectorOn": null,
+  "FD_PitchCmd": null,
+  "FD_RollCmd": null,
 };
 
-// Generate an animation sequence
-export const sampleFrames: PFDFrame[] = Array.from({ length: 300 }).map((_, i) => {
-  const t = i / 300 * Math.PI * 2; // 0 to 2PI
+// Generate an animation sequence (flat frame, varying core PFD values)
+export const sampleFrames: TelemetryFrame[] = Array.from({ length: 300 }).map((_, i) => {
+  const t = (i / 300) * Math.PI * 2;
   return {
     ...sampleFrame,
     seq: sampleFrame.seq + i,
-    timeMs: i * 33, // ~30fps
+    timeMs: i * 33,
     replayTimeMs: i * 33,
-    attitude: {
-      ...sampleFrame.attitude,
-      pitchDeg: 4.28 + Math.sin(t) * 10,
-      rollDeg: Math.sin(t * 2) * 30, // Roll back and forth
-    },
-    air: {
-      ...sampleFrame.air,
-      cas: 207 + Math.sin(t) * 20, // Speed changes
-      aoaDeg: 4.6 + Math.cos(t) * 2,
-    },
-    altitude: {
-      ...sampleFrame.altitude,
-      baroAltFt: 12000 + Math.sin(t) * 500, // Altitude changes
-      verticalSpeed: Math.cos(t) * 3000, // VS up and down
-      radioAlt: 5120 + Math.sin(t) * 500,
-    }
+    PitchAngle: 4.28 + Math.sin(t) * 10,
+    RollAngle: Math.sin(t * 2) * 30,
+    CAS: 207 + Math.sin(t) * 20,
+    AoA: 4.6 + Math.cos(t) * 2,
+    dec_BaroAltFt: 12000 + Math.sin(t) * 500,
+    Vy: Math.cos(t) * 3000,
+    dec_RadioAltFt: 5120 + Math.sin(t) * 500,
   };
 });
-

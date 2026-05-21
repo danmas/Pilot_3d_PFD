@@ -1,12 +1,13 @@
 import React from 'react';
-import { PFDFrame } from '../../types';
+import { TelemetryFrame } from '../../types';
 
-interface Props { frame: PFDFrame; }
+interface Props { frame: TelemetryFrame; }
 
 export function AirspeedTape({ frame }: Props) {
-  const { air, autopilot } = frame;
   const TAPE_COLOR = "#818181";
-  const speed = air.cas ?? 207.8;
+  const speed = (frame.CAS as number) ?? 207.8;
+  const valid = Number.isFinite(frame.CAS as number);
+  const selectedSpeed = (frame.SpeedSelect as number) ?? null;
   const pxPerKnot = 4.5;
 
   const renderTicks = () => {
@@ -35,7 +36,7 @@ export function AirspeedTape({ frame }: Props) {
   return (
     <g>
       <title>Лента приборной скорости — CAS (Calibrated Airspeed), узлы.
-      Источник: air.cas</title>
+      Источник: CAS</title>
       {/* Background */}
       <rect x="150" y="60" width="55" height="460" fill={TAPE_COLOR} />
       
@@ -43,24 +44,24 @@ export function AirspeedTape({ frame }: Props) {
       <clipPath id="air-clip"><rect x="150" y="60" width="55" height="460" /></clipPath>
       <g clipPath="url(#air-clip)">
          <g transform="translate(0, 300)">
-           {air.valid && renderTicks()}
+           {valid && renderTicks()}
          </g>
       </g>
       
       {/* Target top cyans */}
       <g>
         <title>Заданная скорость автопилота (Selected Speed), узлы.
-        Источник: autopilot.selectedSpeed</title>
+        Источник: SpeedSelect</title>
         <text x="177" y="45" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">
-           {autopilot.selectedSpeed !== null ? Math.round(autopilot.selectedSpeed).toString().padStart(3, '0') : "000"}
+           {selectedSpeed !== null ? Math.round(selectedSpeed).toString().padStart(3, '0') : "000"}
         </text>
       </g>
 
       {/* Center Black Indicator Box for Speed */}
-      {air.valid && (
+      {valid && (
         <g transform="translate(150, 300)">
           <title>Текущая приборная скорость (CAS). Жёлтая линия — тренд изменения скорости.
-          Источник: air.cas</title>
+          Источник: CAS</title>
           {/* Black box pointing left */}
           <path d="M 0 0 L 15 -25 L 90 -25 L 90 25 L 15 25 Z" fill="black" stroke="white" strokeWidth="1" transform="translate(-85, 0)" />
           

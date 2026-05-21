@@ -1,19 +1,22 @@
 import React from 'react';
-import { PFDFrame } from '../../types';
+import { TelemetryFrame } from '../../types';
 
-interface Props { frame: PFDFrame; }
+interface Props { frame: TelemetryFrame; }
 
 export function AttitudeIndicator({ frame }: Props) {
-  const { attitude, altitude } = frame;
   const cx = 400, cy = 300, r = 160;
   
-  if (!attitude.valid) return null;
+  const pitch = (frame.PitchAngle as number) ?? 0;
+  const roll = (frame.RollAngle as number) ?? 0;
+  const valid = Number.isFinite(pitch) && Number.isFinite(roll);
+  if (!valid) return null;
 
-  const pitch = attitude.pitchDeg ?? 0;
-  const roll = attitude.rollDeg ?? 0;
-  
   const pitchScale = 6;
   const yTranslate = pitch * pitchScale;
+
+  const radioAlt = (frame.dec_RadioAltFt as number) ?? 0;
+  const fdPitch = (frame.FD_PitchCmd as number) ?? null;
+  const fdRoll = (frame.FD_RollCmd as number) ?? null;
 
   const SKY = "#316499";
   const GND = "#603c15";
@@ -29,7 +32,7 @@ export function AttitudeIndicator({ frame }: Props) {
           <g key={p} transform={`translate(0, ${y})`}>
             <line x1="-35" y1="0" x2="-20" y2="0" stroke="white" strokeWidth="2" />
             <line x1="20" y1="0" x2="35" y2="0" stroke="white" strokeWidth="2" />
-            {p === 10 || p === 20 || p === -10 || p === -20 ? ( // side drops
+            {p === 10 || p === 20 || p === -10 || p === -20 ? (
                 <>
                   <line x1="-35" y1="0" x2="-35" y2={p > 0 ? 8 : -8} stroke="white" strokeWidth="2" />
                   <line x1="35" y1="0" x2="35" y2={p > 0 ? 8 : -8} stroke="white" strokeWidth="2" />
@@ -58,7 +61,7 @@ export function AttitudeIndicator({ frame }: Props) {
       }
       return <g key={angle} transform={`rotate(${angle})`}>{tick}</g>;
     });
-  }
+  };
 
   return (
     <g transform={`translate(${cx}, ${cy})`}>
@@ -70,7 +73,7 @@ export function AttitudeIndicator({ frame }: Props) {
       <g clipPath="url(#att-clip)">
         <g transform={`rotate(${-roll}) translate(0, ${yTranslate})`}>
           <title>Авиагоризонт — положение самолёта относительно горизонта. Синий = небо, коричневый = земля.
-          Источник: attitude.pitchDeg, attitude.rollDeg</title>
+          Источник: PitchAngle, RollAngle</title>
           <rect x="-250" y="-300" width="500" height="600" fill={SKY} />
           <rect x="-250" y="0" width="500" height="300" fill={GND} />
           <line x1="-250" y1="0" x2="250" y2="0" stroke="white" strokeWidth="2" />
@@ -81,7 +84,7 @@ export function AttitudeIndicator({ frame }: Props) {
       {/* Fixed Roll Scale Line */}
       <g>
         <title>Шкала крена — угол наклона на левое/правое крыло в градусах.
-        Источник: attitude.rollDeg</title>
+        Источник: RollAngle</title>
         <path d={`M ${-160 * Math.sin(60*Math.PI/180)} ${-160 * Math.cos(60*Math.PI/180)} A 160 160 0 0 1 ${160 * Math.sin(60*Math.PI/180)} ${-160 * Math.cos(60*Math.PI/180)}`} fill="none" stroke="white" strokeWidth="2" />
         {renderRollScaleTicks()}
       </g>
@@ -92,7 +95,7 @@ export function AttitudeIndicator({ frame }: Props) {
       {/* Rotating Roll Pointer beneath */}
       <g transform={`rotate(${-roll})`}>
         <title>Жёлтый указатель текущего крена. Красный крест — индикатор бокового скольжения.
-        Источник: attitude.rollDeg</title>
+        Источник: RollAngle</title>
         <g transform="translate(0, -140)">
            <polygon points="0,0 -12,18 12,18" fill="none" stroke="#FFEA00" strokeWidth="3" />
            <line x1="-25" y1="18" x2="25" y2="18" stroke="#FFEA00" strokeWidth="3" />
@@ -108,9 +111,9 @@ export function AttitudeIndicator({ frame }: Props) {
       {/* FD Crosshairs */}
       <g>
         <title>Flight Director — команды автопилота: верт. линия = крен, гор. линия = тангаж.
-        Источник: autopilot.fdPitchCmdDeg, autopilot.fdRollCmdDeg</title>
-        <line x1="-100" y1="0" x2="100" y2="0" stroke="#00FF00" strokeWidth="1.5" />
-        <line x1="0" y1="-100" x2="0" y2="100" stroke="#00FF00" strokeWidth="1.5" />
+        Источник: FD_PitchCmd, FD_RollCmd</title>
+        {fdRoll !== null && <line x1="-100" y1="0" x2="100" y2="0" stroke="#00FF00" strokeWidth="1.5" />}
+        {fdPitch !== null && <line x1="0" y1="-100" x2="0" y2="100" stroke="#00FF00" strokeWidth="1.5" />}
       </g>
 
       {/* Center Aircraft */}
@@ -122,13 +125,13 @@ export function AttitudeIndicator({ frame }: Props) {
       </g>
 
       {/* Radio Altimeter Box at Bottom */}
-      {altitude.valid && (
+      {Number.isFinite(radioAlt) && (
         <g transform="translate(0, 160)">
           <title>Радиовысотомер (Radio Altimeter) — высота над поверхностью земли в футах.
-          Источник: altitude.radioAlt</title>
+          Источник: dec_RadioAltFt</title>
           <rect x="-40" y="-18" width="80" height="30" fill="black" />
           <text x="0" y="5" fill="#00FF00" fontSize="24" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
-            {altitude.radioAlt !== null ? Math.round(altitude.radioAlt) : "5120"}
+            {Math.round(radioAlt)}
           </text>
         </g>
       )}

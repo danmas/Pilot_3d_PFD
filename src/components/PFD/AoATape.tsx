@@ -1,12 +1,12 @@
 import React from 'react';
-import { PFDFrame } from '../../types';
+import { TelemetryFrame } from '../../types';
 
-interface Props { frame: PFDFrame; }
+interface Props { frame: TelemetryFrame; }
 
 export function AoATape({ frame }: Props) {
-  const { air, loads } = frame;
   const TAPE_COLOR = "#818181";
-  const aoa = air.aoaDeg ?? 4.6; 
+  const aoa = (frame.AoA as number) ?? 4.6; 
+  const g = (frame.dec_G as number) ?? null;
 
   const getAoAY = (v: number) => {
     return (aoa - v) * 16.5; 
@@ -15,14 +15,14 @@ export function AoATape({ frame }: Props) {
   return (
     <g>
       <title>Угол атаки (AoA — Angle of Attack) — угол между крылом и набегающим потоком, градусы.
-      Источник: air.aoaDeg</title>
+      Источник: AoA</title>
       {/* Tape shape points left */}
       <path d="M 120 160 L 120 440 L 90 440 L 70 390 L 70 210 L 90 160 Z" fill={TAPE_COLOR} />
       
       {/* Top Green Number */}
       <g>
         <title>Текущий угол атаки, градусы.
-        Источник: air.aoaDeg</title>
+        Источник: AoA</title>
         <text x="100" y="145" fill="#00FF00" fontSize="20" textAnchor="middle" fontFamily="sans-serif">
           {aoa.toFixed(1)}
         </text>
@@ -49,10 +49,10 @@ export function AoATape({ frame }: Props) {
       {/* Bottom G meter text */}
       <g>
         <title>Перегрузка G — текущая вертикальная перегрузка.
-        Источник: loads.g</title>
+        Источник: dec_G</title>
         <text x="65" y="495" fill="white" fontSize="24" fontFamily="sans-serif">G</text>
-        <text x="115" y="495" fill={loads.g !== null ? "white" : "#FF9800"} fontSize="24" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
-          {loads.g !== null ? loads.g.toFixed(1) : "- -"}
+        <text x="115" y="495" fill={g !== null ? "white" : "#FF9800"} fontSize="24" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
+          {g !== null ? g.toFixed(1) : "- -"}
         </text>
       </g>
     </g>

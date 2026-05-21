@@ -1,4 +1,4 @@
-#+ Pilot 3D PFD — UDP bridge + PFD + viewer + raw monitor (merged)
+# Pilot 3D PFD — UDP bridge + PFD + viewer + raw monitor (merged)
 
 Единый проект: UDP-bridge (tnparserrt), диагностический viewer, Primary Flight Display, Raw Data Monitor. Один `npm run dev` — всё на порту 3410.
 
@@ -7,19 +7,19 @@
 | Компонент | URL | Описание |
 |---|---|---|
 | **PFD (КПИ)** | `http://localhost:3410/` | React PFD: авиагоризонт, ленты скорости/высоты, вариометр |
-| **Viewer (диагностика)** | `http://localhost:3410/viewer/` | Live/replay, capture, отладка flight-frame.v1 и pfd-frame.v1 |
-| **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443/14444), hex+decoded, piggyback-режим |
-| **Bridge (UDP → HTTP)** | порт 14444 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
+| **Viewer (диагностика)** | `http://localhost:3410/viewer/` | Live/replay, capture, отладка telemetry-frame.v1 |
+| **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443), hex+decoded, piggyback-режим |
+| **Bridge (UDP → HTTP)** | порт 14443 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
 
 ## Архитектура
 
 ```text
-UDP 14442 (tnparserrt, полный набор) ─┐
-UDP 14443 (tnparserrt, mirror)       ─┤
-UDP 14444 (tnparserrt, базовый PFD)   ─┤
-  → bridge (middleware в Vite)        ←┘
-  → SSE /events (flight-frame.v1)
-  → SSE /events/pfd (pfd-frame.v1)
+UDP 14443 (tnparserrt, полный поток 132 слота) ─┐
+  → bridge (middleware в Vite)                    ←┘
+  → decoding.ts: загрузка out.json, сопоставление по ARINC param
+  → плоский TelemetryFrame (telemetry-frame.v1)
+  → SSE /events (telemetry-frame.v1)
+  → SSE /events/pfd (PFD subset)
   → SSE /events/raw (raw-frame — сырые данные)
   → HTTP API /api/*
   → React PFD app (port 3410)
@@ -31,19 +31,29 @@ UDP 14444 (tnparserrt, базовый PFD)   ─┤
 
 ## Единый каталог параметров (field-catalog.ts)
 
-Файл **`field-catalog.ts`** — единственный источник истины для всех 132 телеметрических параметров:
+Файл **`field-catalog.ts`** — справочник метаданных для 132 телеметрических параметров:
 
-- **Строгий порядок** совпадает с `out.json` (определяет байтовую раскладку бинарного потока)
-- **Канонические английские ключи** (напр. `RadioAltitude`, `MagneticHeading`, `NormalG`)
+- **Канонические английские ключи** (напр. `RadioAltitude`, `MagneticHeading`, `NormalG`) — используются в качестве имён полей в `TelemetryFrame`
 - **Русские комментарии** из `out.json` сохранены
 - **ARINC-параметры** (0164, 0202, ...)
 - **Типы данных** (Float, Short, Int16)
 - **Группы систем**: АВИОНИКА, ДВИГАТЕЛИ, ТОПЛИВО, ШАССИ, ВСУ, КСКВ, БРУ, КСУ, STATUS, TEMP, IG, СТАТИКА
 
-Из каталога автогенерируется:
-- `UdpServerConfig.json` (Parameters)
-- `AVIONICS_FIELDS` (подмножество для PFD: 9 полей)
-- Ключи decoded output для всех потребителей
+> **Важно:** порядок байт в бинарном потоке НЕ определяется `field-catalog.ts`.
+> Единственный источник порядка байт — **`out.json`** (читается модулем `decoding.ts` при старте).
+> Сопоставление слотов с каталогом — по ARINC param, а не по индексу.
+> Подробнее — [README_decoding.md](./README_decoding.md).
+
+### Расчётные поля (dec_ префикс)
+
+Поля с префиксом `dec_` вычисляются после декодирования функцией `applyDecFormulas()` в `decoding.ts`:
+
+| Ключ | Формула | Назначение |
+|------|---------|------------|
+| `dec_BaroAltFt` | `BaroAltitude × 3.28084` | Барометрическая высота в футах |
+| `dec_RadioAltFt` | `RadioAltitude × 3.28084` | Радиовысота в футах |
+| `dec_MachKnots` | `MachNumber × 661.5` | Скорость в узлах |
+| `dec_G` | `NormalG` (алиас) | Перегрузка |
 
 ### Переименования ключей (основные)
 
@@ -67,7 +77,7 @@ UDP 14444 (tnparserrt, базовый PFD)   ─┤
 
 ```env
 PORT=3410                    # порт dev-сервера
-UDP_PORT=14444               # UDP порт для tnparserrt
+UDP_PORT=14443               # UDP порт для tnparserrt (по умолчанию 14443)
 # UDP_CONFIG=...\UdpServerConfig.json
 # CAPTURE_DIR=captures
 # NO_CAPTURE=true
@@ -84,6 +94,7 @@ npm run dev
 Открыть:
 - **PFD**: `http://localhost:3410/` — нажать **Live**
 - **Viewer**: `http://localhost:3410/viewer/` — диагностика и replay
+- **Raw Monitor**: `http://localhost:3410/raw` — сырые UDP-пакеты
 
 ## Два режима данных (PFD)
 
@@ -97,39 +108,42 @@ npm run dev
 - **Sample / Live** — переключатель источника данных
 - **Display / Data** — PFD визуализация или сырой JSON
 - **Индикатор соединения** (Live): 🔴 disconnected / 🟡 connecting, waiting / 🟢 receiving + seq
-- **Upload JSON** — загрузить одиночный pfd-frame.v1 кадр
+- **Upload JSON** — загрузить одиночный telemetry-frame.v1 кадр
 - **Play / Pause** (Sample) — управление анимацией
 
 ## Tooltips (всплывающие подсказки)
 
 При наведении курсора на элементы PFD отображается tooltip с описанием индикатора и JSON-путём к источнику данных:
 
-| Компонент | Индикатор | Источник |
+| Компонент | Индикатор | Источник (канонический ключ) |
 |---|---|---|
-| **AttitudeIndicator** | Авиагоризонт | `attitude.pitchDeg, attitude.rollDeg` |
-| | Шкала крена | `attitude.rollDeg` |
-| | Указатель крена + скольжение | `attitude.rollDeg` |
-| | Flight Director | `autopilot.fdPitchCmdDeg, autopilot.fdRollCmdDeg` |
-| | Радиовысотомер | `altitude.radioAlt` |
-| **AirspeedTape** | Лента скорости | `air.cas` |
-| | Заданная скорость | `autopilot.selectedSpeed` |
-| | Текущая скорость + тренд | `air.cas` |
-| **AltitudeTape** | Лента высоты | `altitude.baroAltFt, altitude.radioAlt` |
-| | Заданная высота | `autopilot.selectedAltitudeFt` |
-| | Текущая высота | `altitude.baroAltFt` |
-| **VerticalSpeed** | Вариометр | `altitude.verticalSpeed` |
-| | Нулевая верт. скорость | `altitude.verticalSpeed` |
-| **AoATape** | Угол атаки | `air.aoaDeg` |
-| | Текущий AoA | `air.aoaDeg` |
-| | Перегрузка G | `loads.g` |
+| **AttitudeIndicator** | Авиагоризонт | `PitchAngle, RollAngle` |
+| | Шкала крена | `RollAngle` |
+| | Указатель крена + скольжение | `RollAngle` |
+| | Flight Director | `FD_PitchCmd, FD_RollCmd` |
+| | Радиовысотомер | `dec_RadioAltFt` |
+| **AirspeedTape** | Лента скорости | `CAS` |
+| | Заданная скорость | `SpeedSelect` |
+| | Текущая скорость + тренд | `CAS` |
+| **AltitudeTape** | Лента высоты | `dec_BaroAltFt, dec_RadioAltFt` |
+| | Заданная высота | `StandardAltitude` |
+| | Текущая высота | `dec_BaroAltFt` |
+| **VerticalSpeed** | Вариометр | `Vy` |
+| | Нулевая верт. скорость | `Vy` |
+| **AoATape** | Угол атаки | `AoA` |
+| | Текущий AoA | `AoA` |
+| | Перегрузка G | `dec_G` |
 
 ## Контракт данных
 
-Формат: `pfd-frame.v1` (JSON). Схема:
+Формат: `telemetry-frame.v1` (JSON). Схема:
 
 ```text
 pfd-frame.v1.schema.json
 ```
+
+Плоский словарь — все поля на верхнем уровне `TelemetryFrame` (без вложенных объектов).
+Каждый ключ — каноническое имя из `field-catalog.ts`.
 
 ## HTTP API (bridge)
 
@@ -143,8 +157,8 @@ GET  /api/recordings
 GET  /api/recordings/:id/meta
 GET  /api/recordings/:id/frame?timeMs=...
 GET  /api/recordings/:id/range?fromMs=...&toMs=...&limit=...
-GET  /events                 (SSE flight-frame.v1)
-GET  /events/pfd             (SSE pfd-frame.v1)
+GET  /events                 (SSE telemetry-frame.v1)
+GET  /events/pfd             (SSE PFD subset)
 GET  /events/raw             (SSE raw-frame — сырые данные)
 GET  /api/raw/status
 POST /api/raw/start           { port, config? }
@@ -165,9 +179,9 @@ Content-Type: application/json
 
 { "port": 14442, "config": "path/to/UdpServerConfig.json" }
 ```
-- `port` — UDP-порт для мониторинга (14442, 14443, 14444 или любой другой)
+- `port` — UDP-порт для мониторинга (14442, 14443 или любой другой)
 - `config` (опционально) — путь к конфигу с кастомной схемой декодирования
-- Если `port` совпадает с портом бриджа (14444), включается **piggyback-режим** — данные берутся из pipeline бриджа без открытия второго сокета
+- Если `port` совпадает с портом бриджа (14443), включается **piggyback-режим** — данные берутся из pipeline бриджа без открытия второго сокета
 
 **SSE поток сырых данных:**
 ```text
@@ -175,3 +189,23 @@ GET /events/raw
 event: raw-frame    → { decoded: {...все поля...}, hex: "...", receivedAt: "..." }
 event: status       → { port, active, receivedPackets, receivedFrames, ... }
 ```
+
+## Структура файлов
+
+| Файл | Роль |
+|------|------|
+| `out.json` (..) | Конфигурация tnparserrt: слоты по портам. **Единственный источник порядка байт.** |
+| `field-catalog.ts` | Справочник имён, типов, ARINC param. **НЕ раскладка, НЕ порядок.** |
+| `decoding.ts` | Загрузка out.json, сопоставление по ARINC param, декодирование, `dec_*` формулы, валидация |
+| `bridge-plugin.ts` | Vite-плагин: UDP-сокет (14443), сборка фреймов, SSE, capture, replay API |
+| `src/types.ts` | `TelemetryFrame` тип для фронтенда |
+
+## Порт по умолчанию: 14443
+
+| Порт | Назначение | Потребитель |
+|------|-----------|-------------|
+| 14442 | Полный поток (исходный) | FTI.Monitor (WPF) |
+| **14443** | **Полный поток (зеркало) — ПО УМОЛЧАНИЮ** | **Pilot_3d_PFD bridge** |
+| 14444 | Компактный AVIONICS (9 полей) | Устарел, не используется |
+
+Настройка: `UDP_PORT` в `.env` или `BridgeOptions.udpPort`.

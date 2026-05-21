@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, FileJson, Play, Pause, Activity, Database, Radio, LayoutDashboard, Monitor, ArrowLeft, Zap, Gauge, Terminal } from 'lucide-react';
-import { PFDFrame } from './types';
+import { TelemetryFrame } from './types';
 import { sampleFrames } from './sample-data';
 import { PFD } from './components/PFD/PFD';
 import RawMonitor from './components/RawMonitor/RawMonitor';
@@ -20,7 +20,7 @@ const LIVE_PFD_URL = '/events/pfd';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewPage>('hub');
-  const [frame, setFrame] = useState<PFDFrame>(sampleFrames[0]);
+  const [frame, setFrame] = useState<TelemetryFrame>(sampleFrames[0]);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [frameIndex, setFrameIndex] = useState(0);
@@ -61,11 +61,9 @@ export default function App() {
     es.addEventListener('open', () => { setConnStatus('waiting'); setError(null); });
     es.addEventListener('pfd-frame', (event) => {
       try {
-        const pfdFrame: PFDFrame = JSON.parse(event.data);
-        if (pfdFrame.schema === 'pfd-frame.v1') {
-          setFrame(pfdFrame); setLiveSeq(pfdFrame.seq);
-          setConnStatus('receiving'); setError(null);
-        }
+        const data: TelemetryFrame = JSON.parse(event.data);
+        setFrame(data); setLiveSeq(data.seq ?? null);
+        setConnStatus('receiving'); setError(null);
       } catch { setError('Failed to parse pfd-frame'); }
     });
     es.addEventListener('status', (event) => {
@@ -98,8 +96,7 @@ export default function App() {
       try {
         const text = e.target?.result as string;
         const json = JSON.parse(text);
-        if (json.schema === 'pfd-frame.v1') { setFrame(json); setIsPlaying(false); setError(null); }
-        else setError('Invalid schema version. Expected pfd-frame.v1');
+        setFrame(json as TelemetryFrame); setIsPlaying(false); setError(null);
       } catch { setError('Failed to parse JSON file.'); }
     };
     reader.readAsText(file);
@@ -207,13 +204,12 @@ export default function App() {
           {/* Bottom info */}
           <div className="flex items-center justify-center gap-6 text-white/30 text-xs">
             <span className="flex items-center gap-1.5">
-              <Gauge className="w-3.5 h-3.5" /> UDP :14444 &rarr; AVIONICS
+              <Gauge className="w-3.5 h-3.5" /> UDP :14443 &rarr; AVIONICS
             </span>
             <span className="flex items-center gap-1.5">
               <Terminal className="w-3.5 h-3.5" /> UDP :14442 &rarr; RAW
             </span>
-            <span>pfd-frame.v1</span>
-            <span>flight-frame.v1</span>
+            <span>telemetry-frame.v1</span>
             <span>port 3410</span>
           </div>
         </div>
@@ -253,7 +249,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-white font-medium text-lg tracking-tight">Primary Flight Display</h1>
-              <p className="text-white/50 text-sm">pfd-frame.v1 viewer</p>
+              <p className="text-white/50 text-sm">telemetry-frame.v1 viewer</p>
             </div>
           </div>
 
