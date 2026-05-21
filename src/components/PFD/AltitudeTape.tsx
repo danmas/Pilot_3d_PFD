@@ -5,14 +5,16 @@ interface Props { frame: TelemetryFrame; }
 
 export function AltitudeTape({ frame }: Props) {
   const TAPE_COLOR = "#818181";
+
+  const finiteNumber = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
   
-  const baroAltFt = (frame.dec_BaroAltFt as number) ?? null;
-  const radioAltFt = (frame.dec_RadioAltFt as number) ?? null;
-  const baroAltM = (frame.BaroAltitude as number) ?? null;
-  const selectedAltFt = (frame.StandardAltitude as number) ?? null;
+  const baroAltFt = finiteNumber(frame.BaroAltitude) ?? finiteNumber(frame.dec_BaroAltFt);
+  const radioAltFt = finiteNumber(frame.RadioAltitude) ?? finiteNumber(frame.dec_RadioAltFt);
+  const selectedAltFt = finiteNumber(frame.StandardAltitude);
   
   const displayAlt = baroAltFt ?? radioAltFt ?? 12000;
-  const metricAlt = baroAltM ?? displayAlt * 0.3048;
+  const metricAlt = displayAlt * 0.3048;
   const pxPerFt = 0.55; 
 
   const renderTicks = () => {
@@ -69,7 +71,7 @@ export function AltitudeTape({ frame }: Props) {
       {/* Center Black Indicator Box */}
       <g transform="translate(560, 300)">
         <title>Текущая барометрическая высота. Зелёный текст — высота в метрах.
-        Источник: dec_BaroAltFt, BaroAltitude</title>
+        Источник: BaroAltitude/dec_BaroAltFt; метры вычисляются из футов</title>
         <path d="M0,0 L15,-35 L100,-35 L100,35 L15,35 Z" fill="black" stroke="#FFEA00" strokeWidth="2" />
         <line x1="15" y1="-12" x2="100" y2="-12" stroke="#FFEA00" strokeWidth="1" />
         

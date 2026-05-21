@@ -239,16 +239,16 @@ const DEC_FORMULAS: Record<
   string,
   (decoded: Record<string, number | null>) => number | null
 > = {
-  /** Барометрическая высота в футах: BaroAltitude (метры) × 3.28084 */
+  /** Барометрическая высота в футах: BaroAltitude уже приходит из tnparserrt в футах */
   dec_BaroAltFt: (d) => {
-    const m = d.BaroAltitude;
-    return Number.isFinite(m) ? (m as number) * 3.28084 : null;
+    const ft = d.BaroAltitude;
+    return Number.isFinite(ft) ? (ft as number) : null;
   },
 
-  /** Радиовысота в футах: RadioAltitude (метры?) × 3.28084 */
+  /** Радиовысота в футах: RadioAltitude уже приходит из tnparserrt в футах */
   dec_RadioAltFt: (d) => {
-    const m = d.RadioAltitude;
-    return Number.isFinite(m) ? (m as number) * 3.28084 : null;
+    const ft = d.RadioAltitude;
+    return Number.isFinite(ft) ? (ft as number) : null;
   },
 
   /** Скорость в узлах из Mach (приблизительно, для справки) */

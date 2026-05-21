@@ -15,7 +15,7 @@ export const sampleFrame: TelemetryFrame = {
   "AoA": 4.6,
   "dec_RadioAltFt": 5120,
   "dec_BaroAltFt": 12000,
-  "BaroAltitude": 3658,
+  "BaroAltitude": 12000,
   "Vy": -53,
   "NormalG": -0.00650033401325345,
   "dec_G": null,

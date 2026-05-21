@@ -5,6 +5,9 @@ interface Props { frame: TelemetryFrame; }
 
 export function AttitudeIndicator({ frame }: Props) {
   const cx = 400, cy = 300, r = 160;
+
+  const finiteNumber = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
   
   const pitch = (frame.PitchAngle as number) ?? 0;
   const roll = (frame.RollAngle as number) ?? 0;
@@ -14,7 +17,7 @@ export function AttitudeIndicator({ frame }: Props) {
   const pitchScale = 6;
   const yTranslate = pitch * pitchScale;
 
-  const radioAlt = (frame.dec_RadioAltFt as number) ?? 0;
+  const radioAlt = finiteNumber(frame.RadioAltitude) ?? finiteNumber(frame.dec_RadioAltFt) ?? 0;
   const fdPitch = (frame.FD_PitchCmd as number) ?? null;
   const fdRoll = (frame.FD_RollCmd as number) ?? null;
 
@@ -128,7 +131,7 @@ export function AttitudeIndicator({ frame }: Props) {
       {Number.isFinite(radioAlt) && (
         <g transform="translate(0, 160)">
           <title>Радиовысотомер (Radio Altimeter) — высота над поверхностью земли в футах.
-          Источник: dec_RadioAltFt</title>
+          Источник: RadioAltitude/dec_RadioAltFt</title>
           <rect x="-40" y="-18" width="80" height="30" fill="black" />
           <text x="0" y="5" fill="#00FF00" fontSize="24" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
             {Math.round(radioAlt)}

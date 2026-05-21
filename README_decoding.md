@@ -78,8 +78,8 @@
 
 | Ключ | Формула | Назначение |
 |------|---------|------------|
-| `dec_BaroAltFt` | `BaroAltitude × 3.28084` | Барометрическая высота в футах |
-| `dec_RadioAltFt` | `RadioAltitude × 3.28084` | Радиовысота в футах |
+| `dec_BaroAltFt` | `BaroAltitude` | Барометрическая высота в футах |
+| `dec_RadioAltFt` | `RadioAltitude` | Радиовысота в футах |
 | `dec_MachKnots` | `MachNumber × 661.5` | Скорость в узлах (приблизительно) |
 | `dec_G` | `NormalG` (алиас) | Перегрузка |
 
