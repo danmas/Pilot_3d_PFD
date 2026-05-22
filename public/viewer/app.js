@@ -34,6 +34,7 @@ const PFD_KEYS = [
 const els = {
   connectionDot: document.querySelector("#connection-dot"),
   connectionText: document.querySelector("#connection-text"),
+  sourceConfig: document.querySelector("#source-config"),
   modeLabel: document.querySelector("#mode-label"),
   liveMode: document.querySelector("#live-mode"),
   replayMode: document.querySelector("#replay-mode"),
@@ -144,6 +145,7 @@ function connectLive() {
     const status = JSON.parse(event.data);
     els.statusJson.textContent = stringify(status);
     updateCaptureStatus(status.capture);
+    updateSourceConfig(status.source);
     if (state.mode === "live") {
       const fresh = status.lastPacketAgeMs !== null && status.lastPacketAgeMs < 3000;
       setConnection(fresh, fresh ? "receiving UDP" : "waiting UDP");
@@ -167,6 +169,15 @@ function disconnectLive() {
 function setConnection(ok, text) {
   els.connectionDot.classList.toggle("ok", ok);
   els.connectionText.textContent = text;
+}
+
+function updateSourceConfig(source) {
+  if (!els.sourceConfig) return;
+  if (!source) {
+    els.sourceConfig.textContent = "Live/replay диагностика decoder source";
+    return;
+  }
+  els.sourceConfig.textContent = `Live/replay диагностика потока tnparserrt udp://${source.udpHost}:${source.udpPort}`;
 }
 
 async function refreshRecordings() {

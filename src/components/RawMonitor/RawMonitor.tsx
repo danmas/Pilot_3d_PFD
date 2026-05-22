@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, Radio, WifiOff, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Copy, Monitor } from 'lucide-react';
+import { Radio, WifiOff, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Copy, Monitor } from 'lucide-react';
 import { FIELD_CATALOG } from '@/field-catalog';
 
 type ConnStatus = 'idle' | 'connecting' | 'receiving' | 'waiting' | 'error';
@@ -16,7 +16,11 @@ interface RawFrame {
 }
 
 interface RawStatus {
-  port: number;
+  source?: {
+    udpHost: string;
+    udpPort: number;
+  };
+  mode?: 'decoder-stream';
   active: boolean;
   receivedPackets: number;
   receivedFrames: number;
@@ -26,7 +30,6 @@ interface RawStatus {
   lastError?: string;
 }
 
-const DEFAULT_PORT = 14442;
 const RAW_SSE_URL = '/events/raw';
 
 // Build comment map from field-catalog (once, at module load)
@@ -43,9 +46,6 @@ interface Props {
 }
 
 export default function RawMonitor({ onBack }: Props) {
-  const [port, setPort] = useState(DEFAULT_PORT);
-  const [portInput, setPortInput] = useState(String(DEFAULT_PORT));
-  const [listening, setListening] = useState(false);
   const [connStatus, setConnStatus] = useState<ConnStatus>('idle');
   const [lastFrame, setLastFrame] = useState<RawFrame | null>(null);
   const [status, setStatus] = useState<RawStatus | null>(null);
@@ -54,7 +54,6 @@ export default function RawMonitor({ onBack }: Props) {
   const [showAllKeys, setShowAllKeys] = useState(false);
 
   const eventSourceRef = useRef<EventSource | null>(null);
-  const frameCountRef = useRef(0);
 
   // ── connect SSE ──
   const connectSSE = useCallback(() => {
@@ -74,7 +73,6 @@ export default function RawMonitor({ onBack }: Props) {
         const data = JSON.parse(event.data);
         console.log('[RAW-MONITOR-UI] raw-frame received, keys:', Object.keys(data.decoded || {}).length);
         setLastFrame(data);
-        frameCountRef.current += 1;
         setConnStatus('receiving');
         setError(null);
       } catch { setError('Failed to parse raw-frame'); }
@@ -84,7 +82,6 @@ export default function RawMonitor({ onBack }: Props) {
         const s: RawStatus = JSON.parse(event.data);
         console.log('[RAW-MONITOR-UI] status received:', JSON.stringify(s));
         setStatus(s);
-        setListening(s.active);
         if (s.active) {
           const fresh = s.lastPacketAgeMs !== null && s.lastPacketAgeMs < 3000;
           setConnStatus(fresh ? 'receiving' : 'waiting');
@@ -106,52 +103,13 @@ export default function RawMonitor({ onBack }: Props) {
     setConnStatus('idle');
   }, []);
 
-  // ── start / stop monitor ──
-  const startMonitor = async () => {
-    const p = Number(portInput);
-    if (!Number.isFinite(p) || p < 1 || p > 65535) {
-      setError('Invalid port number (1-65535)');
-      return;
-    }
-    setPort(p);
-    setError(null);
-    console.log('[RAW-MONITOR-UI] startMonitor called, port=', p);
-    try {
-      const res = await fetch('/api/raw/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ port: p }),
-      });
-      const data = await res.json();
-      console.log('[RAW-MONITOR-UI] /api/raw/start response status=', res.status, 'data=', data);
-      if (res.ok) {
-        setListening(true);
-        connectSSE();
-      } else {
-        setError(data.error || 'Failed to start monitor');
-      }
-    } catch (e) {
-      console.error('[RAW-MONITOR-UI] /api/raw/start failed:', e);
-      setError(e instanceof Error ? e.message : 'Network error');
-    }
-  };
-
-  const stopMonitor = async () => {
-    disconnectSSE();
-    try {
-      await fetch('/api/raw/stop', { method: 'POST' });
-    } catch { /* ignore */ }
-    setListening(false);
-    setConnStatus('idle');
-    // keep lastFrame and status visible for inspection
-  };
-
   // ── cleanup ──
   useEffect(() => {
+    connectSSE();
     return () => {
-      if (eventSourceRef.current) eventSourceRef.current.close();
+      disconnectSSE();
     };
-  }, []);
+  }, [connectSSE, disconnectSSE]);
 
   // ── derived ──
   const statusColor = {
@@ -230,34 +188,12 @@ export default function RawMonitor({ onBack }: Props) {
 
         {/* Control bar */}
         <div className="flex items-center gap-4 bg-black/30 p-4 rounded-xl border border-white/5">
-          <div className="flex items-center gap-2">
-            <label className="text-white/60 text-sm font-medium">UDP Port:</label>
-            <input
-              type="number"
-              value={portInput}
-              onChange={(e) => setPortInput(e.target.value)}
-              disabled={listening}
-              className="w-24 px-3 py-1.5 bg-black/50 border border-white/20 rounded-lg text-white text-sm font-mono focus:outline-none focus:border-emerald-400/50 disabled:opacity-40 disabled:cursor-not-allowed"
-              min={1}
-              max={65535}
-            />
+          <div className="text-sm text-white/60">
+            Current Decoder Output
           </div>
-
-          {!listening ? (
-            <button
-              onClick={startMonitor}
-              className="flex items-center gap-2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 transition text-white text-sm font-medium rounded-lg"
-            >
-              <Play className="w-4 h-4" /> Start
-            </button>
-          ) : (
-            <button
-              onClick={stopMonitor}
-              className="flex items-center gap-2 px-4 py-1.5 bg-red-600/70 hover:bg-red-500 transition text-white text-sm font-medium rounded-lg"
-            >
-              <Pause className="w-4 h-4" /> Stop
-            </button>
-          )}
+          <div className="text-xs text-white/40 font-mono">
+            {status?.source ? `udp://${status.source.udpHost}:${status.source.udpPort}` : 'udp://...'}
+          </div>
 
           {error && (
             <span className="text-red-400 text-sm font-medium truncate max-w-[400px]">{error}</span>
@@ -367,7 +303,7 @@ export default function RawMonitor({ onBack }: Props) {
           <div className="flex flex-col items-center justify-center py-24 text-white/20 gap-3">
             <WifiOff className="w-12 h-12" />
             <p className="text-sm">
-              {listening ? 'Waiting for UDP data...' : 'Start the monitor to receive parser data'}
+              Waiting for decoder stream...
             </p>
           </div>
         )}

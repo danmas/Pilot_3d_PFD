@@ -9,6 +9,8 @@ export interface RegisteredInstrument {
   name: string;
   iconName: string;
   Component: InstrumentComponent;
+  tooltip?: string;
+  frameVariables?: string[];
 }
 
 /** Central registry map */

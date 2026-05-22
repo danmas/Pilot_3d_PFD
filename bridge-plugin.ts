@@ -50,8 +50,12 @@ type Recording = {
 };
 
 type RawMonitorState = {
-  port: number;
+  source: {
+    udpHost: string;
+    udpPort: number;
+  };
   active: boolean;
+  mode: "decoder-stream";
   receivedPackets: number;
   receivedFrames: number;
   lastPacketAtMs: number | undefined;
@@ -63,6 +67,7 @@ type RawMonitorState = {
 // ── constants ──────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
+const PANEL_CONFIG_CURRENT_PATH = path.join(PROJECT_ROOT, "panel-config-current.json");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
 const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
 
@@ -78,6 +83,9 @@ let currentFrame: CurrentFrame | null = null;
 let currentTelemetryFrame: TelemetryFrame | null = null;
 let currentPfdFrame: TelemetryFrame | null = null;
 let firstReceiveTime: number | undefined;
+let bridgeUdpHost = "0.0.0.0";
+let bridgeUdpPort = 14443;
+let bridgeUdpActive = false;
 let receivedFrames = 0;
 let receivedPackets = 0;
 let lastPacketAtMs: number | undefined;
@@ -88,23 +96,19 @@ let capturePath: string | undefined;
 let captureFrames = 0;
 
 // ── raw monitor state ──────────────────────────────────────────────
-let rawUdpServer: dgram.Socket | undefined;
 let rawLastDecoded: Record<string, number> | null = null;
 let rawLastHex: string | null = null;
 let rawReceivedPackets = 0;
 let rawReceivedFrames = 0;
 let rawLastPacketAtMs: number | undefined;
 let rawLastError: string | undefined;
-let rawMonitorPort = 14442;
-let rawCurrentFrame: CurrentFrame | null = null;
-let bridgeUdpPort = 14443;
-let rawPiggyback = false;
 
 // Схема декодирования загружается при старте один раз
 let decodeSchema: DecodeSchema | null = null;
+let decodeSchemaPort: number | null = null;
 
 function ensureDecodeSchema(): DecodeSchema {
-  if (decodeSchema) return decodeSchema;
+  if (decodeSchema && decodeSchemaPort === bridgeUdpPort) return decodeSchema;
   console.log("[BRIDGE] Loading decode schema from out.json...");
   const outPath = path.resolve(PROJECT_ROOT, "out.json");
   const configs = loadOutJson(__dirname, outPath);
@@ -117,6 +121,7 @@ function ensureDecodeSchema(): DecodeSchema {
   }
   console.log(`[BRIDGE] Found ${stream.slots.length} slots for port ${bridgeUdpPort}`);
   decodeSchema = buildDecodeSchema(stream.slots, FIELD_CATALOG);
+  decodeSchemaPort = bridgeUdpPort;
   const report = validateSchema(decodeSchema);
   console.log("[BRIDGE] Schema validation report:");
   console.log(report.report);
@@ -136,9 +141,8 @@ export interface BridgeOptions {
 }
 
 export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
-  const udpHost = opts.udpHost ?? "0.0.0.0";
-  const udpPort = opts.udpPort ?? 14443;
-  bridgeUdpPort = udpPort;
+  bridgeUdpHost = opts.udpHost ?? "0.0.0.0";
+  bridgeUdpPort = opts.udpPort ?? 14443;
   const captureDir = opts.captureDir ?? DEFAULT_CAPTURE_DIR;
   captureEnabled = !opts.noCapture;
 
@@ -148,71 +152,118 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
   // Sync is fixed 0x544e ("TN")
   const sync = SYNC_MARKER;
 
+  const publishStatusUpdates = () => {
+    sendSse("status", getStatus());
+    sendPfdSse("status", getPfdStatus());
+    sendRawSse("status", getRawStatus());
+  };
+
+  const closeUdpServer = () => {
+    if (!udpServer) return;
+    try {
+      udpServer.close();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[BRIDGE] Failed to close UDP socket: ${msg}`);
+    }
+    udpServer = undefined;
+    bridgeUdpActive = false;
+  };
+
+  const startUdpServer = () => {
+    closeUdpServer();
+    currentFrame = null;
+
+    const schema = ensureDecodeSchema();
+    const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+    udpServer = socket;
+
+    socket.on("message", (message) => {
+      const now = Date.now();
+      receivedPackets += 1;
+      lastPacketAtMs = now;
+
+      try {
+        if (isMarkerPacket(message, sync)) {
+          const marker = parseMarkerPacket(message);
+          currentFrame = {
+            counter: marker.counter,
+            totalBytes: marker.dataCounters.reduce((sum, s) => sum + s, 0),
+            remainingBytes: marker.dataCounters.reduce((sum, s) => sum + s, 0),
+            chunks: [],
+          };
+          return;
+        }
+
+        if (!currentFrame) {
+          const decoded = decodePayload(message, schema);
+          feedRawData(decoded, message, now);
+          publishDecodedFrame(decoded, now, captureDir);
+          return;
+        }
+
+        currentFrame.chunks.push(message);
+        currentFrame.remainingBytes -= message.length;
+        if (currentFrame.remainingBytes > 0) return;
+
+        const frame = currentFrame;
+        currentFrame = null;
+        const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
+        const decoded = decodePayload(payload, schema);
+        feedRawData(decoded, payload, now);
+        publishDecodedFrame(decoded, now, captureDir, frame.counter);
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error(`[UDP ERROR] ${lastError}`);
+      }
+    });
+
+    socket.on("error", (error) => {
+      lastError = error.message;
+      bridgeUdpActive = false;
+      console.error(`[UDP ERROR] ${error.message}`);
+      publishStatusUpdates();
+    });
+
+    socket.bind(bridgeUdpPort, bridgeUdpHost, () => {
+      const addr = socket.address();
+      bridgeUdpActive = true;
+      console.log(`[BRIDGE] UDP udp://${addr.address}:${addr.port}`);
+      console.log(`[BRIDGE] schema ${schema.mappings.length} fields / ${schema.frameBytes} bytes per frame (out.json→field-catalog.ts)`);
+      console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
+      publishStatusUpdates();
+    });
+  };
+
+  const reconfigureSource = (nextHost: string, nextPort: number) => {
+    bridgeUdpHost = nextHost;
+    bridgeUdpPort = nextPort;
+    decodeSchema = null;
+    decodeSchemaPort = null;
+    firstReceiveTime = undefined;
+    receivedPackets = 0;
+    receivedFrames = 0;
+    rawReceivedPackets = 0;
+    rawReceivedFrames = 0;
+    rawLastDecoded = null;
+    rawLastHex = null;
+    rawLastPacketAtMs = undefined;
+    currentTelemetryFrame = null;
+    currentPfdFrame = null;
+    lastPacketAtMs = undefined;
+    lastError = undefined;
+    rawLastError = undefined;
+    startUdpServer();
+  };
+
   return {
     name: "pilot-bridge",
 
     configureServer(vite: ViteDevServer) {
-      // Загружаем схему при старте
-      const schema = ensureDecodeSchema();
-
-      // ── UDP ────────────────────────────────────────────────
-      udpServer = dgram.createSocket({ type: "udp4", reuseAddr: true });
-
-      udpServer.on("message", (message) => {
-        const now = Date.now();
-        receivedPackets += 1;
-        lastPacketAtMs = now;
-
-        try {
-          if (isMarkerPacket(message, sync)) {
-            const marker = parseMarkerPacket(message);
-            currentFrame = {
-              counter: marker.counter,
-              totalBytes: marker.dataCounters.reduce((sum, s) => sum + s, 0),
-              remainingBytes: marker.dataCounters.reduce((sum, s) => sum + s, 0),
-              chunks: [],
-            };
-            return;
-          }
-
-          if (!currentFrame) {
-            const decoded = decodePayload(message, schema);
-            if (rawPiggyback) feedRawData(decoded, message, now);
-            publishDecodedFrame(decoded, now, captureDir);
-            return;
-          }
-
-          currentFrame.chunks.push(message);
-          currentFrame.remainingBytes -= message.length;
-          if (currentFrame.remainingBytes > 0) return;
-
-          const frame = currentFrame;
-          currentFrame = null;
-          const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
-          const decoded = decodePayload(payload, schema);
-          if (rawPiggyback) feedRawData(decoded, payload, now);
-          publishDecodedFrame(decoded, now, captureDir, frame.counter);
-        } catch (error) {
-          lastError = error instanceof Error ? error.message : String(error);
-          console.error(`[UDP ERROR] ${lastError}`);
-        }
-      });
-
-      udpServer.on("error", (error) => {
-        lastError = error.message;
-        console.error(`[UDP ERROR] ${error.message}`);
-      });
-
-      udpServer.bind(udpPort, udpHost, () => {
-        const addr = udpServer!.address();
-        console.log(`[BRIDGE] UDP udp://${addr.address}:${addr.port}`);
-        console.log(`[BRIDGE] schema ${schema.mappings.length} fields / ${schema.frameBytes} bytes per frame (out.json→field-catalog.ts)`);
-        console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
-      });
+      startUdpServer();
 
       statusInterval = setInterval(() => {
-        sendSse("status", getStatus(udpHost, udpPort));
-        sendPfdSse("status", getPfdStatus());
+        publishStatusUpdates();
       }, 1000);
 
       // ── HTTP middleware ────────────────────────────────────
@@ -234,10 +285,42 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
 
           // API: status
           if (req.method === "GET" && url.pathname === "/api/status") {
-            sendJson(res, getStatus(udpHost, udpPort)); return;
+            sendJson(res, getStatus()); return;
+          }
+          if (req.method === "GET" && url.pathname === "/api/source/status") {
+            sendJson(res, getSourceStatus()); return;
+          }
+          if (req.method === "POST" && url.pathname === "/api/source/config") {
+            const body = await readRequestBody(req);
+            const nextHost = typeof body?.host === "string" && body.host.trim().length > 0
+              ? body.host.trim()
+              : bridgeUdpHost;
+            const nextPort = body?.port === undefined
+              ? bridgeUdpPort
+              : Number(body.port);
+            if (!Number.isFinite(nextPort) || nextPort < 1 || nextPort > 65535) {
+              sendJson(res, { error: "Invalid port" }, 400); return;
+            }
+            reconfigureSource(nextHost, nextPort);
+            sendJson(res, getSourceStatus()); return;
           }
           if (req.method === "GET" && url.pathname === "/api/pfd/status") {
             sendJson(res, getPfdStatus()); return;
+          }
+
+          // API: Panel Builder current config
+          if (req.method === "GET" && url.pathname === "/api/panel/config/current") {
+            const config = readPanelConfigCurrent();
+            if (!config) { sendJson(res, { error: "panel config not found" }, 404); return; }
+            sendJson(res, config); return;
+          }
+          if (req.method === "PUT" && url.pathname === "/api/panel/config/current") {
+            const body = await readRequestBody(req);
+            if (!isPanelConfigNode(body)) {
+              sendJson(res, { error: "invalid panel config" }, 400); return;
+            }
+            writePanelConfigCurrent(body);
+            sendJson(res, { ok: true, file: path.basename(PANEL_CONFIG_CURRENT_PATH) }); return;
           }
 
           // API: capture
@@ -267,20 +350,9 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             sendJson(res, { decoded: rawLastDecoded, hex: rawLastHex, receivedAt: rawLastPacketAtMs ? new Date(rawLastPacketAtMs).toISOString() : null }); return;
           }
           if (req.method === "POST" && url.pathname === "/api/raw/start") {
-            const body = await readRequestBody(req);
-            const port = body?.port ? Number(body.port) : rawMonitorPort;
-            console.log(`[RAW-MONITOR] API start requested, port=${port}, body=`, body);
-            if (!Number.isFinite(port) || port < 1 || port > 65535) {
-              console.log(`[RAW-MONITOR] Invalid port: ${port}`);
-              sendJson(res, { error: "Invalid port" }, 400); return;
-            }
-            const result = startRawMonitor(port);
-            console.log(`[RAW-MONITOR] startRawMonitor result:`, JSON.stringify(result));
-            sendJson(res, result); return;
+            sendJson(res, getRawMonitorState()); return;
           }
           if (req.method === "POST" && url.pathname === "/api/raw/stop") {
-            console.log(`[RAW-MONITOR] API stop requested`);
-            stopRawMonitor();
             sendJson(res, getRawMonitorState()); return;
           }
 
@@ -339,6 +411,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
 
     closeBundle() {
       if (statusInterval) clearInterval(statusInterval);
+      closeUdpServer();
     },
   };
 }
@@ -382,7 +455,7 @@ function handleSse(res: http.ServerResponse): void {
   res.writeHead(200, { "Cache-Control": "no-cache", "Content-Type": "text/event-stream; charset=utf-8", Connection: "keep-alive", "X-Accel-Buffering": "no" });
   res.write("\n");
   sseClients.add(res);
-  sendSseTo(res, "status", getStatus("?", 0));
+  sendSseTo(res, "status", getStatus());
   if (currentTelemetryFrame) sendSseTo(res, "frame", currentTelemetryFrame);
   res.on("close", () => sseClients.delete(res));
 }
@@ -427,9 +500,10 @@ function sendRawSse(event: string, data: unknown): void {
 }
 
 // ── status ─────────────────────────────────────────────────────────
-function getStatus(udpHost: string, _udpPort: number): object {
+function getStatus(): object {
   return {
-    udp: `udp://${udpHost}:${bridgeUdpPort}`,
+    udp: `udp://${bridgeUdpHost}:${bridgeUdpPort}`,
+    source: getSourceStatus(),
     receivedPackets, receivedFrames,
     lastPacketAgeMs: lastPacketAtMs === undefined ? null : Date.now() - lastPacketAtMs,
     currentSeq: currentTelemetryFrame?.seq ?? null,
@@ -454,10 +528,24 @@ function getPfdStatus(): object {
   };
 }
 
+function getSourceStatus() {
+  return {
+    udpHost: bridgeUdpHost,
+    udpPort: bridgeUdpPort,
+    active: bridgeUdpActive,
+    schema: "telemetry-frame.v1",
+    source: `tnparser-udp-${bridgeUdpPort}`,
+  };
+}
+
 function getRawStatus() {
   return {
-    port: rawMonitorPort,
-    active: Boolean(rawUdpServer) || rawPiggyback,
+    source: {
+      udpHost: bridgeUdpHost,
+      udpPort: bridgeUdpPort,
+    },
+    mode: "decoder-stream" as const,
+    active: bridgeUdpActive,
     receivedPackets: rawReceivedPackets,
     receivedFrames: rawReceivedFrames,
     lastPacketAgeMs: rawLastPacketAtMs ? Date.now() - rawLastPacketAtMs : null,
@@ -467,7 +555,7 @@ function getRawStatus() {
   };
 }
 
-// ── raw monitor start/stop ─────────────────────────────────────────
+// ── raw monitor (decoder stream only) ──────────────────────────────
 function feedRawData(decoded: Record<string, number | null>, rawMessage: Buffer, now: number): void {
   rawReceivedPackets += 1;
   rawLastPacketAtMs = now;
@@ -481,91 +569,14 @@ function feedRawData(decoded: Record<string, number | null>, rawMessage: Buffer,
   sendRawSse("status", getRawStatus());
 }
 
-function startRawMonitor(port: number): RawMonitorState {
-  console.log(`[RAW-MONITOR] startRawMonitor called, port=${port}, bridgePort=${bridgeUdpPort}`);
-
-  // Если порт совпадает с портом бриджа — piggyback (без своего сокета)
-  if (port === bridgeUdpPort) {
-    stopRawMonitor();
-    rawMonitorPort = port;
-    rawPiggyback = true;
-    rawLastError = undefined;
-    rawReceivedPackets = 0;
-    rawReceivedFrames = 0;
-    rawLastDecoded = null;
-    rawLastHex = null;
-    rawLastPacketAtMs = undefined;
-    console.log(`[RAW-MONITOR] Piggyback mode ON — tapping bridge pipeline on port ${port}`);
-    const state = getRawMonitorState();
-    console.log(`[RAW-MONITOR] Returning state: active=${state.active}, port=${state.port}, piggyback=yes`);
-    return state;
-  }
-
-  stopRawMonitor();
-  rawMonitorPort = port;
-  rawLastError = undefined;
-  rawReceivedPackets = 0;
-  rawReceivedFrames = 0;
-  rawLastDecoded = null;
-  rawLastHex = null;
-  rawLastPacketAtMs = undefined;
-
-  console.log(`[RAW-MONITOR] Creating UDP socket with reuseAddr=true...`);
-  rawUdpServer = dgram.createSocket({ type: "udp4", reuseAddr: true });
-  rawUdpServer.on("message", (message) => {
-    const now = Date.now();
-    rawReceivedPackets += 1;
-    rawLastPacketAtMs = now;
-    rawLastHex = message.toString("hex").slice(0, 512);
-    console.log(`[RAW-MONITOR] Packet #${rawReceivedPackets} received, ${message.length}B, hex: ${rawLastHex.slice(0, 40)}...`);
-    try {
-      const schema = ensureDecodeSchema();
-      const decoded = decodePayload(message, schema);
-      rawLastDecoded = decoded as Record<string, number>;
-      rawReceivedFrames += 1;
-      rawLastError = undefined;
-      // [SILENCED] console.log(`[RAW-MONITOR] Frame #${rawReceivedFrames} decoded, ${Object.keys(decoded).length} fields, SSE clients: ${rawSseClients.size}`);
-      sendRawSse("raw-frame", { decoded, hex: rawLastHex, receivedAt: new Date(now).toISOString() });
-      sendRawSse("status", getRawStatus());
-    } catch (error) {
-      rawLastError = error instanceof Error ? error.message : String(error);
-      console.error(`[RAW-MONITOR] Decode error: ${rawLastError}`);
-    }
-  });
-
-  rawUdpServer.on("error", (error) => {
-    rawLastError = error.message;
-    console.error(`[RAW-MONITOR] Socket error: ${error.message}`, error);
-    sendRawSse("status", getRawStatus());
-  });
-
-  console.log(`[RAW-MONITOR] Binding to 0.0.0.0:${port}...`);
-  rawUdpServer.bind(port, "0.0.0.0", () => {
-    const addr = rawUdpServer!.address();
-    console.log(`[RAW-MONITOR] Bound successfully: udp://${addr.address}:${addr.port}`);
-    sendRawSse("status", getRawStatus());
-  });
-
-  const state = getRawMonitorState();
-  console.log(`[RAW-MONITOR] Returning state: active=${state.active}, port=${state.port}`);
-  return state;
-}
-
-function stopRawMonitor(): void {
-  console.log(`[RAW-MONITOR] stopRawMonitor called, wasActive=${Boolean(rawUdpServer)}, piggyback=${rawPiggyback}`);
-  rawPiggyback = false;
-  if (rawUdpServer) {
-    try { rawUdpServer.close(); console.log(`[RAW-MONITOR] Socket closed`); } catch (e) { console.error(`[RAW-MONITOR] Error closing socket:`, e); }
-    rawUdpServer = undefined;
-  }
-  rawCurrentFrame = null;
-  sendRawSse("status", getRawStatus());
-}
-
 function getRawMonitorState(): RawMonitorState {
   return {
-    port: rawMonitorPort,
-    active: Boolean(rawUdpServer) || rawPiggyback,
+    source: {
+      udpHost: bridgeUdpHost,
+      udpPort: bridgeUdpPort,
+    },
+    active: bridgeUdpActive,
+    mode: "decoder-stream",
     receivedPackets: rawReceivedPackets,
     receivedFrames: rawReceivedFrames,
     lastPacketAtMs: rawLastPacketAtMs,
@@ -588,7 +599,7 @@ function startCapture(captureDir: string): object {
   captureStream = fs.createWriteStream(capturePath, { flags: "wx", encoding: "utf8" });
   captureEnabled = true;
   console.log(`[CAPTURE] started ${capturePath}`);
-  sendSse("status", getStatus("?", 0));
+  sendSse("status", getStatus());
   sendPfdSse("status", getPfdStatus());
   return getCaptureStatus(captureDir);
 }
@@ -598,7 +609,7 @@ function stopCapture(): object {
   const p = capturePath; const n = captureFrames;
   closeCapture();
   console.log(`[CAPTURE] stopped ${p ?? "n/a"} frames=${n}`);
-  sendSse("status", getStatus("?", 0));
+  sendSse("status", getStatus());
   sendPfdSse("status", getPfdStatus());
   return { ...getCaptureStatus(""), stoppedPath: p, stoppedFrames: n };
 }
@@ -705,6 +716,25 @@ function ct(fp: string): string {
     case ".json": return "application/json; charset=utf-8";
     default: return "application/octet-stream";
   }
+}
+
+// ── panel config ────────────────────────────────────────────────────
+function isPanelConfigNode(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const node = value as Record<string, unknown>;
+  return typeof node.id === "string" && typeof node.type === "string";
+}
+
+function readPanelConfigCurrent(): Record<string, unknown> | null {
+  if (!fs.existsSync(PANEL_CONFIG_CURRENT_PATH)) return null;
+  const raw = fs.readFileSync(PANEL_CONFIG_CURRENT_PATH, "utf8");
+  const parsed = JSON.parse(raw);
+  return isPanelConfigNode(parsed) ? parsed : null;
+}
+
+function writePanelConfigCurrent(config: Record<string, unknown>): void {
+  fs.mkdirSync(path.dirname(PANEL_CONFIG_CURRENT_PATH), { recursive: true });
+  fs.writeFileSync(PANEL_CONFIG_CURRENT_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
 // ── helpers ────────────────────────────────────────────────────────

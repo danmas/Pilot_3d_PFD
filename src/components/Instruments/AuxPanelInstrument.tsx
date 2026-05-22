@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
+import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
 import { registerInstrument } from '../PanelBuilder/registry';
 
 const finiteNumber = (value: unknown): number | null =>
@@ -49,47 +50,60 @@ function LoadsGauge({ frame }: { frame: TelemetryFrame }) {
 
   return (
     <svg viewBox="0 0 400 400" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <circle cx="200" cy="200" r="195" fill="black" />
+      <SvgTooltipGroup
+        description="Шкала перегрузки Ny и угла атаки Alpha."
+        frameVariables={['NormalG', 'AoA']}
+      >
+        <circle cx="200" cy="200" r="195" fill="black" />
 
-      {/* Draw main outer rims */}
-      {arcs.map((a, i) => (
-        <path key={i} d={describeArc(200, 200, a.r, a.start, a.end)} fill="none" stroke={a.color} strokeWidth="6" />
-      ))}
+        {/* Draw main outer rims */}
+        {arcs.map((a, i) => (
+          <path key={i} d={describeArc(200, 200, a.r, a.start, a.end)} fill="none" stroke={a.color} strokeWidth="6" />
+        ))}
 
-      {/* Cyan bracket inner ticks */}
-      <line x1={polarToCartesian(200, 200, 170, 65).x} y1={polarToCartesian(200, 200, 170, 65).y} x2={polarToCartesian(200, 200, 160, 65).x} y2={polarToCartesian(200, 200, 160, 65).y} stroke="#00FFFF" strokeWidth="2" />
-      <line x1={polarToCartesian(200, 200, 170, 130).x} y1={polarToCartesian(200, 200, 170, 130).y} x2={polarToCartesian(200, 200, 160, 130).x} y2={polarToCartesian(200, 200, 160, 130).y} stroke="#00FFFF" strokeWidth="2" />
+        {/* Cyan bracket inner ticks */}
+        <line x1={polarToCartesian(200, 200, 170, 65).x} y1={polarToCartesian(200, 200, 170, 65).y} x2={polarToCartesian(200, 200, 160, 65).x} y2={polarToCartesian(200, 200, 160, 65).y} stroke="#00FFFF" strokeWidth="2" />
+        <line x1={polarToCartesian(200, 200, 170, 130).x} y1={polarToCartesian(200, 200, 170, 130).y} x2={polarToCartesian(200, 200, 160, 130).x} y2={polarToCartesian(200, 200, 160, 130).y} stroke="#00FFFF" strokeWidth="2" />
 
-      {/* Labels Ny */}
-      <text x={polarToCartesian(200, 200, 120, 240).x} y={polarToCartesian(200, 200, 120, 240).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">0</text>
-      <text x={polarToCartesian(200, 200, 120, 330).x} y={polarToCartesian(200, 200, 120, 330).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">3</text>
+        {/* Labels Ny */}
+        <text x={polarToCartesian(200, 200, 120, 240).x} y={polarToCartesian(200, 200, 120, 240).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">0</text>
+        <text x={polarToCartesian(200, 200, 120, 330).x} y={polarToCartesian(200, 200, 120, 330).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">3</text>
 
-      {/* Labels Alpha */}
-      <text x={polarToCartesian(200, 200, 110, 120).x} y={polarToCartesian(200, 200, 110, 120).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">0</text>
-      <text x={polarToCartesian(200, 200, 110, 90).x} y={polarToCartesian(200, 200, 110, 90).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">9</text>
-      <text x={polarToCartesian(200, 200, 110, 70).x} y={polarToCartesian(200, 200, 110, 70).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">15</text>
+        {/* Labels Alpha */}
+        <text x={polarToCartesian(200, 200, 110, 120).x} y={polarToCartesian(200, 200, 110, 120).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">0</text>
+        <text x={polarToCartesian(200, 200, 110, 90).x} y={polarToCartesian(200, 200, 110, 90).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">9</text>
+        <text x={polarToCartesian(200, 200, 110, 70).x} y={polarToCartesian(200, 200, 110, 70).y + 8} fill="white" fontSize="24" textAnchor="middle" fontFamily="sans-serif">15</text>
 
-      {/* Cyan [1 for Ny */}
-      <text x="50" y="209" fill="#00FFFF" fontSize="26" fontFamily="sans-serif" textAnchor="middle">1</text>
-      <path d="M 40 185 L 25 185 L 25 215 L 40 215" fill="none" stroke="#00FFFF" strokeWidth="2" />
+        {/* Cyan [1 for Ny */}
+        <text x="50" y="209" fill="#00FFFF" fontSize="26" fontFamily="sans-serif" textAnchor="middle">1</text>
+        <path d="M 40 185 L 25 185 L 25 215 L 40 215" fill="none" stroke="#00FFFF" strokeWidth="2" />
 
-      {/* Center Labels */}
-      <text x="170" y="145" fill="white" fontSize="26" textAnchor="middle" fontFamily="serif">ny</text>
-      <text x="230" y="145" fill="white" fontSize="28" textAnchor="middle" fontFamily="serif">α</text>
+        {/* Center Labels */}
+        <text x="170" y="145" fill="white" fontSize="26" textAnchor="middle" fontFamily="serif">ny</text>
+        <text x="230" y="145" fill="white" fontSize="28" textAnchor="middle" fontFamily="serif">α</text>
+      </SvgTooltipGroup>
 
       {/* Digital Boxes */}
-      <g transform="translate(90, 240)">
+      <SvgTooltipGroup
+        transform="translate(90, 240)"
+        description="Цифровое значение Ny: нормальная перегрузка, смещенная к приборной шкале."
+        frameVariables={['NormalG']}
+      >
         <rect x="0" y="0" width="80" height="40" rx="8" ry="8" fill="none" stroke="#555" strokeWidth="2" />
         <text x="40" y="28" fill="white" fontSize="28" textAnchor="middle" fontFamily="monospace">
           {ny.toFixed(1)}
         </text>
-      </g>
-      <g transform="translate(230, 240)">
+      </SvgTooltipGroup>
+      <SvgTooltipGroup
+        transform="translate(230, 240)"
+        description="Цифровое значение угла атаки Alpha."
+        frameVariables={['AoA']}
+      >
         <rect x="0" y="0" width="80" height="40" rx="8" ry="8" fill="none" stroke="#555" strokeWidth="2" />
         <text x="40" y="28" fill="white" fontSize="28" textAnchor="middle" fontFamily="monospace">
           {alpha.toFixed(1)}
         </text>
-      </g>
+      </SvgTooltipGroup>
 
       {/* Reset Button */}
       <g transform="translate(150, 310)">
@@ -98,14 +112,22 @@ function LoadsGauge({ frame }: { frame: TelemetryFrame }) {
       </g>
 
       {/* Needles */}
-      <g transform={`translate(200, 200) rotate(${angleNy - 270})`}>
+      <SvgTooltipGroup
+        transform={`translate(200, 200) rotate(${angleNy - 270})`}
+        description="Зелёная стрелка Ny — текущая нормальная перегрузка."
+        frameVariables={['NormalG']}
+      >
         <path d="M -2 -8 A 8 8 0 0 0 -2 8 Z" fill="#00FF00" />
         <line x1="-2" y1="0" x2="-140" y2="0" stroke="#00FF00" strokeWidth="3" />
-      </g>
-      <g transform={`translate(200, 200) rotate(${angleAlpha - 90})`}>
+      </SvgTooltipGroup>
+      <SvgTooltipGroup
+        transform={`translate(200, 200) rotate(${angleAlpha - 90})`}
+        description="Зелёная стрелка Alpha — текущий угол атаки."
+        frameVariables={['AoA']}
+      >
         <path d="M 2 -8 A 8 8 0 0 1 2 8 Z" fill="#00FF00" />
         <line x1="2" y1="0" x2="140" y2="0" stroke="#00FF00" strokeWidth="3" />
-      </g>
+      </SvgTooltipGroup>
     </svg>
   );
 }
@@ -122,41 +144,46 @@ function ControlGrid({ frame }: { frame: TelemetryFrame }) {
 
   return (
     <svg viewBox="0 0 400 400" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-      <rect x="50" y="50" width="300" height="300" fill="black" stroke="white" strokeWidth="2" />
+      <SvgTooltipGroup
+        description="Индикатор управления: по горизонтали крен, по вертикали тангаж, нормировано к диапазону -1..+1."
+        frameVariables={['RollAngle', 'PitchAngle']}
+      >
+        <rect x="50" y="50" width="300" height="300" fill="black" stroke="white" strokeWidth="2" />
 
-      {/* Grid lines */}
-      {[125, 200, 275].map(v => (
-        <React.Fragment key={v}>
-          <line x1="50" y1={v} x2="350" y2={v} stroke="#444" strokeWidth="1" strokeDasharray="4 4" />
-          <line x1={v} y1="50" x2={v} y2="350" stroke="#444" strokeWidth="1" strokeDasharray="4 4" />
-        </React.Fragment>
-      ))}
+        {/* Grid lines */}
+        {[125, 200, 275].map(v => (
+          <React.Fragment key={v}>
+            <line x1="50" y1={v} x2="350" y2={v} stroke="#444" strokeWidth="1" strokeDasharray="4 4" />
+            <line x1={v} y1="50" x2={v} y2="350" stroke="#444" strokeWidth="1" strokeDasharray="4 4" />
+          </React.Fragment>
+        ))}
 
-      <text x="50" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">-1</text>
-      <text x="125" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">-0.5</text>
-      <text x="200" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">0</text>
-      <text x="275" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">+0.5</text>
-      <text x="350" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">+1</text>
+        <text x="50" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">-1</text>
+        <text x="125" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">-0.5</text>
+        <text x="200" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">0</text>
+        <text x="275" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">+0.5</text>
+        <text x="350" y="40" fill="white" fontSize="18" textAnchor="middle" fontFamily="monospace">+1</text>
 
-      <text x="40" y="55" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">+1</text>
-      <text x="40" y="130" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">0.5</text>
-      <text x="40" y="205" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">0</text>
-      <text x="40" y="280" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">0.5</text>
-      <text x="40" y="355" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">-1</text>
+        <text x="40" y="55" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">+1</text>
+        <text x="40" y="130" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">0.5</text>
+        <text x="40" y="205" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">0</text>
+        <text x="40" y="280" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">0.5</text>
+        <text x="40" y="355" fill="white" fontSize="18" textAnchor="end" fontFamily="monospace">-1</text>
 
-      <text x="50" y="380" fill="#FF00FF" fontSize="24" textAnchor="middle" fontWeight="bold">L</text>
-      <text x="350" y="380" fill="#00FF00" fontSize="24" textAnchor="middle" fontWeight="bold">R</text>
+        <text x="50" y="380" fill="#FF00FF" fontSize="24" textAnchor="middle" fontWeight="bold">L</text>
+        <text x="350" y="380" fill="#00FF00" fontSize="24" textAnchor="middle" fontWeight="bold">R</text>
 
-      {/* Green crosshairs */}
-      <line x1={px} y1="50" x2={px} y2="350" stroke="#00FF00" strokeWidth="2" strokeDasharray="2 2" />
-      <line x1="50" y1={py} x2="350" y2={py} stroke="#00FF00" strokeWidth="2" strokeDasharray="2 2" />
+        {/* Green crosshairs */}
+        <line x1={px} y1="50" x2={px} y2="350" stroke="#00FF00" strokeWidth="2" strokeDasharray="2 2" />
+        <line x1="50" y1={py} x2="350" y2={py} stroke="#00FF00" strokeWidth="2" strokeDasharray="2 2" />
 
-      {/* Dynamic labels */}
-      <text x={px} y={368} fill="#00FF00" fontSize="16" textAnchor="middle" fontFamily="monospace">{(xVal < 0 && xVal > -0.1) ? "-0.0" : xVal.toFixed(1)}</text>
-      <text x={358} y={py + 5} fill="#00FF00" fontSize="16" textAnchor="start" fontFamily="monospace">{(yVal > 0 && yVal < 0.1) ? "-0.0" : yVal.toFixed(1)}</text>
+        {/* Dynamic labels */}
+        <text x={px} y={368} fill="#00FF00" fontSize="16" textAnchor="middle" fontFamily="monospace">{(xVal < 0 && xVal > -0.1) ? "-0.0" : xVal.toFixed(1)}</text>
+        <text x={358} y={py + 5} fill="#00FF00" fontSize="16" textAnchor="start" fontFamily="monospace">{(yVal > 0 && yVal < 0.1) ? "-0.0" : yVal.toFixed(1)}</text>
 
-      {/* Center dot */}
-      <circle cx={px} cy={py} r="6" fill="#00FF00" />
+        {/* Center dot */}
+        <circle cx={px} cy={py} r="6" fill="#00FF00" />
+      </SvgTooltipGroup>
     </svg>
   );
 }
@@ -175,6 +202,13 @@ registerInstrument({
   name: 'Aux Panel',
   iconName: 'Gauge',
   Component: AuxPanelInstrument,
+  tooltip: 'Aux Panel — вспомогательная панель с индикатором управления по тангажу/крену и шкалой перегрузки/AoA.',
+  frameVariables: [
+    'RollAngle',
+    'PitchAngle',
+    'NormalG',
+    'AoA',
+  ],
 });
 
 export default AuxPanelInstrument;

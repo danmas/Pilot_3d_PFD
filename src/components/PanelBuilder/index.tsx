@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Download, Upload } from 'lucide-react';
 import { InstrumentPanel } from './InstrumentPanel';
 import { Sidebar } from './Sidebar';
@@ -13,7 +13,8 @@ import { useTelemetry } from '../../context/TelemetryContext';
 // instrument components into the registry.
 import '../Instruments';
 
-const STORAGE_KEY = 'pilot-panel-config';
+const CURRENT_CONFIG_API = '/api/panel/config/current';
+const CURRENT_CONFIG_FILE_NAME = 'panel-config-current.json';
 
 const createEmptyRoot = (): PanelNode => ({ id: 'root', type: 'empty' });
 
@@ -33,34 +34,88 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
 
   // ---- State: panel layout tree ----
   const [rootNode, setRootNode] = useState<PanelNode>(createEmptyRoot);
+  const [configStatus, setConfigStatus] = useState('Loading current config...');
   const hasHydrated = useRef(false);
+  const lastSavedJson = useRef<string | null>(null);
 
-  // ---- Auto-load from localStorage on mount ----
-  useEffect(() => {
+  const saveCurrentConfig = useCallback(async (node: PanelNode): Promise<boolean> => {
+    const json = JSON.stringify(node, null, 2);
+    setConfigStatus(`Saving ${CURRENT_CONFIG_FILE_NAME}...`);
+
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (isValidPanelNode(parsed)) {
-          setRootNode(parsed);
-        }
+      const response = await fetch(CURRENT_CONFIG_API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: json,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
-    } catch {
-      // ignore corrupt storage
-    } finally {
-      hasHydrated.current = true;
+
+      lastSavedJson.current = json;
+      setConfigStatus(`Saved to ${CURRENT_CONFIG_FILE_NAME}`);
+      return true;
+    } catch (error) {
+      console.warn('Failed to save current panel config', error);
+      setConfigStatus(`Autosave unavailable: ${CURRENT_CONFIG_FILE_NAME}`);
+      return false;
     }
   }, []);
 
-  // ---- Auto-save to localStorage on change (after initial hydration) ----
+  // ---- Auto-load from panel-config-current.json on mount ----
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrentConfig = async () => {
+      try {
+        const response = await fetch(CURRENT_CONFIG_API, { cache: 'no-store' });
+        if (cancelled) return;
+
+        if (response.status === 404) {
+          setConfigStatus(`No ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const parsed = await response.json();
+        if (isValidPanelNode(parsed)) {
+          lastSavedJson.current = JSON.stringify(parsed, null, 2);
+          setRootNode(parsed);
+          setConfigStatus(`Loaded from ${CURRENT_CONFIG_FILE_NAME}`);
+        } else {
+          setConfigStatus(`Invalid ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Failed to load current panel config', error);
+          setConfigStatus(`Cannot read ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
+        }
+      } finally {
+        if (!cancelled) hasHydrated.current = true;
+      }
+    };
+
+    void loadCurrentConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ---- Auto-save to panel-config-current.json on change (after initial hydration) ----
   useEffect(() => {
     if (!hasHydrated.current) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rootNode));
-    } catch {
-      // ignore quota / serialization errors
-    }
-  }, [rootNode]);
+    const json = JSON.stringify(rootNode, null, 2);
+    if (json === lastSavedJson.current) return;
+
+    const timeoutId = window.setTimeout(() => {
+      void saveCurrentConfig(rootNode);
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [rootNode, saveCurrentConfig]);
 
   // ---- File save / load ----
   const handleSaveFile = async () => {
@@ -80,7 +135,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
     if (fsWindow.showSaveFilePicker) {
       try {
         const handle = await fsWindow.showSaveFilePicker({
-          suggestedName: 'panel-config.json',
+          suggestedName: CURRENT_CONFIG_FILE_NAME,
           types: [
             {
               description: 'JSON Files',
@@ -91,6 +146,8 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
         const writable = await handle.createWritable();
         await writable.write(json);
         await writable.close();
+        await saveCurrentConfig(rootNode);
+        setConfigStatus(`Exported to ${handle.name}; current updated`);
         return;
       } catch (err: unknown) {
         if (
@@ -107,9 +164,16 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'panel-config.json';
+    a.download = CURRENT_CONFIG_FILE_NAME;
     a.click();
     URL.revokeObjectURL(url);
+    await saveCurrentConfig(rootNode);
+    setConfigStatus(`Downloaded ${CURRENT_CONFIG_FILE_NAME}; current updated`);
+  };
+
+  const handleBack = async () => {
+    await saveCurrentConfig(rootNode);
+    onBack();
   };
 
   const handleLoadFile = (file: File) => {
@@ -120,6 +184,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
         const parsed = JSON.parse(json);
         if (isValidPanelNode(parsed)) {
           setRootNode(parsed);
+          setConfigStatus(`Imported; will autosave to ${CURRENT_CONFIG_FILE_NAME}`);
         } else {
           alert('Invalid configuration file structure.');
         }
@@ -142,7 +207,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
       <header className="h-12 border-b border-[#2d2e30] bg-[#161719] flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={onBack}
+            onClick={() => void handleBack()}
             className="p-1.5 hover:bg-[#252628] rounded-md text-gray-400 hover:text-white transition-colors"
             title="Back to Hub"
           >
@@ -212,7 +277,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
           <span className="text-gray-500">|</span>
           <span className="text-gray-400">NODE_RENDERER: ACTIVE</span>
         </div>
-        <div className="text-gray-500 font-mono">pilot-panel-config @ localStorage</div>
+        <div className="text-gray-500 font-mono">{configStatus}</div>
       </footer>
     </div>
   );

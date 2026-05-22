@@ -16,6 +16,11 @@ registerInstrument({
   name: 'Airspeed',
   iconName: 'Gauge',
   Component: AirspeedInstrument,
+  tooltip: 'Airspeed — лента приборной скорости CAS и заданная скорость автопилота.',
+  frameVariables: [
+    'CAS',
+    'SpeedSelect',
+  ],
 });
 
 export default AirspeedInstrument;

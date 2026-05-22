@@ -16,6 +16,11 @@ registerInstrument({
   name: 'Angle of Attack',
   iconName: 'Wind',
   Component: AoAInstrument,
+  tooltip: 'Angle of Attack — угол атаки и текущая вертикальная перегрузка G.',
+  frameVariables: [
+    'AoA',
+    'dec_G',
+  ],
 });
 
 export default AoAInstrument;

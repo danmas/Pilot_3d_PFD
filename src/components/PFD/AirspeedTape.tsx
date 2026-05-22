@@ -1,5 +1,6 @@
 import React from 'react';
 import { TelemetryFrame } from '../../types';
+import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
 
 interface Props { frame: TelemetryFrame; }
 
@@ -35,33 +36,39 @@ export function AirspeedTape({ frame }: Props) {
 
   return (
     <g>
-      <title>Лента приборной скорости — CAS (Calibrated Airspeed), узлы.
-      Источник: CAS</title>
-      {/* Background */}
-      <rect x="150" y="60" width="55" height="460" fill={TAPE_COLOR} />
-      
-      {/* Tape */}
-      <clipPath id="air-clip"><rect x="150" y="60" width="55" height="460" /></clipPath>
-      <g clipPath="url(#air-clip)">
-         <g transform="translate(0, 300)">
-           {valid && renderTicks()}
-         </g>
-      </g>
+      <SvgTooltipGroup
+        description="Лента приборной скорости — CAS (Calibrated Airspeed), узлы."
+        frameVariables={['CAS']}
+      >
+        {/* Background */}
+        <rect x="150" y="60" width="55" height="460" fill={TAPE_COLOR} />
+        
+        {/* Tape */}
+        <clipPath id="air-clip"><rect x="150" y="60" width="55" height="460" /></clipPath>
+        <g clipPath="url(#air-clip)">
+           <g transform="translate(0, 300)">
+             {valid && renderTicks()}
+           </g>
+        </g>
+      </SvgTooltipGroup>
       
       {/* Target top cyans */}
-      <g>
-        <title>Заданная скорость автопилота (Selected Speed), узлы.
-        Источник: SpeedSelect</title>
+      <SvgTooltipGroup
+        description="Заданная скорость автопилота (Selected Speed), узлы."
+        frameVariables={['SpeedSelect']}
+      >
         <text x="177" y="45" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">
            {selectedSpeed !== null ? Math.round(selectedSpeed).toString().padStart(3, '0') : "000"}
         </text>
-      </g>
+      </SvgTooltipGroup>
 
       {/* Center Black Indicator Box for Speed */}
       {valid && (
-        <g transform="translate(150, 300)">
-          <title>Текущая приборная скорость (CAS). Жёлтая линия — тренд изменения скорости.
-          Источник: CAS</title>
+        <SvgTooltipGroup
+          transform="translate(150, 300)"
+          description="Текущая приборная скорость (CAS). Жёлтая линия — тренд изменения скорости."
+          frameVariables={['CAS']}
+        >
           {/* Black box pointing left */}
           <path d="M 0 0 L 15 -25 L 90 -25 L 90 25 L 15 25 Z" fill="black" stroke="white" strokeWidth="1" transform="translate(-85, 0)" />
           
@@ -71,7 +78,7 @@ export function AirspeedTape({ frame }: Props) {
 
           {/* Yellow trend / pointer line */}
           <line x1="-10" y1="0" x2="85" y2="0" stroke="#FFEA00" strokeWidth="3" />
-        </g>
+        </SvgTooltipGroup>
       )}
     </g>
   );

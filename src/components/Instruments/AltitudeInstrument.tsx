@@ -16,6 +16,14 @@ registerInstrument({
   name: 'Altitude',
   iconName: 'Mountain',
   Component: AltitudeInstrument,
+  tooltip: 'Altitude — лента высоты: барометрическая высота, fallback на радиовысоту, метрическая индикация и заданная высота.',
+  frameVariables: [
+    'BaroAltitude',
+    'dec_BaroAltFt',
+    'RadioAltitude',
+    'dec_RadioAltFt',
+    'StandardAltitude',
+  ],
 });
 
 export default AltitudeInstrument;

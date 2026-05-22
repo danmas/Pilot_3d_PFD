@@ -16,6 +16,15 @@ registerInstrument({
   name: 'Attitude Indicator',
   iconName: 'Crosshair',
   Component: AttitudeInstrument,
+  tooltip: 'Attitude Indicator — положение самолёта относительно горизонта: тангаж, крен, радиовысота и команды Flight Director.',
+  frameVariables: [
+    'PitchAngle',
+    'RollAngle',
+    'RadioAltitude',
+    'dec_RadioAltFt',
+    'FD_PitchCmd',
+    'FD_RollCmd',
+  ],
 });
 
 export default AttitudeInstrument;

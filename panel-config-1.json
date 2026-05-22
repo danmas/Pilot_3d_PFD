@@ -1,0 +1,57 @@
+{
+  "id": "root",
+  "type": "split",
+  "splitDirection": "vertical",
+  "splitRatio": 0.3762319898062239,
+  "children": [
+    {
+      "id": "24zdg0o",
+      "type": "split",
+      "splitDirection": "horizontal",
+      "splitRatio": 0.5006271111722543,
+      "children": [
+        {
+          "id": "90f8u4r",
+          "type": "instrument",
+          "instrumentId": "pfd"
+        },
+        {
+          "id": "0yn5izt",
+          "type": "instrument",
+          "instrumentId": "pfd2"
+        }
+      ]
+    },
+    {
+      "id": "ue9d23r",
+      "type": "split",
+      "splitDirection": "horizontal",
+      "splitRatio": 0.5,
+      "children": [
+        {
+          "id": "2i846vt",
+          "type": "split",
+          "splitDirection": "vertical",
+          "splitRatio": 0.5,
+          "children": [
+            {
+              "id": "x2tdshv",
+              "type": "instrument",
+              "instrumentId": "config-display"
+            },
+            {
+              "id": "t7mi6dr",
+              "type": "instrument",
+              "instrumentId": "aux-panel"
+            }
+          ]
+        },
+        {
+          "id": "s3og5cv",
+          "type": "instrument",
+          "instrumentId": "nav-display"
+        }
+      ]
+    }
+  ]
+}

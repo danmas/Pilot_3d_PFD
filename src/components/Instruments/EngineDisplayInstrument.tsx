@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
+import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
 import { registerInstrument } from '../PanelBuilder/registry';
 
 const finiteNumber = (value: unknown): number | null =>
@@ -13,7 +14,7 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
   };
 }
 
-function EngineDial({ cx, cy, label, value, maxVal = 100, tickInterval = 20 }: { cx: number; cy: number; label: string; value: number; maxVal?: number; tickInterval?: number }) {
+function EngineDial({ cx, cy, label, value, frameVariable, maxVal = 100, tickInterval = 20 }: { cx: number; cy: number; label: string; value: number; frameVariable: string; maxVal?: number; tickInterval?: number }) {
   const angleRange = 300;
   const startAngle = -150;
   const endAngle = 150;
@@ -48,7 +49,10 @@ function EngineDial({ cx, cy, label, value, maxVal = 100, tickInterval = 20 }: {
   const pNeedleInner = polarToCartesian(cx, cy, -15, needleAngle);
 
   return (
-    <g>
+    <SvgTooltipGroup
+      description={`${label.toUpperCase()} — обороты двигателя, проценты.`}
+      frameVariables={[frameVariable]}
+    >
       {/* Outer rim arc */}
       <path
         d={`M ${polarToCartesian(cx, cy, radiusOuter, startAngle).x} ${polarToCartesian(cx, cy, radiusOuter, startAngle).y} A ${radiusOuter} ${radiusOuter} 0 1 1 ${polarToCartesian(cx, cy, radiusOuter, endAngle).x} ${polarToCartesian(cx, cy, radiusOuter, endAngle).y}`}
@@ -94,7 +98,7 @@ function EngineDial({ cx, cy, label, value, maxVal = 100, tickInterval = 20 }: {
           {value !== null ? value.toFixed(1) : '---'}
         </text>
       </g>
-    </g>
+    </SvgTooltipGroup>
   );
 }
 
@@ -122,15 +126,26 @@ const EngineDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame })
       <svg viewBox="0 0 600 460" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
 
         {/* Dials */}
-        <EngineDial cx={180} cy={130} label="n1" value={engine.n1 ?? 0} />
-        <EngineDial cx={420} cy={130} label="n2" value={engine.n2 ?? 0} />
+        <EngineDial cx={180} cy={130} label="n1" value={engine.n1 ?? 0} frameVariable="Engine_N1_Left" />
+        <EngineDial cx={420} cy={130} label="n2" value={engine.n2 ?? 0} frameVariable="Engine_N1_Right" />
 
         {/* Data rows */}
         <g transform="translate(0, 20)">
           {rows.map((r, i) => {
             const y = 260 + i * 36;
+            const frameVariables = [
+              ['TotalFuel'],
+              ['APU_EGT'],
+              ['APU_OilPressure'],
+              ['APU_OilTemp'],
+              [],
+            ][i];
             return (
-              <g key={i}>
+              <SvgTooltipGroup
+                key={i}
+                description={`${r.label}${r.labelSub} — ${r.unit}`}
+                frameVariables={frameVariables}
+              >
                 {/* Label */}
                 <text x="270" y={y} fill="white" fontSize="20" fontFamily="sans-serif" textAnchor="end">
                   {r.label}<tspan fontSize="15" dy="5">{r.labelSub}</tspan>
@@ -148,7 +163,7 @@ const EngineDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame })
                 <text x="355" y={y} fill="white" fontSize="16" fontFamily="sans-serif" textAnchor="start">
                   <tspan dy={r.labelSub ? "-5" : "0"}>{r.unit}</tspan>
                 </text>
-              </g>
+              </SvgTooltipGroup>
             );
           })}
         </g>
@@ -162,6 +177,15 @@ registerInstrument({
   name: 'Engine Display',
   iconName: 'Cog',
   Component: EngineDisplayInstrument,
+  tooltip: 'Engine Display — параметры двигателей и APU: N1/N2, топливо, EGT, давление и температура масла.',
+  frameVariables: [
+    'Engine_N1_Left',
+    'Engine_N1_Right',
+    'TotalFuel',
+    'APU_EGT',
+    'APU_OilPressure',
+    'APU_OilTemp',
+  ],
 });
 
 export default EngineDisplayInstrument;

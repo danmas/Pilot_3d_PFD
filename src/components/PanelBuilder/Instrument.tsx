@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { getInstrumentIcon } from './instruments';
+import { InstrumentTooltipProvider } from './InstrumentTooltip';
 import { getRegisteredInstrument } from './registry';
 import type { PanelNode } from './types';
 import type { TelemetryFrame } from '../../types';
@@ -90,7 +91,9 @@ export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
       {showLive ? (
         // Render real instrument component, fill the entire cell
         <div className="absolute inset-0 w-full h-full">
-          <InstrumentComponent frame={frame} />
+          <InstrumentTooltipProvider>
+            <InstrumentComponent frame={frame} />
+          </InstrumentTooltipProvider>
         </div>
       ) : (
         // Fallback: icon-based placeholder when no telemetry data

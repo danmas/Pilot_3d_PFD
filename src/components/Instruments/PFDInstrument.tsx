@@ -14,6 +14,23 @@ registerInstrument({
   name: 'Primary Flight Display',
   iconName: 'Activity',
   Component: PFDInstrument,
+  tooltip: 'Primary Flight Display — основной пилотажный индикатор: авиагоризонт, скорость, высота, вариометр, AoA, G и команды Flight Director.',
+  frameVariables: [
+    'PitchAngle',
+    'RollAngle',
+    'RadioAltitude',
+    'dec_RadioAltFt',
+    'FD_PitchCmd',
+    'FD_RollCmd',
+    'CAS',
+    'SpeedSelect',
+    'AoA',
+    'dec_G',
+    'BaroAltitude',
+    'dec_BaroAltFt',
+    'StandardAltitude',
+    'Vy',
+  ],
 });
 
 export default PFDInstrument;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { TelemetryFrame } from '../../types';
+import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
 
 interface Props { frame: TelemetryFrame; }
 
@@ -44,34 +45,42 @@ export function AltitudeTape({ frame }: Props) {
 
   return (
     <g>
-      <title>Лента барометрической высоты — сотни футов.
-      Источник: dec_BaroAltFt, dec_RadioAltFt</title>
-      {/* Background */}
-      <rect x="600" y="60" width="55" height="460" fill={TAPE_COLOR} />
+      <SvgTooltipGroup
+        description="Лента барометрической высоты — сотни футов."
+        frameVariables={['BaroAltitude', 'dec_BaroAltFt', 'RadioAltitude', 'dec_RadioAltFt']}
+      >
+        {/* Background */}
+        <rect x="600" y="60" width="55" height="460" fill={TAPE_COLOR} />
 
-      <clipPath id="alt-clip"><rect x="600" y="60" width="55" height="460" /></clipPath>
-      <g clipPath="url(#alt-clip)">
-        <g transform="translate(0, 300)">
-          {renderTicks()}
+        <clipPath id="alt-clip"><rect x="600" y="60" width="55" height="460" /></clipPath>
+        <g clipPath="url(#alt-clip)">
+          <g transform="translate(0, 300)">
+            {renderTicks()}
+          </g>
         </g>
-      </g>
+      </SvgTooltipGroup>
 
       {/* Target alt cyans */}
-      <g>
-        <title>Заданная высота автопилота (Selected Altitude), футы.
-        Источник: StandardAltitude</title>
+      <SvgTooltipGroup
+        description="Заданная высота автопилота (Selected Altitude), футы."
+        frameVariables={['StandardAltitude']}
+      >
         <text x="627" y="45" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">
           {selectedAltFt !== null ? Math.round(selectedAltFt) : "0200"}
         </text>
-      </g>
+      </SvgTooltipGroup>
       
       {/* Bottom zeros */}
-      <text x="627" y="550" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">000</text>
+      <SvgTooltipGroup description="Нижняя часть цифрового окна высоты — последние две цифры футов.">
+        <text x="627" y="550" fill="#00FFFF" fontSize="22" textAnchor="middle" fontFamily="sans-serif">000</text>
+      </SvgTooltipGroup>
 
       {/* Center Black Indicator Box */}
-      <g transform="translate(560, 300)">
-        <title>Текущая барометрическая высота. Зелёный текст — высота в метрах.
-        Источник: BaroAltitude/dec_BaroAltFt; метры вычисляются из футов</title>
+      <SvgTooltipGroup
+        transform="translate(560, 300)"
+        description="Текущая барометрическая высота. Зелёный текст — высота в метрах."
+        frameVariables={['BaroAltitude', 'dec_BaroAltFt']}
+      >
         <path d="M0,0 L15,-35 L100,-35 L100,35 L15,35 Z" fill="black" stroke="#FFEA00" strokeWidth="2" />
         <line x1="15" y1="-12" x2="100" y2="-12" stroke="#FFEA00" strokeWidth="1" />
         
@@ -90,7 +99,7 @@ export function AltitudeTape({ frame }: Props) {
         
         {/* Needle pointing Right */}
         <line x1="-25" y1="0" x2="0" y2="0" stroke="white" strokeWidth="2" /> 
-      </g>
+      </SvgTooltipGroup>
     </g>
   );
 }

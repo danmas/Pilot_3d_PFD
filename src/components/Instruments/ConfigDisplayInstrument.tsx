@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
+import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
 import { registerInstrument } from '../PanelBuilder/registry';
 
 const finiteNumber = (value: unknown): number | null =>
@@ -34,7 +35,20 @@ const ConfigDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame })
       <svg viewBox="0 0 800 600" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
 
         {/* TOP SECTION: FRONT VIEW */}
-        <g id="front-view" transform="translate(0, -30)">
+        <SvgTooltipGroup
+          transform="translate(0, -30)"
+          description="Вид спереди: текущие положения стабилизатора, интерцептора, рулей высоты, закрылков и предкрылков."
+          frameVariables={[
+            'StabPosition',
+            'Airbrake_Inner_Cmd',
+            'Elev_Left_Inner',
+            'Elev_Left_Outer',
+            'Elev_Right_Inner',
+            'Elev_Right_Outer',
+            'FlapsPosition',
+            'SlatsPosition',
+          ]}
+        >
           {/* Plane Outline */}
           <g stroke="#999" strokeWidth="1.5" fill="none">
             {/* Wings */}
@@ -126,10 +140,14 @@ const ConfigDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame })
             <text x="590" y="270" fill="white">SlatR</text>
             <text x="590" y="295" fill="#00FF00">{formatWithComma(s.slatR)}</text>
           </g>
-        </g>
+        </SvgTooltipGroup>
 
         {/* BOTTOM SECTION: WINGS TOP VIEW */}
-        <g id="top-view" transform="translate(0, 100)">
+        <SvgTooltipGroup
+          transform="translate(0, 100)"
+          description="Вид сверху: положения закрылков и предкрылков слева/справа."
+          frameVariables={['FlapsPosition', 'SlatsPosition']}
+        >
           {/* Left Wing */}
           <polygon points="360,300 60,420 360,420" fill="none" stroke="white" strokeWidth="2" />
           <polygon points="85,408 340,305 340,314 95,417" fill="#00FF00" fillOpacity="0.2" stroke="#00FF00" strokeWidth="3" />
@@ -148,7 +166,7 @@ const ConfigDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame })
             <text x="610" y="340" fill="white">SLAT<tspan fontSize="18">R</tspan> : <tspan fill="#00FF00">{formatWithDot(s.slatR)}</tspan></text>
             <text x="480" y="470" fill="white">FLAP<tspan fontSize="18">R</tspan> : <tspan fill="#00FF00">{formatWithDot(s.flapR)}</tspan></text>
           </g>
-        </g>
+        </SvgTooltipGroup>
       </svg>
     </div>
   );
@@ -159,6 +177,17 @@ registerInstrument({
   name: 'Config Display',
   iconName: 'Plane',
   Component: ConfigDisplayInstrument,
+  tooltip: 'Config Display — конфигурация самолёта: закрылки, предкрылки, стабилизатор, интерцептор и рули высоты.',
+  frameVariables: [
+    'FlapsPosition',
+    'SlatsPosition',
+    'StabPosition',
+    'Airbrake_Inner_Cmd',
+    'Elev_Left_Inner',
+    'Elev_Left_Outer',
+    'Elev_Right_Inner',
+    'Elev_Right_Outer',
+  ],
 });
 
 export default ConfigDisplayInstrument;

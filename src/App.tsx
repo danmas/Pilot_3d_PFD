@@ -4,17 +4,26 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, FileJson, Play, Pause, Activity, Database, Radio, LayoutDashboard, Monitor, ArrowLeft, Zap, Gauge, Terminal } from 'lucide-react';
+import { Upload, FileJson, Play, Pause, Activity, Database, Radio, LayoutDashboard, Monitor, ArrowLeft, Zap, Gauge, Terminal, Settings } from 'lucide-react';
 import { TelemetryFrame } from './types';
 import { sampleFrames } from './sample-data';
 import { PFD } from './components/PFD/PFD';
 import RawMonitor from './components/RawMonitor/RawMonitor';
 import { PanelBuilder } from './components/PanelBuilder';
 import { TelemetryProvider } from './context/TelemetryContext';
+import { UI_SETTINGS } from './ui-settings';
 
 type DataMode = 'sample' | 'live';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
-type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder';
+type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings';
+
+type SourceStatus = {
+  udpHost: string;
+  udpPort: number;
+  active: boolean;
+  schema: string;
+  source: string;
+};
 
 const LIVE_PFD_URL = '/events/pfd';
 
@@ -28,6 +37,10 @@ export default function App() {
   const [dataMode, setDataMode] = useState<DataMode>('sample');
   const [connStatus, setConnStatus] = useState<ConnStatus>('disconnected');
   const [liveSeq, setLiveSeq] = useState<number | null>(null);
+  const [sourceStatus, setSourceStatus] = useState<SourceStatus | null>(null);
+  const [settingsHost, setSettingsHost] = useState('0.0.0.0');
+  const [settingsPort, setSettingsPort] = useState('14443');
+  const [settingsBusy, setSettingsBusy] = useState(false);
 
   const frameRef = useRef(frameIndex);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -81,11 +94,36 @@ export default function App() {
     setConnStatus('disconnected'); setLiveSeq(null);
   }, []);
 
+  const loadSourceStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/source/status');
+      if (!res.ok) return;
+      const data: SourceStatus = await res.json();
+      setSourceStatus(data);
+    } catch {
+      // ignore temporary fetch errors
+    }
+  }, []);
+
   useEffect(() => {
     if (dataMode === 'live') { setIsPlaying(false); connectLive(); }
     else disconnectLive();
     return () => { disconnectLive(); };
   }, [dataMode, connectLive, disconnectLive]);
+
+  useEffect(() => {
+    loadSourceStatus();
+    const id = window.setInterval(loadSourceStatus, 1500);
+    return () => window.clearInterval(id);
+  }, [loadSourceStatus]);
+
+  useEffect(() => {
+    if (!sourceStatus) return;
+    if (currentView !== 'settings') {
+      setSettingsHost(sourceStatus.udpHost);
+      setSettingsPort(String(sourceStatus.udpPort));
+    }
+  }, [sourceStatus, currentView]);
 
   // ---- Handlers ----
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,6 +141,33 @@ export default function App() {
   };
 
   const openViewer = () => { window.location.href = '/viewer/'; };
+
+  const saveSourceSettings = async () => {
+    const port = Number(settingsPort);
+    if (!Number.isFinite(port) || port < 1 || port > 65535) {
+      setError('Invalid UDP port (1-65535)');
+      return;
+    }
+    setSettingsBusy(true);
+    try {
+      const res = await fetch('/api/source/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host: settingsHost.trim() || '0.0.0.0', port }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        setError(e.error || 'Failed to update source');
+      } else {
+        setError(null);
+        await loadSourceStatus();
+      }
+    } catch {
+      setError('Failed to update source');
+    } finally {
+      setSettingsBusy(false);
+    }
+  };
 
   const connStatusColor = { disconnected: 'bg-red-500', connecting: 'bg-yellow-500', waiting: 'bg-yellow-500', receiving: 'bg-green-500' }[connStatus];
   const connStatusLabel = { disconnected: 'disconnected', connecting: 'connecting...', waiting: 'waiting UDP', receiving: 'receiving UDP' }[connStatus];
@@ -123,10 +188,10 @@ export default function App() {
           </div>
 
           {/* Cards */}
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-5 gap-4">
             {/* PFD Card */}
             <button
-              onClick={() => { setCurrentView('pfd'); setDataMode('sample'); }}
+              onClick={() => setCurrentView('pfd')}
               className="group relative bg-gradient-to-br from-blue-900/40 to-purple-900/40 border border-blue-500/20 rounded-2xl p-8 text-left hover:border-blue-400/50 hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-blue-500/10"
             >
               <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-400 group-hover:animate-pulse" />
@@ -199,18 +264,34 @@ export default function App() {
                 <Zap className="w-4 h-4" /> Open Viewer &rarr;
               </div>
             </button>
+
+            {/* Settings Card */}
+            <button
+              onClick={() => setCurrentView('settings')}
+              className="group relative bg-gradient-to-br from-violet-900/40 to-fuchsia-900/40 border border-violet-500/20 rounded-2xl p-8 text-left hover:border-violet-400/50 hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-violet-500/10"
+            >
+              <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-violet-400 group-hover:animate-pulse" />
+              <div className="p-3 bg-violet-500/20 rounded-xl w-fit mb-5">
+                <Settings className="w-8 h-8 text-violet-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Global Source Settings</h2>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Runtime decoder source config,<br />
+                one UDP host/port for all pages.
+              </p>
+              <div className="flex items-center gap-2 mt-4 text-violet-400 text-sm font-medium">
+                <Zap className="w-4 h-4" /> Open Settings &rarr;
+              </div>
+            </button>
           </div>
 
           {/* Bottom info */}
           <div className="flex items-center justify-center gap-6 text-white/30 text-xs">
             <span className="flex items-center gap-1.5">
-              <Gauge className="w-3.5 h-3.5" /> UDP :14443 &rarr; AVIONICS
+              <Gauge className="w-3.5 h-3.5" /> source: udp://{sourceStatus?.udpHost ?? '...'}:{sourceStatus?.udpPort ?? '...'}
             </span>
-            <span className="flex items-center gap-1.5">
-              <Terminal className="w-3.5 h-3.5" /> UDP :14442 &rarr; RAW
-            </span>
-            <span>telemetry-frame.v1</span>
-            <span>port 3410</span>
+            <span>{sourceStatus?.schema ?? 'telemetry-frame.v1'}</span>
+            <span>{sourceStatus?.active ? 'active' : 'inactive'}</span>
           </div>
         </div>
       </div>
@@ -228,6 +309,77 @@ export default function App() {
       <TelemetryProvider frame={frame}>
         <PanelBuilder onBack={() => setCurrentView('hub')} />
       </TelemetryProvider>
+    );
+  }
+
+  // ═══════════════════════════════════════════════ SETTINGS VIEW
+  if (currentView === 'settings') {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-6">
+        <div className="w-full max-w-2xl bg-black/40 border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCurrentView('hub')}
+                className="p-2 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+                title="Back to Hub"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-white text-xl font-semibold">Global Source Settings</h1>
+            </div>
+            <span className="text-xs text-white/40 font-mono">
+              {sourceStatus?.source ?? 'tnparser-udp-...'}
+            </span>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <label className="block text-sm text-white/60 mb-2">UDP host</label>
+              <input
+                value={settingsHost}
+                onChange={(e) => setSettingsHost(e.target.value)}
+                className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-white/60 mb-2">UDP port</label>
+              <input
+                value={settingsPort}
+                onChange={(e) => setSettingsPort(e.target.value)}
+                className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white font-mono"
+              />
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-sm font-medium text-white mb-3">UI settings</div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm text-white/70">Instrument tooltip font size</div>
+                  <div className="text-xs text-white/35">
+                    Common value from UI_SETTINGS.tooltip.fontSizePx
+                  </div>
+                </div>
+                <div className="font-mono text-lg text-emerald-300">
+                  {UI_SETTINGS.tooltip.fontSizePx}px
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-white/40 text-sm">
+                active: {sourceStatus?.active ? 'yes' : 'no'} | schema: {sourceStatus?.schema ?? 'telemetry-frame.v1'}
+              </span>
+              <button
+                onClick={saveSourceSettings}
+                disabled={settingsBusy}
+                className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+              >
+                {settingsBusy ? 'Applying...' : 'Apply'}
+              </button>
+            </div>
+            {error && <div className="text-red-400 text-sm">{error}</div>}
+          </div>
+        </div>
+      </div>
     );
   }
 

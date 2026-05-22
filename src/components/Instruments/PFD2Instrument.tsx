@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
+import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
 import { registerInstrument } from '../PanelBuilder/registry';
 
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
@@ -43,7 +44,11 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
 
         <g clipPath="url(#adi-mask2)">
           {/* Pitch moving background  */}
-          <g transform={`translate(0, ${pitchOffset})`}>
+          <SvgTooltipGroup
+            transform={`translate(0, ${pitchOffset})`}
+            description="Подвижный фон авиагоризонта и шкала тангажа."
+            frameVariables={['PitchAngle']}
+          >
             {/* Blue Sky */}
             <rect x="-400" y="-800" width="800" height="800" fill="#145A96" />
             {/* Brown Ground */}
@@ -86,19 +91,26 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
               <line x1="-15" y1={-15 * pxPerDegPitch} x2="15" y2={-15 * pxPerDegPitch} />
               <line x1="-15" y1={15 * pxPerDegPitch} x2="15" y2={15 * pxPerDegPitch} />
             </g>
-          </g>
+          </SvgTooltipGroup>
 
           {/* Static elements on the mask */}
-          <g stroke="white" strokeWidth="2">
+          <SvgTooltipGroup
+            description="Неподвижные боковые маркеры горизонта."
+          >
+            <g stroke="white" strokeWidth="2">
             {/* Fixed Horizon indicators (small arrows on the side) */}
             <path d="M -235,0 L -205,0 L -215,-7 Z" fill="none" />
             <path d="M 235,0 L 205,0 L 215,-7 Z" fill="none" />
             <line x1="-205" y1="0" x2="-180" y2="0" strokeDasharray="5 5"/>
             <line x1="205" y1="0" x2="180" y2="0" strokeDasharray="5 5"/>
-          </g>
+            </g>
+          </SvgTooltipGroup>
 
           {/* Roll scale (Bank angle) */}
-          <g>
+          <SvgTooltipGroup
+            description="Шкала крена, градусы."
+            frameVariables={['RollAngle']}
+          >
             {[-60, -45, -30, -15, 0, 15, 30, 45, 60].map(a => {
                const isMajor = Math.abs(a) === 30 || Math.abs(a) === 60 || a === 0;
                const p1 = polarToCartesian(0, 0, 180, 180 + a);
@@ -125,7 +137,7 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
             {/* Small red flags pointing from 15 inwards */}
             <path d="M -135 60 L -140 50 L -130 50" fill="none" stroke="#D32F2F" strokeWidth="2" />
             <path d="M 135 60 L 140 50 L 130 50" fill="none" stroke="#D32F2F" strokeWidth="2" />
-          </g>
+          </SvgTooltipGroup>
 
           {/* Warning blocks */}
           <rect x="-190" y="75" width="100" height="34" fill="#E87C24" opacity="0.9" />
@@ -136,7 +148,11 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
 
           {/* The orange moving aircraft symbol */}
           {/* In Outside-In ADI, positive roll (right wing down) makes the symbol rotate clockwise. */}
-          <g transform={`rotate(${roll})`}>
+          <SvgTooltipGroup
+            transform={`rotate(${roll})`}
+            description="Оранжевый символ самолёта — текущий крен относительно шкалы."
+            frameVariables={['RollAngle']}
+          >
             {/* Orange Aircraft Symbol */}
             <g stroke="#E87C24" strokeWidth="4" fill="none" strokeLinecap="square">
               {/* Circle center */}
@@ -152,20 +168,28 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
               {/* Needle pointing to bank scale */}
               <line x1="0" y1="22" x2="0" y2="182" stroke="#E87C24" strokeWidth="3" />
             </g>
-          </g>
+          </SvgTooltipGroup>
 
           {/* Slip indicator (pill) - stationary relative to roll */}
-          <g transform="translate(0, 205)">
+          <SvgTooltipGroup
+            transform="translate(0, 205)"
+            description="Индикатор бокового скольжения. Сейчас смещение вычисляется из крена как визуальная имитация."
+            frameVariables={['RollAngle']}
+          >
              <rect x="-40" y="-12" width="80" height="24" rx="12" fill="white" stroke="#333" strokeWidth="1" />
              <line x1="-12" y1="-12" x2="-12" y2="12" stroke="black" strokeWidth="3" />
              <line x1="12" y1="-12" x2="12" y2="12" stroke="black" strokeWidth="3" />
 
              <circle cx={slipOffset} cy="0" r="10" fill="black" />
-          </g>
+          </SvgTooltipGroup>
 
           {/* Yellow Flight Director */}
           {/* Animated relative to pitch background for effect */}
-          <g transform={`translate(0, ${pitchOffset - 20 + fdPitchOffset})`}>
+          <SvgTooltipGroup
+            transform={`translate(0, ${pitchOffset - 20 + fdPitchOffset})`}
+            description="Flight Director — демонстрационные командные планки, анимированы для визуальной активности."
+            frameVariables={['PitchAngle']}
+          >
              <g stroke="#C6E33B" strokeWidth="5" fill="none" strokeLinecap="square">
                <line x1="-90" y1="-10" x2="90" y2="-10" />
                <line x1="-80" y1="-10" x2="-80" y2="10" />
@@ -174,13 +198,17 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
 
              {/* Yellow slant crossbar */}
              <line x1="30" y1="-80" x2="-30" y2="50" stroke="#C6E33B" strokeWidth="5" transform={`rotate(${fdRollAngle})`} />
-          </g>
+          </SvgTooltipGroup>
 
         </g>
 
         {/* Out of Mask instruments (GlideSlope, Localizer) */}
         {/* Glideslope on the right */}
-        <g transform="translate(260, 0)" fill="white">
+        <SvgTooltipGroup
+          transform="translate(260, 0)"
+          description="Шкала глиссады и указатель отклонения."
+        >
+          <g fill="white">
            <circle cx="0" cy="-60" r="3" />
            <circle cx="0" cy="-30" r="3" />
            <line x1="-10" y1="0" x2="10" y2="0" stroke="white" strokeWidth="3" />
@@ -189,10 +217,15 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
 
            {/* Glideslope Indicator */}
            <path d="M -5 10 L -25 10 L -25 25 L -5 25 L 5 17.5 Z" fill="#C6E33B" stroke="#000" strokeWidth="1" />
-        </g>
+          </g>
+        </SvgTooltipGroup>
 
         {/* Localizer on the left */}
-        <g transform="translate(-260, 0)" fill="white">
+        <SvgTooltipGroup
+          transform="translate(-260, 0)"
+          description="Шкала localizer и указатель бокового отклонения."
+        >
+          <g fill="white">
            <circle cx="0" cy="-60" r="3" />
            <circle cx="0" cy="-30" r="3" />
            <line x1="-12" y1="0" x2="12" y2="0" stroke="white" strokeWidth="5" />
@@ -202,7 +235,8 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
 
            {/* Localizer Indicator (circle with line) */}
            <path d="M 0 -13 L 0 5 M -15 5 L 15 5" stroke="white" strokeWidth="3" fill="none" transform="translate(0, 15)" />
-        </g>
+          </g>
+        </SvgTooltipGroup>
       </svg>
     </div>
   );
@@ -213,6 +247,11 @@ registerInstrument({
   name: 'PFD-2 (ADI)',
   iconName: 'CircleDot',
   Component: PFD2Instrument,
+  tooltip: 'PFD-2 (ADI) — альтернативный авиагоризонт с тангажом, креном, шкалой крена и индикатором скольжения.',
+  frameVariables: [
+    'PitchAngle',
+    'RollAngle',
+  ],
 });
 
 export default PFD2Instrument;

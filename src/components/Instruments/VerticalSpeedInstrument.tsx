@@ -16,6 +16,10 @@ registerInstrument({
   name: 'Vertical Speed',
   iconName: 'TrendingUp',
   Component: VerticalSpeedInstrument,
+  tooltip: 'Vertical Speed — вариометр, показывает вертикальную скорость набора или снижения.',
+  frameVariables: [
+    'Vy',
+  ],
 });
 
 export default VerticalSpeedInstrument;

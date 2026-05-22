@@ -16,10 +16,10 @@
   <key for="edge" id="d12" yfiles.type="edgegraphics"/>
   <graph edgedefault="directed" id="G">
     <node id="n0">
-      <data key="d3"><![CDATA[.tne File
+      <data key="d3"><![CDATA[Файл записи полета. Источник данных для офлайн-воспроизведения, тестов таймлайна и отладки без live UDP.]]></data>
+      <data key="d4"><![CDATA[.tne File
 (TN1_2026_03_19_39-й полет_3.tne)]]></data>
-      <data key="d4"><![CDATA[Telemetry recording — source of all playback data]]></data>
-      <data key="d6"/>
+      <data key="d6"><![CDATA[Файл записи полета. Источник данных для офлайн-воспроизведения, тестов таймлайна и отладки без live UDP.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="60.0" width="260.0" x="300.0" y="20.0"/>
@@ -31,9 +31,9 @@
       </data>
     </node>
     <node id="n1">
-      <data key="d3"><![CDATA[tnreplay.exe (replay player)]]></data>
-      <data key="d4"><![CDATA[Reads .tne → sends TN3 stream over TCP to parser at 127.0.0.1:13332]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Реплей-проигрыватель: читает .tne и подает TN3-поток в parser по TCP 127.0.0.1:13332.]]></data>
+      <data key="d4"><![CDATA[tnreplay.exe (replay player)]]></data>
+      <data key="d6"><![CDATA[Реплей-проигрыватель: читает .tne и подает TN3-поток в parser по TCP 127.0.0.1:13332.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="60.0" width="260.0" x="300.0" y="130.0"/>
@@ -45,9 +45,9 @@
       </data>
     </node>
     <node id="n2">
-      <data key="d3"><![CDATA[tnparserrt.exe (parser)]]></data>
-      <data key="d4"><![CDATA[Listens TCP 127.0.0.1:13332. Outputs UDP: 14442 (FTI.Monitor), 14443 (mirror), 14444 (compact AVIONICS for bridge)]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Парсер телеметрии: принимает TN3 и формирует UDP-кадры. Bridge подключается к выбранному runtime порту (по умолчанию 14443).]]></data>
+      <data key="d4"><![CDATA[tnparserrt.exe (parser)]]></data>
+      <data key="d6"><![CDATA[Парсер телеметрии: принимает TN3 и формирует UDP-кадры. Bridge подключается к выбранному runtime порту (по умолчанию 14443).]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="60.0" width="260.0" x="300.0" y="250.0"/>
@@ -59,9 +59,9 @@
       </data>
     </node>
     <node id="n3">
-      <data key="d3"><![CDATA[FTI.Monitor (WPF app)]]></data>
-      <data key="d4"><![CDATA[Consumes UDP 127.0.0.1:14442. Engineer/Service indicators]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Отдельный внешний потребитель UDP 14442 для инженерной индикации. Не участвует в едином источнике данных Pilot_3d_PFD.]]></data>
+      <data key="d4"><![CDATA[FTI.Monitor (WPF app)]]></data>
+      <data key="d6"><![CDATA[Отдельный внешний потребитель UDP 14442 для инженерной индикации. Не участвует в едином источнике данных Pilot_3d_PFD.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="220.0" x="20.0" y="380.0"/>
@@ -73,9 +73,9 @@
       </data>
     </node>
     <node id="n4">
-      <data key="d3"><![CDATA[tnparser-listener.ts (Node.js)]]></data>
-      <data key="d4"><![CDATA[Standalone UDP listener on port 14443 (mirror). Decodes & prints AVIONICS fields]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Вспомогательный standalone-слушатель для диагностики UDP-потока. Нужен для ручной проверки пакетов и декодирования вне UI.]]></data>
+      <data key="d4"><![CDATA[tnparser-listener.ts (Node.js)]]></data>
+      <data key="d6"><![CDATA[Вспомогательный standalone-слушатель для диагностики UDP-потока. Нужен для ручной проверки пакетов и декодирования вне UI.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="240.0" x="620.0" y="380.0"/>
@@ -87,37 +87,37 @@
       </data>
     </node>
     <node id="n5">
-      <data key="d3"><![CDATA[UDP Listener (port 14443)]]></data>
-      <data key="d4"><![CDATA[dgram socket. Receives FULL 132-field stream on port 14443 (from out.json mirror section)]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Единственный UDP-сокет системы. Принимает runtime-настроенный источник (через /api/source/config), далее кормит общий decoder pipeline.]]></data>
+      <data key="d4"><![CDATA[Bridge UDP Listener (runtime host:port)]]></data>
+      <data key="d6"><![CDATA[Единственный UDP-сокет системы. Принимает runtime-настроенный источник (через /api/source/config), далее кормит общий decoder pipeline.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="320.0" x="270.0" y="500.0"/>
           <y:Fill color="#2E7D32" transparent="false"/>
           <y:BorderStyle color="#1B5E20" type="line" width="3.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="139.392578125" x="90.3037109375" y="24.42431640625">UDP Listener :14444</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="204.689453125" x="57.6552734375" y="24.42431640625">Bridge UDP Listener (runtime)</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
     </node>
     <node id="n6">
-      <data key="d3"><![CDATA[out.json + field-catalog.ts]]></data>
-      <data key="d4"><![CDATA[out.json — source of binary layout (slot order). field-catalog.ts — source of names + types. Matched by ARINC param.]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Контракт декодирования: out.json задает порядок/слоты байтов, field-catalog.ts задает имена/типы. Связка выполняется по ARINC param.]]></data>
+      <data key="d4"><![CDATA[out.json + field-catalog.ts]]></data>
+      <data key="d6"><![CDATA[Контракт декодирования: out.json задает порядок/слоты байтов, field-catalog.ts задает имена/типы. Связка выполняется по ARINC param.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="60.0" width="220.0" x="10.0" y="610.0"/>
           <y:Fill color="#EF6C00" transparent="false"/>
           <y:BorderStyle color="#E65100" type="line" width="2.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="13" fontStyle="italic" hasBackgroundColor="false" hasLineColor="false" height="19.92626953125" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="131.17529296875" x="44.412353515625" y="20.036865234375">UdpServerConfig.json</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="13" fontStyle="italic" hasBackgroundColor="false" hasLineColor="false" height="19.92626953125" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="148.16796875" x="35.916015625" y="20.036865234375">out.json + field-catalog.ts</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
     </node>
     <node id="n7">
-      <data key="d3"><![CDATA[AVIONICS Decoder (decoding.ts)]]></data>
-      <data key="d4"><![CDATA[Loads schema from out.json at startup. Matches slots to field-catalog.ts by ARINC param. Decodes binary → flat Record<string,number>]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Ядро декодера: загружает схему, сопоставляет слоты и превращает бинарный payload в плоский словарь параметров.]]></data>
+      <data key="d4"><![CDATA[AVIONICS Decoder (decoding.ts)]]></data>
+      <data key="d6"><![CDATA[Ядро декодера: загружает схему, сопоставляет слоты и превращает бинарный payload в плоский словарь параметров.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="320.0" x="313.24593268186754" y="605.0"/>
@@ -129,37 +129,37 @@
       </data>
     </node>
     <node id="n8">
-      <data key="d3"><![CDATA[Telemetry Frame Builder (telemetry-frame.v1)]]></data>
-      <data key="d4"><![CDATA[Applies dec_* formulas + wraps flat decoded dictionary into TelemetryFrame]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Сборщик кадра: добавляет вычисляемые dec_* поля и формирует канонический telemetry-frame.v1 для всех клиентов.]]></data>
+      <data key="d4"><![CDATA[Telemetry Frame Builder (telemetry-frame.v1)]]></data>
+      <data key="d6"><![CDATA[Сборщик кадра: добавляет вычисляемые dec_* поля и формирует канонический telemetry-frame.v1 для всех клиентов.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="380.0" x="104.46215921824097" y="701.8595891422367"/>
           <y:Fill color="#43A047" transparent="false"/>
           <y:BorderStyle color="#2E7D32" type="line" width="2.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="249.7998046875" x="65.10009765625" y="24.42431640625">Flight Frame Builder (telemetry-frame.v1)</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="305.8955078125" x="37.05224609375" y="24.42431640625">Telemetry Frame Builder (telemetry-frame.v1)</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
     </node>
     <node id="n9">
-      <data key="d3"><![CDATA[PFD Frame (same as TelemetryFrame)]]></data>
-      <data key="d4"><![CDATA[Unified flat frame — same as TelemetryFrame. All instrument keys are canonical field-catalog.ts names.]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Точка истины текущего кадра: один telemetry-frame.v1, от которого одновременно питаются SSE, API и все страницы UI.]]></data>
+      <data key="d4"><![CDATA[Unified Current Frame Store]]></data>
+      <data key="d6"><![CDATA[Точка истины текущего кадра: один telemetry-frame.v1, от которого одновременно питаются SSE, API и все страницы UI.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="380.0" x="195.46304903365905" y="820.0"/>
           <y:Fill color="#43A047" transparent="false"/>
           <y:BorderStyle color="#2E7D32" type="line" width="2.0"/>
-          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="227.26171875" x="76.369140625" y="24.42431640625">PFD Frame Builder (pfd-frame.v1)</y:NodeLabel>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="191.4755859375" x="94.26220703125" y="24.42431640625">Unified Current Frame Store</y:NodeLabel>
           <y:Shape type="rectangle"/>
         </y:ShapeNode>
       </data>
     </node>
     <node id="n10">
-      <data key="d3"><![CDATA[Capture]]></data>
-      <data key="d4"><![CDATA[Writes telemetry-frame.v1 as .jsonl to captures/ directory. Start/stop via /api/capture/* or viewer UI]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Подсистема записи: сериализует live кадры в JSONL (captures/) для последующего replay и анализа инцидентов.]]></data>
+      <data key="d4"><![CDATA[Capture]]></data>
+      <data key="d6"><![CDATA[Подсистема записи: сериализует live кадры в JSONL (captures/) для последующего replay и анализа инцидентов.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="200.0" x="660.0" y="695.347260456026"/>
@@ -171,9 +171,9 @@
       </data>
     </node>
     <node id="n11">
-      <data key="d3"><![CDATA[SSE /events (telemetry-frame.v1)]]></data>
-      <data key="d4"><![CDATA[Server-Sent Events. Events: "status" + "frame" (telemetry-frame.v1 data). Consumed by viewer live mode.]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[SSE-канал общего live потока. Публикует status и frame, используется в Diagnostic Viewer live режиме.]]></data>
+      <data key="d4"><![CDATA[SSE /events (telemetry-frame.v1)]]></data>
+      <data key="d6"><![CDATA[SSE-канал общего live потока. Публикует status и frame, используется в Diagnostic Viewer live режиме.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="200.0" x="40.0" y="930.0"/>
@@ -185,9 +185,9 @@
       </data>
     </node>
     <node id="n12">
-      <data key="d3"><![CDATA[SSE /events/pfd (same as /events)]]></data>
-      <data key="d4"><![CDATA[Server-Sent Events. Events: "status" + "pfd-frame" (telemetry-frame.v1). Consumed by React PFD live mode.]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[SSE-канал для PFD. Событие pfd-frame несет тот же telemetry-frame.v1, но с отдельным именем event для UI-роутинга.]]></data>
+      <data key="d4"><![CDATA[SSE /events/pfd (event: pfd-frame)]]></data>
+      <data key="d6"><![CDATA[SSE-канал для PFD. Событие pfd-frame несет тот же telemetry-frame.v1, но с отдельным именем event для UI-роутинга.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="220.0" x="303.7191782844734" y="937.3263697719871"/>
@@ -199,9 +199,9 @@
       </data>
     </node>
     <node id="n13">
-      <data key="d3"><![CDATA[HTTP API /api/*]]></data>
-      <data key="d4"><![CDATA[GET/POST endpoints: status, live/current, pfd/status, pfd/current, capture/start|stop, recordings*]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[REST-слой bridge: статусы, текущие кадры, source runtime config, raw-инспекция, capture control и replay endpoints.]]></data>
+      <data key="d4"><![CDATA[HTTP API /api/*]]></data>
+      <data key="d6"><![CDATA[REST-слой bridge: статусы, текущие кадры, source runtime config, raw-инспекция, capture control и replay endpoints.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="240.0" x="585.8102743973942" y="930.0"/>
@@ -213,9 +213,9 @@
       </data>
     </node>
     <node id="n14">
-      <data key="d3"><![CDATA[captures/*.jsonl (telemetry-frame.v1)]]></data>
-      <data key="d4"><![CDATA[Flat telemetry-frame.v1 JSONL recordings. Read by replay API.]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Хранилище записей telemetry-frame.v1 в формате JSONL. Используется API воспроизведения и отладочными сценариями.]]></data>
+      <data key="d4"><![CDATA[captures/*.jsonl (telemetry-frame.v1)]]></data>
+      <data key="d6"><![CDATA[Хранилище записей telemetry-frame.v1 в формате JSONL. Используется API воспроизведения и отладочными сценариями.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="200.0" x="660.0" y="820.0"/>
@@ -227,9 +227,9 @@
       </data>
     </node>
     <node id="n15">
-      <data key="d3"><![CDATA[pfd-frame.v1.schema.json (deprecated)]]></data>
-      <data key="d4"><![CDATA[JSON Schema for old PFD contract — superseded by telemetry-frame.v1 flat format]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Legacy-артефакт старого контракта pfd-frame.v1. Оставлен для исторической совместимости, не основной формат системы.]]></data>
+      <data key="d4"><![CDATA[pfd-frame.v1.schema.json (deprecated)]]></data>
+      <data key="d6"><![CDATA[Legacy-артефакт старого контракта pfd-frame.v1. Оставлен для исторической совместимости, не основной формат системы.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="60.0" width="210.0" x="10.0" y="1070.0"/>
@@ -241,9 +241,9 @@
       </data>
     </node>
     <node id="n16">
-      <data key="d3"><![CDATA[sample-data.ts]]></data>
-      <data key="d4"><![CDATA[Animated sample PFDFrames. Used when UDP bridge has no data or Sample mode selected.]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Локальный генератор sample-кадров для демонстрации UI и тестов без внешнего UDP/decoder источника.]]></data>
+      <data key="d4"><![CDATA[sample-data.ts]]></data>
+      <data key="d6"><![CDATA[Локальный генератор sample-кадров для демонстрации UI и тестов без внешнего UDP/decoder источника.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="60.0" width="190.0" x="-223.364891378936" y="1129.4034675352875"/>
@@ -255,9 +255,9 @@
       </data>
     </node>
     <node id="n17">
-      <data key="d3"><![CDATA[public/viewer/ (static assets)]]></data>
-      <data key="d4"><![CDATA[Diagnostic viewer: index.html, app.js, style.css. Served at /viewer/*]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Статические ассеты диагностической страницы /viewer: live/replay контроль, дебаг JSON, статус source и capture.]]></data>
+      <data key="d4"><![CDATA[public/viewer/ (static assets)]]></data>
+      <data key="d6"><![CDATA[Статические ассеты диагностической страницы /viewer: live/replay контроль, дебаг JSON, статус source и capture.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="60.0" width="210.0" x="716.7562041259503" y="1077.1228595005427"/>
@@ -269,9 +269,9 @@
       </data>
     </node>
     <node id="n18">
-      <data key="d3"><![CDATA[React PFD (/)]]></data>
-      <data key="d4"><![CDATA[Primary Flight Display. Modes: Sample (local animation) / Live (SSE /events/pfd). Components: AttitudeIndicator, AirspeedTape, AltitudeTape, AoATape, VerticalSpeed]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Основной PFD UI: рисует авиаприборы из unified telemetry-frame.v1; поддерживает Sample и Live через /events/pfd.]]></data>
+      <data key="d4"><![CDATA[React PFD (/)]]></data>
+      <data key="d6"><![CDATA[Основной PFD UI: рисует авиаприборы из unified telemetry-frame.v1; поддерживает Sample и Live через /events/pfd.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="80.0" width="250.0" x="40.0" y="1200.0"/>
@@ -283,9 +283,9 @@
       </data>
     </node>
     <node id="n19">
-      <data key="d3"><![CDATA[Diagnostic Viewer (/viewer/)]]></data>
-      <data key="d4"><![CDATA[Live mode (SSE /events), Replay mode (API), Capture control, Debug: status + frame + pfd-frame JSON]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Diagnostic Viewer: live по /events, replay по API, управление capture, инспекция кадров и визуальная сверка состояния source.]]></data>
+      <data key="d4"><![CDATA[Diagnostic Viewer (/viewer/)]]></data>
+      <data key="d6"><![CDATA[Diagnostic Viewer: live по /events, replay по API, управление capture, инспекция кадров и визуальная сверка состояния source.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="80.0" width="280.0" x="370.0" y="1200.0"/>
@@ -297,9 +297,9 @@
       </data>
     </node>
     <node id="n20">
-      <data key="d3"><![CDATA[Vite Dev Server (port 3410)]]></data>
-      <data key="d4"><![CDATA[Single process. Runs bridge-plugin middleware + React PFD (HMR). No proxy needed — all endpoints same-origin.]]></data>
-      <data key="d6"/>
+      <data key="d3"><![CDATA[Единый рантайм приложения: хостит React UI и bridge middleware в одном origin, поэтому SSE/API доступны без прокси.]]></data>
+      <data key="d4"><![CDATA[Vite Dev Server (port 3410)]]></data>
+      <data key="d6"><![CDATA[Единый рантайм приложения: хостит React UI и bridge middleware в одном origin, поэтому SSE/API доступны без прокси.]]></data>
       <data key="d7">
         <y:ShapeNode>
           <y:Geometry height="70.0" width="440.0" x="106.8482890770901" y="1342.4981166558089"/>
@@ -310,9 +310,50 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="n21">
+      <data key="d3"><![CDATA[Конструктор панели приборов. Любой размещенный инструмент читает тот же текущий кадр через общий TelemetryContext.]]></data>
+      <data key="d4"><![CDATA[Panel Builder (/ panelBuilder)]]></data>
+      <data key="d6"><![CDATA[Конструктор панели приборов. Любой размещенный инструмент читает тот же текущий кадр через общий TelemetryContext.]]></data>
+      <data key="d7">
+        <y:ShapeNode>
+          <y:Geometry height="80.0" width="280.0" x="690.0" y="1200.0"/>
+          <y:Fill color="#8E24AA" transparent="false"/>
+          <y:BorderStyle color="#6A1B9A" type="line" width="2.0"/>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="93.46875" x="93.265625" y="29.42431640625">Panel Builder</y:NodeLabel>
+          <y:Shape type="rectangle"/>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="n22">
+      <data key="d3"><![CDATA[Raw Monitor: инспектирует decoded + hex из того же decoder stream; собственного UDP-сокета не имеет.]]></data>
+      <data key="d4"><![CDATA[Raw Data Monitor (/ rawMonitor)]]></data>
+      <data key="d6"><![CDATA[Raw Monitor: инспектирует decoded + hex из того же decoder stream; собственного UDP-сокета не имеет.]]></data>
+      <data key="d7">
+        <y:ShapeNode>
+          <y:Geometry height="80.0" width="280.0" x="1020.0" y="1200.0"/>
+          <y:Fill color="#8E24AA" transparent="false"/>
+          <y:BorderStyle color="#6A1B9A" type="line" width="2.0"/>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="122.2275390625" x="78.88623046875" y="29.42431640625">Raw Data Monitor</y:NodeLabel>
+          <y:Shape type="rectangle"/>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="n23">
+      <data key="d3"><![CDATA[Глобальные настройки источника: показывает текущий host/port и переключает UDP source в runtime через /api/source/config.]]></data>
+      <data key="d4"><![CDATA[Global Source Settings (/ settings)]]></data>
+      <data key="d6"><![CDATA[Глобальные настройки источника: показывает текущий host/port и переключает UDP source в runtime через /api/source/config.]]></data>
+      <data key="d7">
+        <y:ShapeNode>
+          <y:Geometry height="80.0" width="300.0" x="350.0" y="1200.0"/>
+          <y:Fill color="#8E24AA" transparent="false"/>
+          <y:BorderStyle color="#6A1B9A" type="line" width="2.0"/>
+          <y:NodeLabel alignment="center" autoSizePolicy="content" fontFamily="Dialog" fontSize="14" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="21.1513671875" horizontalTextPosition="center" iconTextGap="4" modelName="internal" modelPosition="c" textColor="#FFFFFF" verticalTextPosition="bottom" visible="true" width="158.02734375" x="70.986328125" y="29.42431640625">Global Source Settings</y:NodeLabel>
+          <y:Shape type="rectangle"/>
+        </y:ShapeNode>
+      </data>
+    </node>
     <edge id="e0" source="n0" target="n1">
       <data key="d9"><![CDATA[reads .tne]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -326,7 +367,6 @@
     </edge>
     <edge id="e1" source="n1" target="n2">
       <data key="d9"><![CDATA[TN3 stream → TCP 127.0.0.1:13332]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -340,7 +380,6 @@
     </edge>
     <edge id="e2" source="n2" target="n3">
       <data key="d9"><![CDATA[UDP 127.0.0.1:14442]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -354,7 +393,6 @@
     </edge>
     <edge id="e3" source="n2" target="n4">
       <data key="d9"><![CDATA[UDP 127.0.0.1:14443 (mirror)]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -367,14 +405,13 @@
       </data>
     </edge>
     <edge id="e4" source="n2" target="n5">
-      <data key="d9"><![CDATA[UDP 127.0.0.1:14443 (full stream from out.json)]]></data>
-      <data key="d11"/>
+      <data key="d9"><![CDATA[UDP runtime source (default :14443)]]></data>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
           <y:LineStyle color="#EF6C00" type="line" width="2.0"/>
           <y:Arrows source="none" target="standard"/>
-          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="11" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="17.47607421875" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#EF6C00" verticalTextPosition="bottom" visible="true" width="120.76220703125" x="2.0" y="86.261962890625">UDP :14444 AVIONICS<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="11" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="17.47607421875" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#EF6C00" verticalTextPosition="bottom" visible="true" width="193.4921875" x="2.0" y="86.261962890625">UDP runtime source (default :14443)<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
           </y:EdgeLabel>
           <y:BendStyle smoothed="false"/>
         </y:PolyLineEdge>
@@ -382,7 +419,6 @@
     </edge>
     <edge id="e5" source="n5" target="n7">
       <data key="d9"><![CDATA[raw Buffer]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -396,7 +432,6 @@
     </edge>
     <edge id="e6" source="n6" target="n7">
       <data key="d9"><![CDATA[loads schema (out.json + field-catalog.ts)]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -410,13 +445,12 @@
     </edge>
     <edge id="e7" source="n7" target="n8">
       <data key="d9"><![CDATA[flat decoded dict]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
           <y:LineStyle color="#2E7D32" type="line" width="2.0"/>
           <y:Arrows source="none" target="standard"/>
-          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#2E7D32" verticalTextPosition="bottom" visible="true" width="90.1328125" x="-7.790721202792156" y="5.30430628986835">RawAvionicsFrame<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#2E7D32" verticalTextPosition="bottom" visible="true" width="76.8271484375" x="-7.790721202792156" y="5.30430628986835">flat decoded dict<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
           </y:EdgeLabel>
           <y:BendStyle smoothed="false"/>
         </y:PolyLineEdge>
@@ -424,27 +458,25 @@
     </edge>
     <edge id="e8" source="n8" target="n9">
       <data key="d9"><![CDATA[TelemetryFrame + dec_*]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
           <y:LineStyle color="#2E7D32" type="line" width="2.0"/>
           <y:Arrows source="none" target="standard"/>
-          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#2E7D32" verticalTextPosition="bottom" visible="true" width="57.3447265625" x="26.79960920271509" y="15.94468714924335">FlightFrame<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#2E7D32" verticalTextPosition="bottom" visible="true" width="87.3544921875" x="26.79960920271509" y="15.94468714924335">telemetry-frame.v1<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
           </y:EdgeLabel>
           <y:BendStyle smoothed="false"/>
         </y:PolyLineEdge>
       </data>
     </edge>
     <edge id="e9" source="n8" target="n11">
-      <data key="d9"><![CDATA[telemetry-frame.v1]]></data>
-      <data key="d11"/>
+      <data key="d9"><![CDATA[event pfd-frame (payload telemetry-frame.v1)]]></data>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
           <y:LineStyle color="#00695C" type="line" width="2.0"/>
           <y:Arrows source="none" target="standard"/>
-          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#00695C" verticalTextPosition="bottom" visible="true" width="67.3544921875" x="-46.033011341465624" y="70.94468714924335">telemetry-frame.v1<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#00695C" verticalTextPosition="bottom" visible="true" width="87.3544921875" x="-46.033011341465624" y="70.94468714924335">telemetry-frame.v1<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
           </y:EdgeLabel>
           <y:BendStyle smoothed="false"/>
         </y:PolyLineEdge>
@@ -452,7 +484,6 @@
     </edge>
     <edge id="e10" source="n8" target="n10">
       <data key="d9"><![CDATA[telemetry-frame.v1]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -466,13 +497,12 @@
     </edge>
     <edge id="e11" source="n9" target="n12">
       <data key="d9"><![CDATA[telemetry-frame.v1]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
           <y:LineStyle color="#00695C" type="line" width="2.0"/>
           <y:Arrows source="none" target="standard"/>
-          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#00695C" verticalTextPosition="bottom" visible="true" width="60.1328125" x="9.6557921486459" y="15.537696604743587">pfd-frame.v1<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#00695C" verticalTextPosition="bottom" visible="true" width="166.8271484375" x="9.6557921486459" y="15.537696604743587">event pfd-frame (telemetry-frame.v1)<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
           </y:EdgeLabel>
           <y:BendStyle smoothed="false"/>
         </y:PolyLineEdge>
@@ -480,7 +510,6 @@
     </edge>
     <edge id="e12" source="n9" target="n13">
       <data key="d9"><![CDATA[GET /api/pfd/current]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -494,7 +523,6 @@
     </edge>
     <edge id="e13" source="n8" target="n13">
       <data key="d9"><![CDATA[GET /api/live/current, /api/status]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -508,7 +536,6 @@
     </edge>
     <edge id="e14" source="n10" target="n14">
       <data key="d9"><![CDATA[writes .jsonl]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -522,7 +549,6 @@
     </edge>
     <edge id="e15" source="n14" target="n13">
       <data key="d9"><![CDATA[reads (replay API)]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -536,7 +562,6 @@
     </edge>
     <edge id="e16" source="n11" target="n19">
       <data key="d9"><![CDATA[EventSource: status, telemetry-frame]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -550,13 +575,12 @@
     </edge>
     <edge id="e17" source="n12" target="n18">
       <data key="d9"><![CDATA[EventSource: status, pfd-frame (flat)]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
           <y:LineStyle color="#7B1FA2" type="line" width="2.0"/>
           <y:Arrows source="none" target="standard"/>
-          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="11" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="17.47607421875" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#7B1FA2" verticalTextPosition="bottom" visible="true" width="79.79150390625" x="-79.39576071865486" y="87.59879279614984">SSE pfd-frame<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="11" fontStyle="bold" hasBackgroundColor="false" hasLineColor="false" height="17.47607421875" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#7B1FA2" verticalTextPosition="bottom" visible="true" width="204.5029296875" x="-79.39576071865486" y="87.59879279614984">SSE event pfd-frame (telemetry-frame)<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
           </y:EdgeLabel>
           <y:BendStyle smoothed="false"/>
         </y:PolyLineEdge>
@@ -564,7 +588,6 @@
     </edge>
     <edge id="e18" source="n12" target="n19">
       <data key="d9"><![CDATA[EventSource (debug tab)]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -578,7 +601,6 @@
     </edge>
     <edge id="e19" source="n13" target="n19">
       <data key="d9"><![CDATA[fetch (replay, capture)]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -592,7 +614,6 @@
     </edge>
     <edge id="e20" source="n17" target="n19">
       <data key="d9"><![CDATA[serves static assets GET /viewer/*]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -606,7 +627,6 @@
     </edge>
     <edge id="e21" source="n16" target="n18">
       <data key="d9"><![CDATA[Sample mode (no UDP)]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -620,7 +640,6 @@
     </edge>
     <edge id="e22" source="n15" target="n9">
       <data key="d9"><![CDATA[contract reference]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -634,7 +653,6 @@
     </edge>
     <edge id="e23" source="n20" target="n5">
       <data key="d9"><![CDATA[bridge-plugin starts]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
@@ -648,13 +666,64 @@
     </edge>
     <edge id="e24" source="n20" target="n18">
       <data key="d9"><![CDATA[serves / + HMR]]></data>
-      <data key="d11"/>
       <data key="d12">
         <y:PolyLineEdge>
           <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
           <y:LineStyle color="#546E7A" type="line" width="1.0"/>
           <y:Arrows source="none" target="standard"/>
           <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="9" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="15.02587890625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#546E7A" verticalTextPosition="bottom" visible="true" width="24.49609375" x="-25.939641992735915" y="-38.76205007053295">HMR<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          </y:EdgeLabel>
+          <y:BendStyle smoothed="false"/>
+        </y:PolyLineEdge>
+      </data>
+    </edge>
+    <edge id="e25" source="n9" target="n21">
+      <data key="d9"><![CDATA[same current telemetry-frame]]></data>
+      <data key="d12">
+        <y:PolyLineEdge>
+          <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
+          <y:LineStyle color="#7B1FA2" type="line" width="2.0"/>
+          <y:Arrows source="none" target="standard"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#7B1FA2" verticalTextPosition="bottom" visible="true" width="114.5859375" x="190.3514580751737" y="146.87451171875">same telemetry-frame.v1<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          </y:EdgeLabel>
+          <y:BendStyle smoothed="false"/>
+        </y:PolyLineEdge>
+      </data>
+    </edge>
+    <edge id="e26" source="n13" target="n22">
+      <data key="d9"><![CDATA[/api/raw/status + /api/raw/current]]></data>
+      <data key="d12">
+        <y:PolyLineEdge>
+          <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
+          <y:LineStyle color="#00695C" type="line" width="1.0"/>
+          <y:Arrows source="none" target="standard"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#00695C" verticalTextPosition="bottom" visible="true" width="122.388671875" x="180.57997709334848" y="91.87451171875">raw decoder status/current<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          </y:EdgeLabel>
+          <y:BendStyle smoothed="false"/>
+        </y:PolyLineEdge>
+      </data>
+    </edge>
+    <edge id="e27" source="n13" target="n23">
+      <data key="d9"><![CDATA[/api/source/status + /api/source/config]]></data>
+      <data key="d12">
+        <y:PolyLineEdge>
+          <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
+          <y:LineStyle color="#00695C" type="line" width="1.0"/>
+          <y:Arrows source="none" target="standard"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#00695C" verticalTextPosition="bottom" visible="true" width="116.83203125" x="-66.7589477069107" y="91.87451171875">source status/config APIs<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
+          </y:EdgeLabel>
+          <y:BendStyle smoothed="false"/>
+        </y:PolyLineEdge>
+      </data>
+    </edge>
+    <edge id="e28" source="n5" target="n22">
+      <data key="d9"><![CDATA[SSE /events/raw (same decoder stream)]]></data>
+      <data key="d12">
+        <y:PolyLineEdge>
+          <y:Path sx="0.0" sy="0.0" tx="0.0" ty="0.0"/>
+          <y:LineStyle color="#00695C" type="line" width="1.0"/>
+          <y:Arrows source="none" target="standard"/>
+          <y:EdgeLabel alignment="center" distance="2.0" fontFamily="Dialog" fontSize="10" fontStyle="plain" hasBackgroundColor="false" hasLineColor="false" height="16.2509765625" horizontalTextPosition="center" iconTextGap="4" modelName="six_pos" modelPosition="tail" preferredPlacement="anywhere" ratio="0.5" textColor="#00695C" verticalTextPosition="bottom" visible="true" width="156.8369140625" x="336.58382377895055" y="306.87451171875">SSE /events/raw (decoder stream)<y:PreferredPlacementDescriptor angle="0.0" angleOffsetOnRightSide="0" angleReference="absolute" angleRotationOnRightSide="co" distance="-1.0" frozen="true" placement="anywhere" side="anywhere" sideReference="relative_to_edge_flow"/>
           </y:EdgeLabel>
           <y:BendStyle smoothed="false"/>
         </y:PolyLineEdge>

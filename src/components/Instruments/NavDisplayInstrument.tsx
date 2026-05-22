@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
+import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
 import { registerInstrument } from '../PanelBuilder/registry';
 
 const finiteNumber = (value: unknown): number | null =>
@@ -81,45 +82,55 @@ const NavDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
         preserveAspectRatio="xMidYMid meet"
       >
         {/* Top left HDG text */}
-        <text x="30" y="50" fill="white" fontSize="22" fontFamily="sans-serif">
-          HDG{' '}
-          <tspan fill="#00FFFF">
-            {Math.round(selectedHeading).toString().padStart(3, '0')} °
-          </tspan>
-        </text>
+        <SvgTooltipGroup
+          description="Заданный курс автопилота, градусы."
+          frameVariables={['HeadingSelect']}
+        >
+          <text x="30" y="50" fill="white" fontSize="22" fontFamily="sans-serif">
+            HDG{' '}
+            <tspan fill="#00FFFF">
+              {Math.round(selectedHeading).toString().padStart(3, '0')} °
+            </tspan>
+          </text>
+        </SvgTooltipGroup>
 
         {/* Top right NAV data */}
-        <g
+        <SvgTooltipGroup
           transform="translate(480, 80)"
-          fill="white"
-          fontSize="20"
-          fontFamily="sans-serif"
+          description="NAV-блок: курсовые/радионавигационные данные и DME-дистанция."
+          frameVariables={['DME_Distance']}
         >
-          <text x="10" y="0" fill="#00FFFF" textAnchor="end" letterSpacing="4">
-            ---
-          </text>
-          <text x="30" y="0">A</text>
+          <g fill="white" fontSize="20" fontFamily="sans-serif">
+            <text x="10" y="0" fill="#00FFFF" textAnchor="end" letterSpacing="4">
+              ---
+            </text>
+            <text x="30" y="0">A</text>
 
-          <text x="10" y="30" fill="#00FFFF" textAnchor="end" letterSpacing="4">
-            ---
-          </text>
-          <text x="30" y="30">°</text>
+            <text x="10" y="30" fill="#00FFFF" textAnchor="end" letterSpacing="4">
+              ---
+            </text>
+            <text x="30" y="30">°</text>
 
-          <text
-            x="10"
-            y="60"
-            fill="#FFA500"
-            textAnchor="end"
-            letterSpacing={dme === null ? '4' : '0'}
-          >
-            {dme !== null && dme !== undefined ? dme.toFixed(1) : '---'}
-          </text>
-          <text x="30" y="60">NM</text>
-        </g>
+            <text
+              x="10"
+              y="60"
+              fill="#FFA500"
+              textAnchor="end"
+              letterSpacing={dme === null ? '4' : '0'}
+            >
+              {dme !== null && dme !== undefined ? dme.toFixed(1) : '---'}
+            </text>
+            <text x="30" y="60">NM</text>
+          </g>
+        </SvgTooltipGroup>
 
         <g transform="translate(300, 200)">
           {/* Rotating Compass Rose */}
-          <g transform={`rotate(${-heading})`}>
+          <SvgTooltipGroup
+            transform={`rotate(${-heading})`}
+            description="Компасная роза — текущий магнитный курс разворачивает шкалу относительно самолёта."
+            frameVariables={['MagneticHeading']}
+          >
             {renderCompassRose()}
 
             {/* Selected heading bug (cyan) */}
@@ -129,15 +140,17 @@ const NavDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
                 fill="#00FFFF"
               />
             </g>
-          </g>
+          </SvgTooltipGroup>
 
           {/* Outer fixed elements */}
-          <polygon
-            points="0,-156 -10,-174 10,-174"
-            fill="none"
-            stroke="#FFEA00"
-            strokeWidth="2"
-          />
+          <SvgTooltipGroup description="Жёлтый индекс самолёта — неподвижная отметка текущего направления.">
+            <polygon
+              points="0,-156 -10,-174 10,-174"
+              fill="none"
+              stroke="#FFEA00"
+              strokeWidth="2"
+            />
+          </SvgTooltipGroup>
 
           {/* Left, Right, Bottom fixed tick marks */}
           <line x1="-160" y1="0" x2="-180" y2="0" stroke="white" strokeWidth="2" />
@@ -145,11 +158,13 @@ const NavDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
           <line x1="0" y1="160" x2="0" y2="180" stroke="white" strokeWidth="2" />
 
           {/* Center Airplane Symbol */}
-          <g stroke="#FFEA00" strokeWidth="4" fill="none" strokeLinecap="square">
-            <line x1="0" y1="-30" x2="0" y2="25" />
-            <line x1="-25" y1="-5" x2="25" y2="-5" />
-            <line x1="-12" y1="20" x2="12" y2="20" />
-          </g>
+          <SvgTooltipGroup description="Символ самолёта в центре навигационного дисплея.">
+            <g stroke="#FFEA00" strokeWidth="4" fill="none" strokeLinecap="square">
+              <line x1="0" y1="-30" x2="0" y2="25" />
+              <line x1="-25" y1="-5" x2="25" y2="-5" />
+              <line x1="-12" y1="20" x2="12" y2="20" />
+            </g>
+          </SvgTooltipGroup>
         </g>
       </svg>
     </div>
@@ -161,6 +176,12 @@ registerInstrument({
   name: 'Nav Display',
   iconName: 'Compass',
   Component: NavDisplayInstrument,
+  tooltip: 'Nav Display — компасная роза, текущий магнитный курс, заданный курс и DME-дистанция.',
+  frameVariables: [
+    'MagneticHeading',
+    'HeadingSelect',
+    'DME_Distance',
+  ],
 });
 
 export default NavDisplayInstrument;
