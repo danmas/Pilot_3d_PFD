@@ -1,6 +1,9 @@
 import React from 'react';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 import { registerInstrument } from '../PanelBuilder/registry';
+
+const finiteNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
 
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
   const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
@@ -95,9 +98,15 @@ function EngineDial({ cx, cy, label, value, maxVal = 100, tickInterval = 20 }: {
   );
 }
 
-const EngineDisplayInstrument: React.FC<{ frame: PFDFrame }> = ({ frame }) => {
-  const engine = frame.engine || {
-    n1: null, n2: null, fuelFlow: null, egt: null, oilPress: null, oilTemp: null, vibration: null
+const EngineDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
+  const engine = {
+    n1: finiteNumber(frame.Engine_N1_Left),
+    n2: finiteNumber(frame.Engine_N1_Right),
+    fuelFlow: finiteNumber(frame.TotalFuel),
+    egt: finiteNumber(frame.APU_EGT),
+    oilPress: finiteNumber(frame.APU_OilPressure),
+    oilTemp: finiteNumber(frame.APU_OilTemp),
+    vibration: null,
   };
 
   const rows = [

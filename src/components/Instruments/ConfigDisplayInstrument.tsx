@@ -1,17 +1,22 @@
 import React from 'react';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 import { registerInstrument } from '../PanelBuilder/registry';
 
-const ConfigDisplayInstrument: React.FC<{ frame: PFDFrame }> = ({ frame }) => {
-  const s = frame.surfaces || {
-    flapL: 0,
-    flapR: 0,
-    slatL: 0,
-    slatR: 0,
-    phiST: -1.8,
-    deltaPB: -0.1,
-    deltaEPL: null,
-    deltaEPR: null
+const finiteNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+const ConfigDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
+  const flaps = finiteNumber(frame.FlapsPosition) ?? 0;
+  const slats = finiteNumber(frame.SlatsPosition) ?? 0;
+  const s = {
+    flapL: flaps,
+    flapR: flaps,
+    slatL: slats,
+    slatR: slats,
+    phiST: finiteNumber(frame.StabPosition) ?? -1.8,
+    deltaPB: finiteNumber(frame.Airbrake_Inner_Cmd) ?? -0.1,
+    deltaEPL: finiteNumber(frame.Elev_Left_Inner) ?? finiteNumber(frame.Elev_Left_Outer),
+    deltaEPR: finiteNumber(frame.Elev_Right_Inner) ?? finiteNumber(frame.Elev_Right_Outer),
   };
 
   const formatWithComma = (val: number | null) => {

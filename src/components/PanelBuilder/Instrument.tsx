@@ -7,12 +7,12 @@ import React from 'react';
 import { getInstrumentIcon } from './instruments';
 import { getRegisteredInstrument } from './registry';
 import type { PanelNode } from './types';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 
 interface Props {
   node: PanelNode;
   onRemove: () => void;
-  frame?: PFDFrame | null;
+  frame?: TelemetryFrame | null;
 }
 
 export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
@@ -90,7 +90,7 @@ export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
       {showLive ? (
         // Render real instrument component, fill the entire cell
         <div className="absolute inset-0 w-full h-full">
-          <InstrumentComponent frame={frame!} />
+          <InstrumentComponent frame={frame} />
         </div>
       ) : (
         // Fallback: icon-based placeholder when no telemetry data

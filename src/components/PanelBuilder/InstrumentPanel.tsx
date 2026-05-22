@@ -8,14 +8,14 @@ import { LayoutPanelTop, LayoutPanelLeft } from 'lucide-react';
 import { Instrument } from './Instrument';
 import { SplitContainer } from './SplitContainer';
 import type { PanelNode, SplitDirection } from './types';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 
 interface Props {
   node: PanelNode;
   onChange: (node: PanelNode) => void;
   onRemoveNode: () => void;
   isRoot?: boolean;
-  frame?: PFDFrame | null;
+  frame?: TelemetryFrame | null;
 }
 
 const newId = () => Math.random().toString(36).substring(2, 9);

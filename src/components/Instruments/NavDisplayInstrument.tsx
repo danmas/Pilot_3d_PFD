@@ -1,17 +1,17 @@
 import React from 'react';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 import { registerInstrument } from '../PanelBuilder/registry';
 
-const NavDisplayInstrument: React.FC<{ frame: PFDFrame }> = ({ frame }) => {
-  const { attitude, nav } = frame;
+const finiteNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
 
-  let heading = attitude.headingDeg ?? 0;
+const NavDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
+  let heading = finiteNumber(frame.MagneticHeading) ?? 0;
   heading = heading % 360;
   if (heading < 0) heading += 360;
 
-  // selectedHeadingDeg lives under PFDFrame.nav in this project's catalog.
-  const selectedHeading = nav.selectedHeadingDeg ?? 220;
-  const dme = nav.dmeDistance;
+  const selectedHeading = finiteNumber(frame.HeadingSelect) ?? 220;
+  const dme = finiteNumber(frame.DME_Distance);
 
   const renderCompassRose = () => {
     const elements: React.ReactNode[] = [];

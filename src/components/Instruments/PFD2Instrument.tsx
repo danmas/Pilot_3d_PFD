@@ -1,5 +1,5 @@
 import React from 'react';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 import { registerInstrument } from '../PanelBuilder/registry';
 
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
@@ -10,10 +10,12 @@ function polarToCartesian(centerX: number, centerY: number, radius: number, angl
   };
 }
 
-const PFD2Instrument: React.FC<{ frame: PFDFrame }> = ({ frame }) => {
-  const { attitude } = frame;
-  const pitch = attitude.pitchDeg ?? 0;
-  const roll = attitude.rollDeg ?? 0;
+const finiteNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
+  const pitch = finiteNumber(frame.PitchAngle) ?? 0;
+  const roll = finiteNumber(frame.RollAngle) ?? 0;
 
   const pxPerDegPitch = 8;
   const pitchOffset = pitch * pxPerDegPitch;

@@ -1,6 +1,9 @@
 import React from 'react';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 import { registerInstrument } from '../PanelBuilder/registry';
+
+const finiteNumber = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
 
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
   const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
@@ -36,9 +39,10 @@ const arcs = [
   { r: 170, start: 65, end: 130, color: '#00FFFF' }
 ];
 
-function LoadsGauge({ frame }: { frame: PFDFrame }) {
-  const ny = frame.loads.ny !== null ? frame.loads.ny + 1 : 1.0;
-  const alpha = frame.air.aoaDeg !== null ? frame.air.aoaDeg : 4.7;
+function LoadsGauge({ frame }: { frame: TelemetryFrame }) {
+  const normalG = finiteNumber(frame.NormalG);
+  const ny = normalG !== null ? normalG + 1 : 1.0;
+  const alpha = finiteNumber(frame.AoA) ?? 4.7;
 
   const angleNy = 240 + (ny * 30);
   const angleAlpha = 120 - (alpha * (30 / 9));
@@ -106,9 +110,9 @@ function LoadsGauge({ frame }: { frame: PFDFrame }) {
   );
 }
 
-function ControlGrid({ frame }: { frame: PFDFrame }) {
-  const roll = frame.attitude.rollDeg || 0;
-  const pitch = frame.attitude.pitchDeg || 0;
+function ControlGrid({ frame }: { frame: TelemetryFrame }) {
+  const roll = finiteNumber(frame.RollAngle) ?? 0;
+  const pitch = finiteNumber(frame.PitchAngle) ?? 0;
 
   const xVal = Math.max(-1, Math.min(1, roll / 45));
   const yVal = Math.max(-1, Math.min(1, pitch / 20));
@@ -157,7 +161,7 @@ function ControlGrid({ frame }: { frame: PFDFrame }) {
   );
 }
 
-const AuxPanelInstrument: React.FC<{ frame: PFDFrame }> = ({ frame }) => {
+const AuxPanelInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
   return (
     <div className="w-full h-full relative bg-[#050505] font-sans flex flex-row items-center justify-center select-none overflow-hidden">
       <ControlGrid frame={frame} />

@@ -1,8 +1,8 @@
 import type React from 'react';
-import type { PFDFrame } from '../../types';
+import type { TelemetryFrame } from '../../types';
 
 /** Every instrument component must accept this prop shape */
-export type InstrumentComponent = React.FC<{ frame: PFDFrame }>;
+export type InstrumentComponent = React.FC<{ frame: TelemetryFrame }>;
 
 export interface RegisteredInstrument {
   id: string;
