@@ -1,15 +1,10 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useRef } from 'react';
 import type { SplitDirection } from './types';
 
 interface Props {
   direction: SplitDirection;
   ratio: number;
-  onRatioChange: (r: number) => void;
+  onRatioChange: (nextRatio: number) => void;
   children: [React.ReactNode, React.ReactNode];
 }
 
@@ -25,19 +20,16 @@ export const SplitContainer: React.FC<Props> = ({ direction, ratio, onRatioChang
     const isVertical = direction === 'vertical';
 
     const onPointerMove = (ev: PointerEvent) => {
-      let newRatio = ratio;
+      let nextRatio = ratio;
       if (isVertical) {
-        // Vertical split means left and right children, so dragging horizontally affects the ratio
         const offset = ev.clientX - startRect.left;
-        newRatio = offset / startRect.width;
+        nextRatio = offset / startRect.width;
       } else {
-        // Horizontal split means top and bottom children
         const offset = ev.clientY - startRect.top;
-        newRatio = offset / startRect.height;
+        nextRatio = offset / startRect.height;
       }
-      // Clamp between 5% and 95%
-      newRatio = Math.max(0.05, Math.min(newRatio, 0.95));
-      onRatioChange(newRatio);
+      nextRatio = Math.max(0.05, Math.min(nextRatio, 0.95));
+      onRatioChange(nextRatio);
     };
 
     const onPointerUp = () => {
@@ -56,10 +48,7 @@ export const SplitContainer: React.FC<Props> = ({ direction, ratio, onRatioChang
       ref={containerRef}
       className={`w-full h-full flex ${isVertical ? 'flex-row' : 'flex-col'} overflow-hidden relative`}
     >
-      <div
-        style={{ flex: `${ratio * 100} 1 0%` }}
-        className="overflow-hidden min-w-0 min-h-0"
-      >
+      <div style={{ flex: `${ratio * 100} 1 0%` }} className="overflow-hidden min-w-0 min-h-0">
         {children[0]}
       </div>
 

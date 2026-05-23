@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
 import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
-import { registerInstrument } from '../PanelBuilder/registry';
+import { registerPanelKitWidget } from '../PanelKit';
 
 function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number) {
   const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
@@ -242,7 +242,7 @@ const PFD2Instrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
   );
 };
 
-registerInstrument({
+registerPanelKitWidget({
   id: 'pfd2',
   name: 'PFD-2 (ADI)',
   iconName: 'CircleDot',

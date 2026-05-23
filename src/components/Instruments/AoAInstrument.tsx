@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
 import { AoATape } from '../PFD/AoATape';
-import { registerInstrument } from '../PanelBuilder/registry';
+import { registerPanelKitWidget } from '../PanelKit';
 
 const AoAInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   <div className="w-full h-full bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
@@ -11,7 +11,7 @@ const AoAInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   </div>
 );
 
-registerInstrument({
+registerPanelKitWidget({
   id: 'aoa',
   name: 'Angle of Attack',
   iconName: 'Wind',

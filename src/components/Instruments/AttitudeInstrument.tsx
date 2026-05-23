@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
 import { AttitudeIndicator } from '../PFD/AttitudeIndicator';
-import { registerInstrument } from '../PanelBuilder/registry';
+import { registerPanelKitWidget } from '../PanelKit';
 
 const AttitudeInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   <div className="w-full h-full bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
@@ -11,7 +11,7 @@ const AttitudeInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   </div>
 );
 
-registerInstrument({
+registerPanelKitWidget({
   id: 'attitude',
   name: 'Attitude Indicator',
   iconName: 'Crosshair',

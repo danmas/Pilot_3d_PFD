@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
 import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
-import { registerInstrument } from '../PanelBuilder/registry';
+import { registerPanelKitWidget } from '../PanelKit';
 
 const finiteNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -171,7 +171,7 @@ const NavDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
   );
 };
 
-registerInstrument({
+registerPanelKitWidget({
   id: 'nav-display',
   name: 'Nav Display',
   iconName: 'Compass',

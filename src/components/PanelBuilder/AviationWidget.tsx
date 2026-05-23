@@ -1,25 +1,19 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React from 'react';
-import { getInstrumentIcon } from './instruments';
 import { InstrumentTooltipProvider } from './InstrumentTooltip';
-import { getRegisteredInstrument } from './registry';
-import type { PanelNode } from './types';
+import {
+  getPanelKitIcon,
+  getRegisteredPanelKitWidget,
+} from '../PanelKit';
 import type { TelemetryFrame } from '../../types';
 
 interface Props {
-  node: PanelNode;
-  onRemove: () => void;
+  widgetId: string;
   frame?: TelemetryFrame | null;
+  onRemove: () => void;
 }
 
-export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
-  const registered = node.instrumentId
-    ? getRegisteredInstrument(node.instrumentId)
-    : undefined;
+export const AviationWidget: React.FC<Props> = ({ widgetId, frame, onRemove }) => {
+  const registered = getRegisteredPanelKitWidget(widgetId);
 
   if (!registered) {
     return (
@@ -30,7 +24,7 @@ export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
             onRemove();
           }}
           className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-red-900/80 hover:bg-red-800 text-white rounded-sm p-1 flex items-center justify-center transition-all z-20"
-          title="Remove Instrument"
+          title="Remove Widget"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -47,25 +41,24 @@ export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
             <path d="m6 6 12 12" />
           </svg>
         </button>
-        Unknown Instrument
+        Unknown Widget
       </div>
     );
   }
 
-  const Icon = getInstrumentIcon(registered.iconName);
-  const InstrumentComponent = registered.Component;
-  const showLive = !!frame && !!InstrumentComponent;
+  const Icon = getPanelKitIcon(registered.iconName);
+  const WidgetComponent = registered.Component as React.FC<{ frame: TelemetryFrame }>;
+  const showLive = !!frame && !!WidgetComponent;
 
   return (
     <div className="w-full h-full relative group min-h-[100px] overflow-hidden bg-[#161719] flex flex-col items-center justify-center text-center">
-      {/* Remove button overlay */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onRemove();
         }}
         className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-red-900/80 hover:bg-red-800 text-white rounded-sm p-1 flex items-center justify-center transition-all z-30"
-        title="Remove Instrument"
+        title="Remove Widget"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -83,20 +76,17 @@ export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
         </svg>
       </button>
 
-      {/* ID label overlay */}
       <div className="absolute top-2 left-2 text-[9px] font-mono bg-black/60 px-1 text-gray-400 border border-[#2d2e30] z-20 pointer-events-none">
-        INST_{registered.id.toUpperCase()}
+        WIDGET_{registered.id.toUpperCase()}
       </div>
 
       {showLive ? (
-        // Render real instrument component, fill the entire cell
         <div className="absolute inset-0 w-full h-full">
           <InstrumentTooltipProvider>
-            <InstrumentComponent frame={frame} />
+            <WidgetComponent frame={frame} />
           </InstrumentTooltipProvider>
         </div>
       ) : (
-        // Fallback: icon-based placeholder when no telemetry data
         <div className="w-full h-full flex flex-col items-center justify-center p-2">
           <div className="text-white mb-2 relative z-10">
             <Icon
@@ -109,7 +99,6 @@ export const Instrument: React.FC<Props> = ({ node, onRemove, frame }) => {
             {registered.name}
           </div>
 
-          {/* Crosshair decoration */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
             <div className="w-48 h-[1px] bg-white"></div>
             <div className="h-48 w-[1px] bg-white absolute"></div>

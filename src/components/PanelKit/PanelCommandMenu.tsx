@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useEffect, useRef, useState } from 'react';
 import { usePanelMenu } from './PanelMenuContext';
 
@@ -13,6 +8,7 @@ export const PanelCommandMenu: React.FC = () => {
 
   useEffect(() => {
     if (!open) return;
+
     const onPointerDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -21,6 +17,7 @@ export const PanelCommandMenu: React.FC = () => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
+
     window.addEventListener('mousedown', onPointerDown);
     window.addEventListener('keydown', onKeyDown);
     return () => {
@@ -28,6 +25,8 @@ export const PanelCommandMenu: React.FC = () => {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [open]);
+
+  if (!items.length) return null;
 
   return (
     <div ref={rootRef} className="relative">
@@ -39,11 +38,11 @@ export const PanelCommandMenu: React.FC = () => {
         aria-expanded={open}
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((v) => !v);
+          setOpen((prev) => !prev);
         }}
       >
         <span className="block w-[14px] text-center text-[14px] leading-none font-bold tracking-widest">
-          ···
+          ...
         </span>
       </button>
 

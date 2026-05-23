@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
 import { PFD } from '../PFD/PFD';
-import { registerInstrument } from '../PanelBuilder/registry';
+import { registerPanelKitWidget } from '../PanelKit';
 
 const PFDInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   <div className="w-full h-full bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
@@ -9,7 +9,7 @@ const PFDInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   </div>
 );
 
-registerInstrument({
+registerPanelKitWidget({
   id: 'pfd',
   name: 'Primary Flight Display',
   iconName: 'Activity',

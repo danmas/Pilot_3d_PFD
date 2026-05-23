@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
 import { AltitudeTape } from '../PFD/AltitudeTape';
-import { registerInstrument } from '../PanelBuilder/registry';
+import { registerPanelKitWidget } from '../PanelKit';
 
 const AltitudeInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   <div className="w-full h-full bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
@@ -11,7 +11,7 @@ const AltitudeInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
   </div>
 );
 
-registerInstrument({
+registerPanelKitWidget({
   id: 'altitude',
   name: 'Altitude',
   iconName: 'Mountain',

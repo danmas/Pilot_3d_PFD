@@ -1,7 +1,7 @@
 import React from 'react';
 import type { TelemetryFrame } from '../../types';
 import { SvgTooltipGroup } from '../PanelBuilder/InstrumentTooltip';
-import { registerInstrument } from '../PanelBuilder/registry';
+import { registerPanelKitWidget } from '../PanelKit';
 
 const finiteNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -172,7 +172,7 @@ const ConfigDisplayInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame })
   );
 };
 
-registerInstrument({
+registerPanelKitWidget({
   id: 'config-display',
   name: 'Config Display',
   iconName: 'Plane',

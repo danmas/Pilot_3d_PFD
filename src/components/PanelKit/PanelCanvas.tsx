@@ -1,57 +1,64 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React from 'react';
-import { LayoutPanelTop, LayoutPanelLeft } from 'lucide-react';
-import { Instrument } from './Instrument';
+import { LayoutPanelLeft, LayoutPanelTop } from 'lucide-react';
 import { SplitContainer } from './SplitContainer';
 import { PanelCommandMenu } from './PanelCommandMenu';
-import type { PanelNode, SplitDirection } from './types';
-import type { TelemetryFrame } from '../../types';
+import type { PanelKitNode, SplitDirection } from './types';
 
-interface Props {
-  node: PanelNode;
-  onChange: (node: PanelNode) => void;
+interface Props<TData = unknown> {
+  node: PanelKitNode;
+  onChange: (node: PanelKitNode) => void;
   onRemoveNode: () => void;
   isRoot?: boolean;
-  frame?: TelemetryFrame | null;
+  data?: TData | null;
+  renderWidget: (
+    node: PanelKitNode,
+    clearWidget: () => void,
+    data?: TData | null,
+  ) => React.ReactNode;
 }
 
 const newId = () => Math.random().toString(36).substring(2, 9);
 
-export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode, isRoot, frame }) => {
+export const PanelCanvas = <TData,>({
+  node,
+  onChange,
+  onRemoveNode,
+  isRoot,
+  data,
+  renderWidget,
+}: Props<TData>) => {
   if (node.type === 'split' && node.children) {
     return (
       <SplitContainer
         direction={node.splitDirection!}
         ratio={node.splitRatio ?? 0.5}
-        onRatioChange={(r) => onChange({ ...node, splitRatio: r })}
+        onRatioChange={(nextRatio) => onChange({ ...node, splitRatio: nextRatio })}
       >
-        <InstrumentPanel
+        <PanelCanvas
           node={node.children[0]}
           onChange={(child) => onChange({ ...node, children: [child, node.children![1]] })}
           onRemoveNode={() => onChange(node.children![1])}
-          frame={frame}
+          data={data}
+          renderWidget={renderWidget}
         />
-        <InstrumentPanel
+        <PanelCanvas
           node={node.children[1]}
           onChange={(child) => onChange({ ...node, children: [node.children![0], child] })}
           onRemoveNode={() => onChange(node.children![0])}
-          frame={frame}
+          data={data}
+          renderWidget={renderWidget}
         />
       </SplitContainer>
     );
   }
 
-  // Handle Drop
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const instId = e.dataTransfer.getData('instrumentId');
-    if (instId) {
-      onChange({ ...node, type: 'instrument', instrumentId: instId });
+    const widgetId =
+      e.dataTransfer.getData('panelkit/widgetId') || e.dataTransfer.getData('instrumentId');
+    if (widgetId) {
+      onChange({ ...node, type: 'widget', widgetId });
     }
   };
 
@@ -68,7 +75,7 @@ export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode,
       splitDirection: direction,
       splitRatio: 0.5,
       children: [
-        { id: newId(), type: node.type, instrumentId: node.instrumentId },
+        { id: newId(), type: node.type, widgetId: node.widgetId },
         { id: newId(), type: 'empty' },
       ],
     });
@@ -85,7 +92,6 @@ export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode,
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {/* Controls Overlay */}
       <div className="absolute top-1 right-1 hidden group-hover:flex space-x-1 z-20 bg-[#161719] rounded-sm p-1 shadow-lg border border-[#2d2e30]">
         <button
           className="p-1 hover:bg-[#252628] rounded-sm text-gray-400 hover:text-white transition-colors"
@@ -126,12 +132,14 @@ export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode,
         )}
       </div>
 
-      {node.type === 'instrument' ? (
-        <Instrument
-          node={node}
-          onRemove={() => onChange({ ...node, type: 'empty', instrumentId: undefined })}
-          frame={frame}
-        />
+      {node.type === 'widget' && node.widgetId ? (
+        <div className="w-full h-full">
+          {renderWidget(
+            node,
+            () => onChange({ ...node, type: 'empty', widgetId: undefined }),
+            data,
+          )}
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center w-full h-full text-gray-500 pointer-events-none gap-2">
           <div className="flex gap-4">
@@ -143,7 +151,7 @@ export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode,
             </div>
           </div>
           <span className="text-[9px] uppercase tracking-tighter hover:text-blue-400">
-            Drop Instrument or Split
+            Drop Widget or Split
           </span>
         </div>
       )}

@@ -5,12 +5,18 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Download, Upload } from 'lucide-react';
-import { InstrumentPanel } from './InstrumentPanel';
-import { Sidebar } from './Sidebar';
-import { PanelMenuProvider } from './PanelMenuContext';
 import { UdpSourceDialog } from './UdpSourceDialog';
-import type { PanelNode } from './types';
-import { isPanelMenuConfig, type PanelMenuConfig } from './panel-menu.types';
+import { AviationWidget } from './AviationWidget';
+import {
+  PanelCanvas,
+  PanelMenuProvider,
+  Sidebar,
+  getAllRegisteredPanelKitWidgets,
+  getPanelKitIcon,
+  isPanelKitMenuConfig,
+  type PanelKitMenuConfig,
+  type PanelKitNode,
+} from '../PanelKit';
 import { useTelemetry } from '../../context/TelemetryContext';
 // Importing the Instruments barrel triggers self-registration of all
 // instrument components into the registry.
@@ -20,12 +26,76 @@ const CURRENT_CONFIG_API = '/api/panel/config/current';
 const PANEL_MENU_API = '/api/panel/menu';
 const CURRENT_CONFIG_FILE_NAME = 'panel-config-current.json';
 
-const createEmptyRoot = (): PanelNode => ({ id: 'root', type: 'empty' });
+const createEmptyRoot = (): PanelKitNode => ({ id: 'root', type: 'empty' });
 
-const isValidPanelNode = (value: unknown): value is PanelNode => {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.id === 'string' && typeof v.type === 'string';
+type LegacyPanelNode = {
+  id: string;
+  type: 'empty' | 'instrument' | 'widget' | 'split';
+  instrumentId?: string;
+  widgetId?: string;
+  splitDirection?: 'horizontal' | 'vertical';
+  splitRatio?: number;
+  children?: [LegacyPanelNode, LegacyPanelNode];
+};
+
+const normalizePanelNode = (value: unknown): PanelKitNode | null => {
+  if (!value || typeof value !== 'object') return null;
+  const node = value as Record<string, unknown>;
+  if (typeof node.id !== 'string' || typeof node.type !== 'string') return null;
+
+  if (node.type === 'empty') {
+    return { id: node.id, type: 'empty' };
+  }
+
+  if (node.type === 'instrument' || node.type === 'widget') {
+    const widgetId =
+      typeof node.widgetId === 'string'
+        ? node.widgetId
+        : typeof node.instrumentId === 'string'
+          ? node.instrumentId
+          : undefined;
+    return {
+      id: node.id,
+      type: widgetId ? 'widget' : 'empty',
+      widgetId,
+    };
+  }
+
+  if (node.type === 'split') {
+    if (!Array.isArray(node.children) || node.children.length !== 2) return null;
+    const first = normalizePanelNode(node.children[0]);
+    const second = normalizePanelNode(node.children[1]);
+    if (!first || !second) return null;
+    return {
+      id: node.id,
+      type: 'split',
+      splitDirection: node.splitDirection === 'horizontal' ? 'horizontal' : 'vertical',
+      splitRatio: typeof node.splitRatio === 'number' ? node.splitRatio : 0.5,
+      children: [first, second],
+    };
+  }
+
+  return null;
+};
+
+const toLegacyPanelNode = (node: PanelKitNode): LegacyPanelNode => {
+  if (node.type === 'split' && node.children) {
+    return {
+      id: node.id,
+      type: 'split',
+      splitDirection: node.splitDirection ?? 'vertical',
+      splitRatio: node.splitRatio ?? 0.5,
+      children: [toLegacyPanelNode(node.children[0]), toLegacyPanelNode(node.children[1])],
+    };
+  }
+  if (node.type === 'widget') {
+    return {
+      id: node.id,
+      type: 'instrument',
+      instrumentId: node.widgetId,
+    };
+  }
+  return { id: node.id, type: 'empty' };
 };
 
 interface PanelBuilderProps {
@@ -37,15 +107,15 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
   const { frame } = useTelemetry();
 
   // ---- State: panel layout tree ----
-  const [rootNode, setRootNode] = useState<PanelNode>(createEmptyRoot);
+  const [rootNode, setRootNode] = useState<PanelKitNode>(createEmptyRoot);
   const [configStatus, setConfigStatus] = useState('Loading current config...');
-  const [panelMenu, setPanelMenu] = useState<PanelMenuConfig | null>(null);
+  const [panelMenu, setPanelMenu] = useState<PanelKitMenuConfig | null>(null);
   const [udpDialogOpen, setUdpDialogOpen] = useState(false);
   const hasHydrated = useRef(false);
   const lastSavedJson = useRef<string | null>(null);
 
-  const saveCurrentConfig = useCallback(async (node: PanelNode): Promise<boolean> => {
-    const json = JSON.stringify(node, null, 2);
+  const saveCurrentConfig = useCallback(async (node: PanelKitNode): Promise<boolean> => {
+    const json = JSON.stringify(toLegacyPanelNode(node), null, 2);
     setConfigStatus(`Saving ${CURRENT_CONFIG_FILE_NAME}...`);
 
     try {
@@ -87,9 +157,10 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
         }
 
         const parsed = await response.json();
-        if (isValidPanelNode(parsed)) {
-          lastSavedJson.current = JSON.stringify(parsed, null, 2);
-          setRootNode(parsed);
+        const normalized = normalizePanelNode(parsed);
+        if (normalized) {
+          lastSavedJson.current = JSON.stringify(toLegacyPanelNode(normalized), null, 2);
+          setRootNode(normalized);
           setConfigStatus(`Loaded from ${CURRENT_CONFIG_FILE_NAME}`);
         } else {
           setConfigStatus(`Invalid ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
@@ -120,7 +191,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
         if (cancelled) return;
         if (!response.ok) return;
         const parsed = await response.json();
-        if (isPanelMenuConfig(parsed)) {
+        if (isPanelKitMenuConfig(parsed)) {
           setPanelMenu(parsed);
         }
       } catch (error) {
@@ -137,7 +208,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
   // ---- Auto-save to panel-config-current.json on change (after initial hydration) ----
   useEffect(() => {
     if (!hasHydrated.current) return;
-    const json = JSON.stringify(rootNode, null, 2);
+    const json = JSON.stringify(toLegacyPanelNode(rootNode), null, 2);
     if (json === lastSavedJson.current) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -149,7 +220,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
 
   // ---- File save / load ----
   const handleSaveFile = async () => {
-    const json = JSON.stringify(rootNode, null, 2);
+    const json = JSON.stringify(toLegacyPanelNode(rootNode), null, 2);
 
     // Prefer File System Access API so the user can choose name & location
     const fsWindow = window as Window & {
@@ -212,8 +283,9 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
       try {
         const json = e.target?.result as string;
         const parsed = JSON.parse(json);
-        if (isValidPanelNode(parsed)) {
-          setRootNode(parsed);
+        const normalized = normalizePanelNode(parsed);
+        if (normalized) {
+          setRootNode(normalized);
           setConfigStatus(`Imported; will autosave to ${CURRENT_CONFIG_FILE_NAME}`);
         } else {
           alert('Invalid configuration file structure.');
@@ -235,7 +307,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
     document.getElementById('panel-builder-load')?.click();
   }, []);
 
-  const menuActions = useMemo(
+  const menuActions = useMemo<Record<string, () => void>>(
     () => ({
       openUdpDialog: () => setUdpDialogOpen(true),
       saveConfig: () => void handleSaveFile(),
@@ -243,6 +315,16 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
       saveCurrentConfig: () => void saveCurrentConfig(rootNode),
     }),
     [rootNode, saveCurrentConfig, triggerLoadFile],
+  );
+
+  const availableWidgets = useMemo(
+    () =>
+      getAllRegisteredPanelKitWidgets().map((widget) => ({
+        id: widget.id,
+        name: widget.name,
+        iconName: widget.iconName,
+      })),
+    [],
   );
 
   return (
@@ -302,17 +384,24 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 bg-[#0a0a0f] p-4 flex gap-2 relative">
           <div className="w-full h-full border-2 border-dashed border-[#2d2e30] flex relative">
-            <InstrumentPanel
+            <PanelCanvas
               node={rootNode}
               onChange={setRootNode}
               onRemoveNode={() => setRootNode(createEmptyRoot())}
               isRoot
-              frame={frame}
+              data={frame}
+              renderWidget={(node, clearWidget) => (
+                <AviationWidget
+                  widgetId={node.widgetId!}
+                  frame={frame}
+                  onRemove={clearWidget}
+                />
+              )}
             />
           </div>
         </main>
 
-        <Sidebar />
+        <Sidebar items={availableWidgets} getIcon={getPanelKitIcon} />
       </div>
 
       {/* ─── Status bar ───────────────────────────────────────────── */}

@@ -13,8 +13,8 @@ import './PFD2Instrument';
 
 // Re-export registry helpers for convenience
 export {
-  registerInstrument,
-  getRegisteredInstrument,
-  getAllInstruments,
-} from '../PanelBuilder/registry';
-export type { RegisteredInstrument, InstrumentComponent } from '../PanelBuilder/registry';
+  registerPanelKitWidget,
+  getRegisteredPanelKitWidget,
+  getAllRegisteredPanelKitWidgets,
+} from '../PanelKit';
+export type { RegisteredPanelKitWidget, PanelKitWidgetComponent } from '../PanelKit';
