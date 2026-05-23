@@ -1,0 +1,8 @@
+{
+  "items": [
+    { "type": "item", "label": "UDP Source...", "action": "openUdpDialog" },
+    { "type": "separator" },
+    { "type": "item", "label": "Save Configuration...", "action": "saveConfig" },
+    { "type": "item", "label": "Load Configuration...", "action": "loadConfig" }
+  ]
+}

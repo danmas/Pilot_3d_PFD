@@ -68,6 +68,7 @@ type RawMonitorState = {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PANEL_CONFIG_CURRENT_PATH = path.join(PROJECT_ROOT, "panel-config-current.json");
+const PANEL_MENU_PATH = path.join(__dirname, "panel-menu.json");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
 const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
 
@@ -321,6 +322,11 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             }
             writePanelConfigCurrent(body);
             sendJson(res, { ok: true, file: path.basename(PANEL_CONFIG_CURRENT_PATH) }); return;
+          }
+          if (req.method === "GET" && url.pathname === "/api/panel/menu") {
+            const menu = readPanelMenu();
+            if (!menu) { sendJson(res, { error: "panel menu not found" }, 404); return; }
+            sendJson(res, menu); return;
           }
 
           // API: capture
@@ -735,6 +741,28 @@ function readPanelConfigCurrent(): Record<string, unknown> | null {
 function writePanelConfigCurrent(config: Record<string, unknown>): void {
   fs.mkdirSync(path.dirname(PANEL_CONFIG_CURRENT_PATH), { recursive: true });
   fs.writeFileSync(PANEL_CONFIG_CURRENT_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+}
+
+function isPanelMenuConfig(value: unknown): value is { items: unknown[] } {
+  if (!value || typeof value !== "object") return false;
+  const items = (value as { items?: unknown }).items;
+  if (!Array.isArray(items)) return false;
+  return items.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    const row = item as { type?: string; label?: unknown; action?: unknown };
+    if (row.type === "separator") return true;
+    if (row.type === "item") {
+      return typeof row.label === "string" && typeof row.action === "string";
+    }
+    return false;
+  });
+}
+
+function readPanelMenu(): Record<string, unknown> | null {
+  if (!fs.existsSync(PANEL_MENU_PATH)) return null;
+  const raw = fs.readFileSync(PANEL_MENU_PATH, "utf8");
+  const parsed = JSON.parse(raw);
+  return isPanelMenuConfig(parsed) ? parsed : null;
 }
 
 // ── helpers ────────────────────────────────────────────────────────

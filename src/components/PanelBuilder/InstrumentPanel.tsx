@@ -7,6 +7,7 @@ import React from 'react';
 import { LayoutPanelTop, LayoutPanelLeft } from 'lucide-react';
 import { Instrument } from './Instrument';
 import { SplitContainer } from './SplitContainer';
+import { PanelCommandMenu } from './PanelCommandMenu';
 import type { PanelNode, SplitDirection } from './types';
 import type { TelemetryFrame } from '../../types';
 
@@ -100,6 +101,7 @@ export const InstrumentPanel: React.FC<Props> = ({ node, onChange, onRemoveNode,
         >
           <LayoutPanelTop size={14} />
         </button>
+        <PanelCommandMenu />
         {!isRoot && (
           <button
             className="p-1 hover:bg-red-900/50 rounded-sm text-red-500 hover:text-red-400 transition-colors ml-1"

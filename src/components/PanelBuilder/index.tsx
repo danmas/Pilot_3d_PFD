@@ -3,17 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Download, Upload } from 'lucide-react';
 import { InstrumentPanel } from './InstrumentPanel';
 import { Sidebar } from './Sidebar';
+import { PanelMenuProvider } from './PanelMenuContext';
+import { UdpSourceDialog } from './UdpSourceDialog';
 import type { PanelNode } from './types';
+import { isPanelMenuConfig, type PanelMenuConfig } from './panel-menu.types';
 import { useTelemetry } from '../../context/TelemetryContext';
 // Importing the Instruments barrel triggers self-registration of all
 // instrument components into the registry.
 import '../Instruments';
 
 const CURRENT_CONFIG_API = '/api/panel/config/current';
+const PANEL_MENU_API = '/api/panel/menu';
 const CURRENT_CONFIG_FILE_NAME = 'panel-config-current.json';
 
 const createEmptyRoot = (): PanelNode => ({ id: 'root', type: 'empty' });
@@ -35,6 +39,8 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
   // ---- State: panel layout tree ----
   const [rootNode, setRootNode] = useState<PanelNode>(createEmptyRoot);
   const [configStatus, setConfigStatus] = useState('Loading current config...');
+  const [panelMenu, setPanelMenu] = useState<PanelMenuConfig | null>(null);
+  const [udpDialogOpen, setUdpDialogOpen] = useState(false);
   const hasHydrated = useRef(false);
   const lastSavedJson = useRef<string | null>(null);
 
@@ -99,6 +105,30 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
     };
 
     void loadCurrentConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ---- Load panel-menu.json ----
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPanelMenu = async () => {
+      try {
+        const response = await fetch(PANEL_MENU_API, { cache: 'no-store' });
+        if (cancelled) return;
+        if (!response.ok) return;
+        const parsed = await response.json();
+        if (isPanelMenuConfig(parsed)) {
+          setPanelMenu(parsed);
+        }
+      } catch (error) {
+        console.warn('Failed to load panel menu', error);
+      }
+    };
+
+    void loadPanelMenu();
     return () => {
       cancelled = true;
     };
@@ -201,8 +231,23 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
     if (e.target) e.target.value = '';
   };
 
+  const triggerLoadFile = useCallback(() => {
+    document.getElementById('panel-builder-load')?.click();
+  }, []);
+
+  const menuActions = useMemo(
+    () => ({
+      openUdpDialog: () => setUdpDialogOpen(true),
+      saveConfig: () => void handleSaveFile(),
+      loadConfig: triggerLoadFile,
+      saveCurrentConfig: () => void saveCurrentConfig(rootNode),
+    }),
+    [rootNode, saveCurrentConfig, triggerLoadFile],
+  );
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#0a0a0f] text-[#d1d5db] font-sans overflow-hidden">
+    <PanelMenuProvider menu={panelMenu} actions={menuActions}>
+      <div className="flex flex-col h-screen w-screen bg-[#0a0a0f] text-[#d1d5db] font-sans overflow-hidden">
       {/* ─── Header ───────────────────────────────────────────────── */}
       <header className="h-12 border-b border-[#2d2e30] bg-[#161719] flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
@@ -279,7 +324,10 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
         </div>
         <div className="text-gray-500 font-mono">{configStatus}</div>
       </footer>
+
+      <UdpSourceDialog open={udpDialogOpen} onClose={() => setUdpDialogOpen(false)} />
     </div>
+    </PanelMenuProvider>
   );
 };
 

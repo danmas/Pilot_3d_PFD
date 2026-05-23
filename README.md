@@ -7,6 +7,7 @@
 | Компонент | URL | Описание |
 |---|---|---|
 | **PFD (КПИ)** | `http://localhost:3410/` | React PFD: авиагоризонт, ленты скорости/высоты, вариометр |
+| **Panel Builder** | Hub → «Panel Builder» | Конструктор приборной панели: drag-and-drop, split, save/load |
 | **Viewer (диагностика)** | `http://localhost:3410/viewer/` | Live/replay, capture, отладка telemetry-frame.v1 |
 | **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443), hex+decoded, piggyback-режим |
 | **Bridge (UDP → HTTP)** | порт 14443 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
@@ -111,6 +112,50 @@ npm run dev
 - **Upload JSON** — загрузить одиночный telemetry-frame.v1 кадр
 - **Play / Pause** (Sample) — управление анимацией
 
+## Panel Builder
+
+Конструктор компоновки приборов (Hub → «Panel Builder»). Подробнее — [KB/README_Panel_builder](../KB/README_Panel_builder).
+
+### Конфигурация панели
+
+| Файл | Назначение |
+|------|------------|
+| `panel-config-current.json` | Текущая компоновка (автосохранение через API) |
+| `panel-menu.json` | Пункты контекстного меню «···» на каждой ячейке панели |
+
+### Меню команд панели (`panel-menu.json`)
+
+При наведении на ячейку панели (hover) в правом верхнем углу появляются кнопки управления, включая **«···»** — выпадающее меню команд. Состав меню задаётся в `panel-menu.json`:
+
+```json
+{
+  "items": [
+    { "type": "item", "label": "UDP Source...", "action": "openUdpDialog" },
+    { "type": "separator" },
+    { "type": "item", "label": "Save Configuration...", "action": "saveConfig" },
+    { "type": "item", "label": "Load Configuration...", "action": "loadConfig" }
+  ]
+}
+```
+
+| Поле | Описание |
+|------|----------|
+| `type: "item"` | Кликабельный пункт меню |
+| `type: "separator"` | Горизонтальный разделитель |
+| `label` | Текст пункта |
+| `action` | Идентификатор действия (реализован в коде) |
+
+**Доступные action:**
+
+| action | Действие |
+|--------|----------|
+| `openUdpDialog` | Диалог настройки UDP host/port |
+| `saveConfig` | Сохранить компоновку в файл (Save as) |
+| `loadConfig` | Загрузить компоновку из файла |
+| `saveCurrentConfig` | Сохранить в `panel-config-current.json` без диалога |
+
+Меню одинаково на всех ячейках, не зависит от контекста. После изменения `panel-menu.json` — перезагрузить страницу.
+
 ## Tooltips (всплывающие подсказки)
 
 При наведении курсора на элементы PFD отображается tooltip с описанием индикатора и JSON-путём к источнику данных:
@@ -168,6 +213,11 @@ GET  /api/pfd/current
 GET  /api/pfd/recordings/:id/meta
 GET  /api/pfd/recordings/:id/frame?timeMs=...
 GET  /api/pfd/recordings/:id/range?fromMs=...&toMs=...&limit=...
+GET  /api/source/status
+POST /api/source/config          { host, port }
+GET  /api/panel/config/current
+PUT  /api/panel/config/current   PanelNode JSON
+GET  /api/panel/menu             panel-menu.json
 ```
 
 ### Raw Data Monitor API
@@ -198,6 +248,8 @@ event: status       → { port, active, receivedPackets, receivedFrames, ... }
 | `field-catalog.ts` | Справочник имён, типов, ARINC param. **НЕ раскладка, НЕ порядок.** |
 | `decoding.ts` | Загрузка out.json, сопоставление по ARINC param, декодирование, `dec_*` формулы, валидация |
 | `bridge-plugin.ts` | Vite-плагин: UDP-сокет (14443), сборка фреймов, SSE, capture, replay API |
+| `panel-config-current.json` | Текущая компоновка Panel Builder (автосохранение) |
+| `panel-menu.json` | Конфигурация меню «···» в Panel Builder |
 | `src/types.ts` | `TelemetryFrame` тип для фронтенда |
 
 ## Порт по умолчанию: 14443
