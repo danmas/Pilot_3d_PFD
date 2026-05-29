@@ -149,6 +149,9 @@ Initial presets:
 
 Подробно: [README_flight_physics.md](./README_flight_physics.md).
 
+**Подключаемые модели (pluggable FDM):** [README_pluggable_fdm.md](./README_pluggable_fdm.md).
+Архитектурный анализ проведён, спецификация готова. Реализация отложена — текущая модель работает стабильно.
+
 ## Panel Builder
 
 Конструктор компоновки приборов (Hub → «Panel Builder»). Подробнее — [KB/README_Panel_builder](../KB/README_Panel_builder).
