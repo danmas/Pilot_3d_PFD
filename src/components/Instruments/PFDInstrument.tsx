@@ -11,10 +11,10 @@ const PFDInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => (
 
 registerPanelKitWidget({
   id: 'pfd',
-  name: 'Primary Flight Display',
+  name: 'Flight Display',
   iconName: 'Activity',
   Component: PFDInstrument,
-  tooltip: 'Primary Flight Display — основной пилотажный индикатор: авиагоризонт, скорость, высота, вариометр, AoA, G и команды Flight Director.',
+  tooltip: 'Flight Display — основной пилотажный индикатор: авиагоризонт, скорость, высота, вариометр, AoA, G и команды Flight Director.',
   frameVariables: [
     'PitchAngle',
     'RollAngle',

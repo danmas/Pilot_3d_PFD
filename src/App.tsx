@@ -406,7 +406,7 @@ export default function App() {
               <span className="text-purple-400">3D</span>{' '}
               <span className="text-green-400">PFD</span>
             </h1>
-            <p className="text-white/40 text-lg">Primary Flight Display &middot; Live Telemetry &middot; Diagnostic Viewer</p>
+            <p className="text-white/40 text-lg">Flight Display &middot; Live Telemetry &middot; Diagnostic Viewer</p>
           </div>
 
           {/* Cards */}
@@ -420,7 +420,7 @@ export default function App() {
               <div className="p-3 bg-blue-500/20 rounded-xl w-fit mb-5">
                 <LayoutDashboard className="w-8 h-8 text-blue-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Primary Flight Display</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">Flight Display</h2>
               <p className="text-white/50 text-sm leading-relaxed">
                 Attitude indicator, airspeed tape, altitude tape,<br />
                 AoA, vertical speed. Sample &amp; Live UDP modes.
@@ -607,9 +607,9 @@ export default function App() {
 
   // ═══════════════════════════════════════════════ PFD VIEW
   return (
-    <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
-        <header className="flex items-center justify-between bg-black/40 p-4 rounded-xl border border-white/10 shadow-lg">
+    <div className="h-screen w-screen bg-[#121212] flex flex-col overflow-hidden p-3">
+      <div className="w-full h-full flex flex-col gap-3 min-h-0">
+        <header className="shrink-0 flex items-center justify-between bg-black/40 p-4 rounded-xl border border-white/10 shadow-lg">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setCurrentView('hub')}
@@ -622,7 +622,7 @@ export default function App() {
               <FileJson className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-white font-medium text-lg tracking-tight">Primary Flight Display</h1>
+              <h1 className="text-white font-medium text-lg tracking-tight">Flight Display</h1>
               <p className="text-white/50 text-sm">saved PanelBuilder layout &middot; telemetry-frame.v1</p>
             </div>
           </div>
@@ -691,9 +691,9 @@ export default function App() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start w-full">
-          <div className={dataMode === 'live' ? "lg:col-span-3" : "lg:col-span-4"}>
-            <main className="w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden shadow-2xl relative border-4 border-gray-900 select-none flex">
+        <div className="flex flex-1 min-h-0 gap-4 w-full">
+          <div className="flex flex-1 min-w-0 min-h-0 flex-col">
+            <main className="w-full flex-1 min-h-0 bg-black rounded-2xl overflow-hidden shadow-2xl relative border-4 border-gray-900 select-none flex">
               {activeTab === 'pfd' ? (
                 <PanelDisplay frame={frame} />
               ) : (
@@ -728,7 +728,7 @@ export default function App() {
 
           {/* Simulator Panel / Playback List */}
           {dataMode === 'live' && (
-            <div className="bg-black/40 border border-white/10 rounded-2xl p-5 flex flex-col gap-4 text-white shadow-lg backdrop-blur-md">
+            <div className="w-80 shrink-0 overflow-y-auto bg-black/40 border border-white/10 rounded-2xl p-5 flex flex-col gap-4 text-white shadow-lg backdrop-blur-md">
               <div className="flex flex-col gap-1">
                 <h3 className="text-md font-bold tracking-tight">Backend Source Mode</h3>
                 <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 w-full mt-1">
