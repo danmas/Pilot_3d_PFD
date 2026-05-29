@@ -14,6 +14,65 @@ export interface SimulatorInitialConfig {
   pitchDeg: number;
 }
 
+export interface SimulatorPilotSnapshot {
+  keys?: string[];
+  rollCmdRaw?: number;
+  pitchCmdRaw?: number;
+  rudderCmdRaw?: number;
+  throttleCmdRaw?: number;
+  source?: "keyboard" | "profile" | "api";
+  profileId?: string;
+}
+
+export interface SimulatorPhysicsSnapshot {
+  rho: number;
+  tasMs: number;
+  qS: number;
+  gammaDeg: number;
+  alphaDeg: number;
+  cl: number;
+  cd: number;
+  liftN: number;
+  dragN: number;
+  thrustN: number;
+  axMs2: number;
+  verticalAccelMs2: number;
+  nz: number;
+  cmdPitchRateDegS: number;
+  pitchRateDegS: number;
+  cmdRollRateDegS: number;
+  rollDampingDegS: number;
+  coordTurnRateDegS: number;
+  yawRateDegS: number;
+}
+
+export interface SimulatorBlackboxFrame {
+  schema: "sim-blackbox.v1";
+  seq: number;
+  timeMs: number;
+  dt: number;
+  receivedAt: string;
+  source: string;
+  initialConfig: SimulatorInitialConfig;
+  pilot: SimulatorPilotSnapshot;
+  controls: SimulatorControls;
+  state: {
+    pitchDeg: number;
+    rollDeg: number;
+    headingDeg: number;
+    altitudeM: number;
+    altitudeFt: number;
+    vyMs: number;
+    casKt: number;
+    n1Pct: number;
+    throttle: number;
+    normalG: number;
+    aoaDeg: number;
+  };
+  physics: SimulatorPhysicsSnapshot;
+  telemetry: Record<string, number | null>;
+}
+
 export const DEFAULT_SIMULATOR_INITIAL_CONFIG: SimulatorInitialConfig = {
   altitudeFt: 10_000,
   casKt: 250,
@@ -83,6 +142,28 @@ export class FlightSimulator {
   // ── internal state ───────────────────────────────────────────────
   private pitchRate = 0;  // deg/s (smoothed)
   private initialConfig = { ...DEFAULT_SIMULATOR_INITIAL_CONFIG };
+  private lastDt = 0;
+  private lastPhysics: SimulatorPhysicsSnapshot = {
+    rho: this.RHO0,
+    tasMs: this.cas * 0.51444,
+    qS: 0,
+    gammaDeg: 0,
+    alphaDeg: this.pitch,
+    cl: 0,
+    cd: 0,
+    liftN: 0,
+    dragN: 0,
+    thrustN: 0,
+    axMs2: 0,
+    verticalAccelMs2: 0,
+    nz: 1,
+    cmdPitchRateDegS: 0,
+    pitchRateDegS: 0,
+    cmdRollRateDegS: 0,
+    rollDampingDegS: 0,
+    coordTurnRateDegS: 0,
+    yawRateDegS: 0,
+  };
 
   // ================================================================
   public getInitialConfig(): SimulatorInitialConfig {
@@ -122,6 +203,16 @@ export class FlightSimulator {
     this.pitchRate  = 0;
     this.controls   = { roll: 0, pitch: 0, rudder: 0, throttle: initialThrottle };
     this.seq        = 0;
+    this.lastDt     = 0;
+    this.lastPhysics = {
+      ...this.lastPhysics,
+      rho: this.RHO0,
+      tasMs: this.cas * 0.51444,
+      gammaDeg: 0,
+      alphaDeg: this.pitch,
+      nz: 1,
+      pitchRateDegS: 0,
+    };
   }
 
   public setControls(ctrl: Partial<SimulatorControls>): void {
@@ -224,6 +315,29 @@ export class FlightSimulator {
     if (this.heading >  180) this.heading -= 360;
     if (this.heading < -180) this.heading += 360;
 
+    this.lastDt = dt;
+    this.lastPhysics = {
+      rho,
+      tasMs,
+      qS,
+      gammaDeg: gamma * 180 / Math.PI,
+      alphaDeg,
+      cl: Cl,
+      cd: Cd,
+      liftN: lift,
+      dragN: drag,
+      thrustN: thrust,
+      axMs2: ax,
+      verticalAccelMs2: verticalAccel,
+      nz,
+      cmdPitchRateDegS: cmdPitchRate,
+      pitchRateDegS: this.pitchRate,
+      cmdRollRateDegS: cmdRollRate,
+      rollDampingDegS: rollDamping,
+      coordTurnRateDegS: coordRate,
+      yawRateDegS: yawRate,
+    };
+
     // ── 9. Build telemetry frame ─────────────────────────────────
     const payload: Record<string, number | null> = {};
     for (const f of FIELD_CATALOG) payload[f.key] = null;
@@ -252,6 +366,55 @@ export class FlightSimulator {
     payload.AoA                 = alphaDeg;
 
     return payload;
+  }
+
+  public buildBlackboxFrame(
+    timeMs: number,
+    receivedAtMs: number,
+    telemetry: Record<string, number | null>,
+    pilot: SimulatorPilotSnapshot = {},
+    source = "simulator",
+  ): SimulatorBlackboxFrame {
+    return {
+      schema: "sim-blackbox.v1",
+      seq: this.seq,
+      timeMs,
+      dt: this.lastDt,
+      receivedAt: new Date(receivedAtMs).toISOString(),
+      source,
+      initialConfig: this.getInitialConfig(),
+      pilot,
+      controls: { ...this.controls },
+      state: {
+        pitchDeg: this.pitch,
+        rollDeg: this.roll,
+        headingDeg: this.heading,
+        altitudeM: this.altitude,
+        altitudeFt: this.altitude * 3.28084,
+        vyMs: this.vy,
+        casKt: this.cas,
+        n1Pct: this.n1,
+        throttle: this.throttle,
+        normalG: this.normalG,
+        aoaDeg: this.lastPhysics.alphaDeg,
+      },
+      physics: { ...this.lastPhysics },
+      telemetry: {
+        PitchAngle: telemetry.PitchAngle ?? null,
+        RollAngle: telemetry.RollAngle ?? null,
+        MagneticHeading: telemetry.MagneticHeading ?? null,
+        BaroAltitude: telemetry.BaroAltitude ?? null,
+        RadioAltitude: telemetry.RadioAltitude ?? null,
+        CAS: telemetry.CAS ?? null,
+        Vy: telemetry.Vy ?? null,
+        NormalG: telemetry.NormalG ?? null,
+        AoA: telemetry.AoA ?? null,
+        Engine_N1_Left: telemetry.Engine_N1_Left ?? null,
+        Engine_N1_Target_Left: telemetry.Engine_N1_Target_Left ?? null,
+        FCU_Roll_Left: telemetry.FCU_Roll_Left ?? null,
+        FCU_Pitch_Left: telemetry.FCU_Pitch_Left ?? null,
+      },
+    };
   }
 }
 

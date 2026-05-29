@@ -27,7 +27,10 @@ import {
 import {
   DEFAULT_SIMULATOR_INITIAL_CONFIG,
   FlightSimulator,
+  type SimulatorBlackboxFrame,
+  type SimulatorControls,
   type SimulatorInitialConfig,
+  type SimulatorPilotSnapshot,
 } from "./simulator";
 
 // ── types ──────────────────────────────────────────────────────────
@@ -53,6 +56,39 @@ type TelemetryFrame = {
 type Recording = {
   id: string; fileName: string; path: string; bytes: number; modifiedAt: string;
 };
+
+type SimulatorProfile = {
+  id: string;
+  name: string;
+  description: string;
+  durationMs: number;
+};
+
+type SimulatorInitialPreset = {
+  id: string;
+  name: string;
+  description: string;
+  config: SimulatorInitialConfig;
+};
+
+type SimulatorProfileRunResult =
+  | {
+      ok: true;
+      profile: SimulatorProfile;
+      preset: SimulatorInitialPreset | null;
+      initialConfig: SimulatorInitialConfig;
+      frames: number;
+      telemetryRecordingId: string;
+      blackboxRecordingId: string;
+      telemetryPath: string;
+      blackboxPath: string;
+      schema: { telemetry: string; blackbox: string };
+    }
+  | {
+      ok: false;
+      error: string;
+      profiles: SimulatorProfile[];
+    };
 
 type RawMonitorState = {
   source: {
@@ -106,6 +142,76 @@ let captureFrames = 0;
 let bridgeMode: "udp" | "simulator" = "udp";
 const simulator = new FlightSimulator();
 let simulatorInterval: ReturnType<typeof setInterval> | undefined;
+let simulatorPilotSnapshot: SimulatorPilotSnapshot = { source: "api" };
+let blackboxStream: fs.WriteStream | undefined;
+let blackboxPath: string | undefined;
+let blackboxFrames = 0;
+
+const SIMULATOR_PROFILES: SimulatorProfile[] = [
+  {
+    id: "trim_hold_60s",
+    name: "Trim hold 60s",
+    description: "Neutral controls, initial throttle. Checks trim drift, CAS/Vy/G stability.",
+    durationMs: 60_000,
+  },
+  {
+    id: "pitch_step_up",
+    name: "Pitch step up",
+    description: "5s nose-up command, then neutral. Checks pitch->AoA->Vy/CAS response.",
+    durationMs: 35_000,
+  },
+  {
+    id: "pitch_step_down",
+    name: "Pitch step down",
+    description: "5s nose-down command, then neutral. Checks acceleration/descent response.",
+    durationMs: 35_000,
+  },
+  {
+    id: "roll_command_step",
+    name: "Roll command step / release",
+    description: "3s full right roll command, then neutral. Checks roll response, centering and turn rate. Does not guarantee exactly 30deg bank.",
+    durationMs: 45_000,
+  },
+  {
+    id: "throttle_step",
+    name: "Throttle step",
+    description: "Throttle 0.6 -> 1.0 step. Checks N1 spool and CAS response.",
+    durationMs: 45_000,
+  },
+  {
+    id: "combined_maneuver",
+    name: "Combined maneuver",
+    description: "Pitch, roll, rudder and throttle sequence for cross-coupled response checks.",
+    durationMs: 70_000,
+  },
+];
+
+const SIMULATOR_INITIAL_PRESETS: SimulatorInitialPreset[] = [
+  {
+    id: "cruise_10000_250",
+    name: "Cruise 250 kt / 10000 ft",
+    description: "Базовый режим для проверки trim и стандартных команд.",
+    config: { altitudeFt: 10_000, casKt: 250, throttle: 0.6, pitchDeg: 3 },
+  },
+  {
+    id: "low_speed_3000_160",
+    name: "Low speed 160 kt / 3000 ft",
+    description: "Низкая скорость: видно, как модель реагирует на pitch/AoA/Vy ближе к нижнему диапазону.",
+    config: { altitudeFt: 3_000, casKt: 160, throttle: 0.55, pitchDeg: 5 },
+  },
+  {
+    id: "high_altitude_25000_250",
+    name: "High altitude 250 kt / 25000 ft",
+    description: "Высота: проверка влияния плотности и CAS/TAS-пересчёта.",
+    config: { altitudeFt: 25_000, casKt: 250, throttle: 0.72, pitchDeg: 4 },
+  },
+  {
+    id: "approach_1500_140",
+    name: "Approach 140 kt / 1500 ft",
+    description: "Заходный режим без механизации: полезен для проверки низкой скорости и вертикальной реакции.",
+    config: { altitudeFt: 1_500, casKt: 140, throttle: 0.5, pitchDeg: 4 },
+  },
+];
 
 // ── raw monitor state ──────────────────────────────────────────────
 let rawLastDecoded: Record<string, number> | null = null;
@@ -360,6 +466,8 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
               active: Boolean(simulatorInterval),
               initialConfig: simulator.getInitialConfig(),
               controls: simulator.controls,
+              pilot: simulatorPilotSnapshot,
+              blackbox: getBlackboxStatus(captureDir),
               state: {
                 pitch: simulator.pitch,
                 roll: simulator.roll,
@@ -372,6 +480,34 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
                 normalG: simulator.normalG
               }
             });
+            return;
+          }
+          if (req.method === "GET" && url.pathname === "/api/simulator/blackbox/status") {
+            sendJson(res, getBlackboxStatus(captureDir));
+            return;
+          }
+          if (req.method === "GET" && url.pathname === "/api/simulator/profiles") {
+            sendJson(res, SIMULATOR_PROFILES);
+            return;
+          }
+          if (req.method === "GET" && url.pathname === "/api/simulator/profile-presets") {
+            sendJson(res, SIMULATOR_INITIAL_PRESETS);
+            return;
+          }
+          if (req.method === "POST" && url.pathname === "/api/simulator/profile/run") {
+            const body = await readRequestBody(req);
+            const profileId = typeof body?.profileId === "string" ? body.profileId : "trim_hold_60s";
+            const presetId = typeof body?.presetId === "string" ? body.presetId : "cruise_10000_250";
+            const preset = SIMULATOR_INITIAL_PRESETS.find((item) => item.id === presetId) ?? null;
+            const initialConfig = body?.initialConfig !== undefined
+              ? normalizeSimulatorConfig(body.initialConfig)
+              : preset?.config ?? readSimulatorConfig();
+            const result = runSimulatorProfile(profileId, captureDir, initialConfig, preset);
+            if (!result.ok) {
+              sendJson(res, result, 404);
+              return;
+            }
+            sendJson(res, result);
             return;
           }
           if (req.method === "POST" && url.pathname === "/api/simulator/mode") {
@@ -403,6 +539,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           }
           if (req.method === "POST" && url.pathname === "/api/simulator/control") {
             const body = await readRequestBody(req);
+            simulatorPilotSnapshot = normalizePilotSnapshot(body);
             simulator.setControls({
               roll: body?.roll !== undefined ? Number(body.roll) : undefined,
               pitch: body?.pitch !== undefined ? Number(body.pitch) : undefined,
@@ -496,6 +633,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
     closeBundle() {
       if (statusInterval) clearInterval(statusInterval);
       stopSimulator();
+      closeBlackbox();
       closeUdpServer();
     },
   };
@@ -508,7 +646,7 @@ function publishDecodedFrame(
   receivedAtMs: number,
   captureDir: string,
   counter?: number,
-): void {
+): TelemetryFrame {
   receivedFrames += 1;
 
   // Добавляем расчётные поля (dec_*)
@@ -533,6 +671,7 @@ function publishDecodedFrame(
   writeCaptureFrame(frame, captureDir);
   sendSse("frame", frame);
   sendPfdSse("pfd-frame", frame);
+  return frame;
 }
 
 // ── SSE ────────────────────────────────────────────────────────────
@@ -659,6 +798,29 @@ function normalizeSimulatorConfig(value: unknown): SimulatorInitialConfig {
   };
 }
 
+function normalizePilotSnapshot(value: unknown): SimulatorPilotSnapshot {
+  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const pilot = source.pilot && typeof source.pilot === "object" ? source.pilot as Record<string, unknown> : {};
+  const keysValue = pilot.keys;
+  const keys = Array.isArray(keysValue)
+    ? keysValue.filter((key): key is string => typeof key === "string").slice(0, 16)
+    : undefined;
+  const numberOrUndefined = (key: string): number | undefined => {
+    const raw = pilot[key] ?? source[key.replace("CmdRaw", "")];
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : undefined;
+  };
+
+  return {
+    source: "keyboard",
+    keys,
+    rollCmdRaw: numberOrUndefined("rollCmdRaw"),
+    pitchCmdRaw: numberOrUndefined("pitchCmdRaw"),
+    rudderCmdRaw: numberOrUndefined("rudderCmdRaw"),
+    throttleCmdRaw: numberOrUndefined("throttleCmdRaw"),
+  };
+}
+
 function readSimulatorConfig(): SimulatorInitialConfig {
   try {
     if (!fs.existsSync(SIMULATOR_CONFIG_PATH)) {
@@ -711,7 +873,25 @@ function getRawMonitorState(): RawMonitorState {
 
 // ── capture ────────────────────────────────────────────────────────
 function getCaptureStatus(_dir: string): object {
-  return { enabled: captureEnabled, active: Boolean(captureStream), path: capturePath, frames: captureFrames, dir: _dir };
+  return {
+    enabled: captureEnabled,
+    active: Boolean(captureStream),
+    path: capturePath,
+    frames: captureFrames,
+    dir: _dir,
+    blackbox: getBlackboxStatus(_dir),
+  };
+}
+
+function getBlackboxStatus(_dir: string): object {
+  return {
+    enabled: captureEnabled,
+    active: Boolean(blackboxStream),
+    path: blackboxPath,
+    frames: blackboxFrames,
+    dir: _dir,
+    schema: "sim-blackbox.v1",
+  };
 }
 
 function startCapture(captureDir: string): object {
@@ -730,17 +910,42 @@ function startCapture(captureDir: string): object {
 function stopCapture(): object {
   captureEnabled = false;
   const p = capturePath; const n = captureFrames;
+  const bp = blackboxPath; const bn = blackboxFrames;
   closeCapture();
+  closeBlackbox();
   console.log(`[CAPTURE] stopped ${p ?? "n/a"} frames=${n}`);
   sendSse("status", getStatus());
   sendPfdSse("status", getPfdStatus());
-  return { ...getCaptureStatus(""), stoppedPath: p, stoppedFrames: n };
+  return { ...getCaptureStatus(""), stoppedPath: p, stoppedFrames: n, stoppedBlackboxPath: bp, stoppedBlackboxFrames: bn };
 }
 
 function closeCapture(): void {
   if (!captureStream) return;
   captureStream.end();
   captureStream = undefined;
+}
+
+function ensureBlackboxStream(captureDir: string): void {
+  if (blackboxStream) return;
+  fs.mkdirSync(captureDir, { recursive: true });
+  if (!captureStream) startCapture(captureDir);
+  blackboxPath = createBlackboxPath(captureDir);
+  blackboxFrames = 0;
+  blackboxStream = fs.createWriteStream(blackboxPath, { flags: "wx", encoding: "utf8" });
+  console.log(`[BLACKBOX] started ${blackboxPath}`);
+}
+
+function writeSimulatorBlackboxFrame(frame: SimulatorBlackboxFrame, captureDir: string): void {
+  if (!captureEnabled) return;
+  ensureBlackboxStream(captureDir);
+  blackboxStream?.write(`${JSON.stringify(frame)}\n`);
+  blackboxFrames += 1;
+}
+
+function closeBlackbox(): void {
+  if (!blackboxStream) return;
+  blackboxStream.end();
+  blackboxStream = undefined;
 }
 
 // ── simulator loops ────────────────────────────────────────────────
@@ -751,7 +956,11 @@ function startSimulator(captureDir: string): void {
   simulatorInterval = setInterval(() => {
     const now = Date.now();
     const decoded = simulator.step(0.04);
-    publishDecodedFrame(decoded, now, captureDir);
+    const frame = publishDecodedFrame(decoded, now, captureDir);
+    writeSimulatorBlackboxFrame(
+      simulator.buildBlackboxFrame(frame.timeMs, now, decoded, simulatorPilotSnapshot, "simulator-live"),
+      captureDir,
+    );
   }, 40);
   console.log("[BRIDGE] Flight Simulator active at 25Hz");
   sendSse("status", getStatus());
@@ -774,21 +983,134 @@ function writeCaptureFrame(frame: TelemetryFrame, captureDir: string): void {
   captureFrames += 1;
 }
 
-function createCapturePath(dir: string): string {
+function createCapturePath(dir: string, tag = "live"): string {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  return createUniqueJsonlPath(dir, ts, tag);
+}
+
+function createBlackboxPath(dir: string): string {
+  if (capturePath) {
+    const base = path.basename(capturePath, ".jsonl").replace(/_live(\_\d{3})?$/, "");
+    return createUniqueJsonlPath(dir, base, "sim_blackbox");
+  }
+  return createCapturePath(dir, "sim_blackbox");
+}
+
+function createUniqueJsonlPath(dir: string, base: string, tag: string): string {
+  const safeTag = tag.replace(/[^a-zA-Z0-9_-]/g, "_");
   for (let i = 0; i < 1000; i++) {
     const suffix = i === 0 ? "" : `_${String(i).padStart(3, "0")}`;
-    const p = path.join(dir, `${ts}_live${suffix}.jsonl`);
+    const p = path.join(dir, `${base}_${safeTag}${suffix}.jsonl`);
     if (!fs.existsSync(p)) return p;
   }
   throw new Error("Cannot allocate unique capture file name");
+}
+
+// ── simulator profiles ─────────────────────────────────────────────
+function runSimulatorProfile(
+  profileId: string,
+  captureDir: string,
+  initialConfig: SimulatorInitialConfig,
+  preset: SimulatorInitialPreset | null,
+): SimulatorProfileRunResult {
+  const profile = SIMULATOR_PROFILES.find((item) => item.id === profileId);
+  if (!profile) {
+    return { ok: false, error: `Unknown simulator profile: ${profileId}`, profiles: SIMULATOR_PROFILES };
+  }
+
+  fs.mkdirSync(captureDir, { recursive: true });
+  const presetTag = preset?.id ?? "custom_initial";
+  const telemetryPath = createCapturePath(captureDir, `profile_${profile.id}_${presetTag}_telemetry`);
+  const blackboxOutputPath = createCapturePath(captureDir, `profile_${profile.id}_${presetTag}_blackbox`);
+  const telemetryLines: string[] = [];
+  const blackboxLines: string[] = [];
+
+  const sim = new FlightSimulator();
+  sim.reset(initialConfig);
+  const startMs = Date.now();
+  const dt = 0.04;
+  const stepMs = 40;
+  const steps = Math.max(1, Math.round(profile.durationMs / stepMs));
+
+  for (let i = 0; i < steps; i += 1) {
+    const timeMs = i * stepMs;
+    const receivedAtMs = startMs + timeMs;
+    const controls = controlsForProfile(profile.id, timeMs / 1000, sim.throttle);
+    sim.setControls(controls);
+    const decoded = sim.step(dt);
+    const enriched = applyDecFormulas(decoded);
+    const frame: TelemetryFrame = {
+      schema: "telemetry-frame.v1",
+      seq: i + 1,
+      timeMs,
+      replayTimeMs: null,
+      receivedAt: new Date(receivedAtMs).toISOString(),
+      source: `simulator-profile-${profile.id}`,
+      ...enriched,
+    };
+    const pilot: SimulatorPilotSnapshot = {
+      source: "profile",
+      profileId: profile.id,
+      rollCmdRaw: controls.roll,
+      pitchCmdRaw: controls.pitch,
+      rudderCmdRaw: controls.rudder,
+      throttleCmdRaw: controls.throttle,
+    };
+    telemetryLines.push(JSON.stringify(frame));
+    blackboxLines.push(JSON.stringify(sim.buildBlackboxFrame(timeMs, receivedAtMs, decoded, pilot, frame.source)));
+  }
+
+  fs.writeFileSync(telemetryPath, `${telemetryLines.join("\n")}\n`, { flag: "wx", encoding: "utf8" });
+  fs.writeFileSync(blackboxOutputPath, `${blackboxLines.join("\n")}\n`, { flag: "wx", encoding: "utf8" });
+
+  return {
+    ok: true,
+    profile,
+    preset,
+    initialConfig,
+    frames: steps,
+    telemetryRecordingId: path.basename(telemetryPath, ".jsonl"),
+    blackboxRecordingId: path.basename(blackboxOutputPath, ".jsonl"),
+    telemetryPath,
+    blackboxPath: blackboxOutputPath,
+    schema: {
+      telemetry: "telemetry-frame.v1",
+      blackbox: "sim-blackbox.v1",
+    },
+  };
+}
+
+function controlsForProfile(profileId: string, t: number, currentThrottle: number): SimulatorControls {
+  const base: SimulatorControls = { roll: 0, pitch: 0, rudder: 0, throttle: currentThrottle };
+  switch (profileId) {
+    case "pitch_step_up":
+      return { ...base, pitch: t >= 5 && t < 10 ? 1 : 0 };
+    case "pitch_step_down":
+      return { ...base, pitch: t >= 5 && t < 10 ? -1 : 0 };
+    case "roll_command_step":
+    case "roll_step_30deg":
+      return { ...base, roll: t >= 5 && t < 8 ? 1 : 0 };
+    case "throttle_step":
+      return { ...base, throttle: t >= 5 ? 1 : 0.6 };
+    case "combined_maneuver":
+      if (t < 5) return base;
+      if (t < 12) return { ...base, pitch: 0.75, throttle: 0.85 };
+      if (t < 22) return { ...base, roll: 0.8, pitch: 0.25, throttle: 0.85 };
+      if (t < 30) return { ...base, roll: 0.35, rudder: 0.3, throttle: 0.75 };
+      if (t < 42) return { ...base, pitch: -0.55, throttle: 0.55 };
+      if (t < 55) return { ...base, throttle: 0.65 };
+      return { ...base, throttle: 0.6 };
+    case "trim_hold_60s":
+    default:
+      return base;
+  }
 }
 
 // ── recordings ─────────────────────────────────────────────────────
 function listRecordings(dir: string): Recording[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
-    .filter(f => f.endsWith(".jsonl"))
+    .filter(f => f.endsWith(".jsonl") && !f.includes("_blackbox"))
     .map(f => { const fp = path.join(dir, f); const s = fs.statSync(fp); return { id: f.replace(/\.jsonl$/i, ""), fileName: f, path: fp, bytes: s.size, modifiedAt: s.mtime.toISOString() }; })
     .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
 }

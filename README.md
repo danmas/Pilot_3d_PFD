@@ -11,17 +11,20 @@
 | **Viewer (диагностика)** | `http://localhost:3410/viewer/` | Live/replay, capture, отладка telemetry-frame.v1 |
 | **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443), hex+decoded, piggyback-режим |
 | **Bridge (UDP → HTTP)** | порт 14443 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
+| **Flight Simulator** | PFD → Live → Simulator | Серверный симулятор полёта, запись telemetry + blackbox, scripted test profiles |
 
 ## Архитектура
 
 ```text
 UDP 14443 (tnparserrt, полный поток 132 слота) ─┐
+FlightSimulator.step(0.04), 25 Hz ──────────────┤
   → bridge (middleware в Vite)                    ←┘
   → decoding.ts: загрузка out.json, сопоставление по ARINC param
   → плоский TelemetryFrame (telemetry-frame.v1)
   → SSE /events (telemetry-frame.v1)
   → SSE /events/pfd (PFD subset)
   → SSE /events/raw (raw-frame — сырые данные)
+  → capture *_live.jsonl + simulator *_sim_blackbox.jsonl
   → HTTP API /api/*
   → React PFD app (port 3410)
   → diagnostic viewer /viewer/
@@ -102,7 +105,8 @@ npm run dev
 | Режим | Источник | Описание |
 |---|---|---|
 | **Sample** | `sample-data.ts` | Анимированная симуляция для разработки без UDP |
-| **Live** | SSE `/events/pfd` (bridge) | Реальные данные с tnparserrt |
+| **Live / UDP** | SSE `/events/pfd` (bridge) | Реальные данные с tnparserrt |
+| **Live / Simulator** | `FlightSimulator` на сервере | Управляемая симуляция через тот же SSE/capture pipeline |
 
 ## UI (PFD)
 
@@ -111,6 +115,39 @@ npm run dev
 - **Индикатор соединения** (Live): 🔴 disconnected / 🟡 connecting, waiting / 🟢 receiving + seq
 - **Upload JSON** — загрузить одиночный telemetry-frame.v1 кадр
 - **Play / Pause** (Sample) — управление анимацией
+- **Backend Source Mode** (Live) — переключение UDP Stream / Simulator
+- **Simulator controls** — WASD/стрелки, Q/E, Shift/Ctrl, Space/R
+- **Scripted Profiles** — offline-прогоны профилей с выбором initial conditions и генерацией telemetry + blackbox JSONL
+
+## Flight Simulator и blackbox
+
+Симулятор реализован на сервере в `simulator.ts` и запускается из `bridge-plugin.ts` с фиксированным шагом `0.04 s` (`25 Hz`). Кадры симулятора проходят через тот же `publishDecodedFrame()` / `applyDecFormulas()` / SSE / capture pipeline, что и реальные UDP-данные.
+
+Для анализа модели есть отдельный blackbox-формат `sim-blackbox.v1`: действия пилота, сглаженные controls, internal state FDM, силы/коэффициенты (`Cl`, `Cd`, `lift`, `drag`, `thrust`) и ускорения. При ручной симуляции рядом с обычным `*_live.jsonl` создаётся `*_sim_blackbox.jsonl`.
+
+Scripted profiles запускаются из UI (`Live` → `Scripted Profiles`) или через API. Они выполняются offline на отдельном экземпляре `FlightSimulator` и не трогают текущий live-полёт. В UI после запуска созданный telemetry-файл сразу открывается как Replay: приборы переходят на начальный кадр профиля и проигрывают весь сценарий.
+
+Профили:
+
+| Профиль | Смысл |
+|---|---|
+| `trim_hold_60s` | Нейтральные controls, проверка trim/drift |
+| `pitch_step_up` | 5 секунд pitch `+1`, затем neutral |
+| `pitch_step_down` | 5 секунд pitch `-1`, затем neutral |
+| `roll_command_step` | 3 секунды full-right roll command, затем neutral |
+| `throttle_step` | throttle `0.6 -> 1.0` |
+| `combined_maneuver` | Комбинированный pitch/roll/rudder/throttle сценарий |
+
+Initial presets:
+
+| Preset | Условия |
+|---|---|
+| `cruise_10000_250` | `10000 ft`, `250 kt`, `throttle 0.6`, `pitch 3°` |
+| `low_speed_3000_160` | `3000 ft`, `160 kt`, `throttle 0.55`, `pitch 5°` |
+| `high_altitude_25000_250` | `25000 ft`, `250 kt`, `throttle 0.72`, `pitch 4°` |
+| `approach_1500_140` | `1500 ft`, `140 kt`, `throttle 0.5`, `pitch 4°` |
+
+Подробно: [README_flight_physics.md](./README_flight_physics.md).
 
 ## Panel Builder
 
@@ -215,6 +252,16 @@ GET  /api/pfd/recordings/:id/frame?timeMs=...
 GET  /api/pfd/recordings/:id/range?fromMs=...&toMs=...&limit=...
 GET  /api/source/status
 POST /api/source/config          { host, port }
+GET  /api/simulator/status
+POST /api/simulator/mode         { mode: "udp" | "simulator" }
+GET  /api/simulator/config
+POST /api/simulator/config       { altitudeFt, casKt, throttle, pitchDeg }
+POST /api/simulator/control      { roll, pitch, rudder, throttle, pilot? }
+POST /api/simulator/reset
+GET  /api/simulator/blackbox/status
+GET  /api/simulator/profiles
+GET  /api/simulator/profile-presets
+POST /api/simulator/profile/run  { profileId, presetId?, initialConfig? }
 GET  /api/panel/config/current
 PUT  /api/panel/config/current   PanelNode JSON
 GET  /api/panel/menu             panel-menu.json
@@ -247,7 +294,8 @@ event: status       → { port, active, receivedPackets, receivedFrames, ... }
 | `out.json` (..) | Конфигурация tnparserrt: слоты по портам. **Единственный источник порядка байт.** |
 | `field-catalog.ts` | Справочник имён, типов, ARINC param. **НЕ раскладка, НЕ порядок.** |
 | `decoding.ts` | Загрузка out.json, сопоставление по ARINC param, декодирование, `dec_*` формулы, валидация |
-| `bridge-plugin.ts` | Vite-плагин: UDP-сокет (14443), сборка фреймов, SSE, capture, replay API |
+| `simulator.ts` | Серверный FDM для PFD, telemetry payload и blackbox snapshot |
+| `bridge-plugin.ts` | Vite-плагин: UDP-сокет (14443), симулятор, SSE, capture, blackbox, replay API |
 | `panel-config-current.json` | Текущая компоновка Panel Builder (автосохранение) |
 | `panel-menu.json` | Конфигурация меню «···» в Panel Builder |
 | `src/types.ts` | `TelemetryFrame` тип для фронтенда |

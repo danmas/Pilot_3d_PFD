@@ -32,6 +32,32 @@ type SimulatorInitialConfig = {
   pitchDeg: number;
 };
 
+type SimulatorProfile = {
+  id: string;
+  name: string;
+  description: string;
+  durationMs: number;
+};
+
+type SimulatorInitialPreset = {
+  id: string;
+  name: string;
+  description: string;
+  config: SimulatorInitialConfig;
+};
+
+type SimulatorProfileRunResult = {
+  ok: boolean;
+  frames?: number;
+  telemetryRecordingId?: string;
+  blackboxRecordingId?: string;
+  telemetryPath?: string;
+  blackboxPath?: string;
+  initialConfig?: SimulatorInitialConfig;
+  preset?: SimulatorInitialPreset | null;
+  error?: string;
+};
+
 const LIVE_PFD_URL = '/events/pfd';
 
 export default function App() {
@@ -59,6 +85,12 @@ export default function App() {
   const [recordings, setRecordings] = useState<any[]>([]);
   const [replayFrames, setReplayFrames] = useState<TelemetryFrame[]>([]);
   const [replayIndex, setReplayIndex] = useState(0);
+  const [simulatorProfiles, setSimulatorProfiles] = useState<SimulatorProfile[]>([]);
+  const [selectedSimulatorProfileId, setSelectedSimulatorProfileId] = useState('trim_hold_60s');
+  const [simulatorInitialPresets, setSimulatorInitialPresets] = useState<SimulatorInitialPreset[]>([]);
+  const [selectedSimulatorPresetId, setSelectedSimulatorPresetId] = useState('cruise_10000_250');
+  const [profileRunBusy, setProfileRunBusy] = useState(false);
+  const [profileRunResult, setProfileRunResult] = useState<SimulatorProfileRunResult | null>(null);
 
   const frameRef = useRef(frameIndex);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -141,6 +173,34 @@ export default function App() {
     }
   }, []);
 
+  const loadSimulatorProfiles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/simulator/profiles');
+      if (!res.ok) return;
+      const data: SimulatorProfile[] = await res.json();
+      setSimulatorProfiles(data);
+      if (data.length > 0 && !data.some((profile) => profile.id === selectedSimulatorProfileId)) {
+        setSelectedSimulatorProfileId(data[0].id);
+      }
+    } catch {
+      // ignore temporary fetch errors
+    }
+  }, [selectedSimulatorProfileId]);
+
+  const loadSimulatorInitialPresets = useCallback(async () => {
+    try {
+      const res = await fetch('/api/simulator/profile-presets');
+      if (!res.ok) return;
+      const data: SimulatorInitialPreset[] = await res.json();
+      setSimulatorInitialPresets(data);
+      if (data.length > 0 && !data.some((preset) => preset.id === selectedSimulatorPresetId)) {
+        setSelectedSimulatorPresetId(data[0].id);
+      }
+    } catch {
+      // ignore temporary fetch errors
+    }
+  }, [selectedSimulatorPresetId]);
+
   useEffect(() => {
     if (dataMode === 'live') { setIsPlaying(false); connectLive(); }
     else disconnectLive();
@@ -150,9 +210,11 @@ export default function App() {
   useEffect(() => {
     loadSourceStatus();
     loadSimulatorConfig();
+    loadSimulatorProfiles();
+    loadSimulatorInitialPresets();
     const id = window.setInterval(loadSourceStatus, 1500);
     return () => window.clearInterval(id);
-  }, [loadSourceStatus, loadSimulatorConfig]);
+  }, [loadSourceStatus, loadSimulatorConfig, loadSimulatorProfiles, loadSimulatorInitialPresets]);
 
   useEffect(() => {
     if (!sourceStatus) return;
@@ -287,7 +349,14 @@ export default function App() {
           roll: currentRoll,
           pitch: currentPitch,
           rudder: currentRudder,
-          throttle: currentThrottle
+          throttle: currentThrottle,
+          pilot: {
+            keys: Array.from(keys),
+            rollCmdRaw: targetRoll,
+            pitchCmdRaw: targetPitch,
+            rudderCmdRaw: targetRudder,
+            throttleCmdRaw: currentThrottle
+          }
         })
       }).catch(() => {});
     }, 50);
@@ -335,6 +404,37 @@ export default function App() {
     try {
       await fetch('/api/simulator/reset', { method: 'POST' });
     } catch {}
+  };
+
+  const runSimulatorProfile = async () => {
+    try {
+      setProfileRunBusy(true);
+      setProfileRunResult(null);
+      const res = await fetch('/api/simulator/profile/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId: selectedSimulatorProfileId,
+          presetId: selectedSimulatorPresetId
+        })
+      });
+      const data: SimulatorProfileRunResult = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Failed to run simulator profile');
+      }
+      setProfileRunResult(data);
+      setError(null);
+      await loadRecordings();
+      if (data.telemetryRecordingId) {
+        await startReplay(data.telemetryRecordingId);
+      }
+    } catch (e: any) {
+      const message = e?.message || 'Failed to run simulator profile';
+      setProfileRunResult({ ok: false, error: message });
+      setError(message);
+    } finally {
+      setProfileRunBusy(false);
+    }
   };
 
   const handleStartCapture = async () => {
@@ -859,7 +959,7 @@ export default function App() {
           </div>
 
           {/* Simulator Panel / Playback List */}
-          {dataMode === 'live' && (
+          {(dataMode === 'live' || dataMode === 'replay') && (
             <div className="w-80 shrink-0 overflow-y-auto bg-black/40 border border-white/10 rounded-2xl p-5 flex flex-col gap-4 text-white shadow-lg backdrop-blur-md">
               <div className="flex flex-col gap-1">
                 <h3 className="text-md font-bold tracking-tight">Backend Source Mode</h3>
@@ -932,6 +1032,104 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {/* Scripted simulator profiles */}
+              <div className="border-t border-white/10 pt-3.5 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/60">Scripted Profiles</span>
+                  <span className="text-[10px] text-white/35 font-mono">{simulatorProfiles.length} tests</span>
+                </div>
+
+                <select
+                  value={selectedSimulatorProfileId}
+                  onChange={(e) => {
+                    setSelectedSimulatorProfileId(e.target.value);
+                    setProfileRunResult(null);
+                  }}
+                  className="w-full px-2.5 py-2 bg-zinc-950 border border-white/10 rounded-lg text-white text-xs font-mono outline-none focus:border-purple-500/60"
+                >
+                  {simulatorProfiles.length === 0 ? (
+                    <option value="trim_hold_60s">trim_hold_60s</option>
+                  ) : (
+                    simulatorProfiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.id} ({Math.round(profile.durationMs / 1000)}s)
+                      </option>
+                    ))
+                  )}
+                </select>
+
+                {simulatorProfiles.find((profile) => profile.id === selectedSimulatorProfileId)?.description && (
+                  <div className="text-[11px] text-white/45 leading-snug">
+                    {simulatorProfiles.find((profile) => profile.id === selectedSimulatorProfileId)?.description}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Initial Conditions</div>
+                  <select
+                    value={selectedSimulatorPresetId}
+                    onChange={(e) => {
+                      setSelectedSimulatorPresetId(e.target.value);
+                      setProfileRunResult(null);
+                    }}
+                    className="w-full px-2.5 py-2 bg-zinc-950 border border-white/10 rounded-lg text-white text-xs font-mono outline-none focus:border-purple-500/60"
+                  >
+                    {simulatorInitialPresets.length === 0 ? (
+                      <option value="cruise_10000_250">Cruise 250 kt / 10000 ft</option>
+                    ) : (
+                      simulatorInitialPresets.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+
+                  {simulatorInitialPresets.find((preset) => preset.id === selectedSimulatorPresetId) && (
+                    <div className="rounded-lg bg-white/[0.025] border border-white/5 p-2 text-[10px] font-mono text-white/50 grid grid-cols-2 gap-x-3 gap-y-1">
+                      <span>ALT {simulatorInitialPresets.find((preset) => preset.id === selectedSimulatorPresetId)?.config.altitudeFt} ft</span>
+                      <span>CAS {simulatorInitialPresets.find((preset) => preset.id === selectedSimulatorPresetId)?.config.casKt} kt</span>
+                      <span>THR {Math.round((simulatorInitialPresets.find((preset) => preset.id === selectedSimulatorPresetId)?.config.throttle ?? 0) * 100)}%</span>
+                      <span>PITCH {simulatorInitialPresets.find((preset) => preset.id === selectedSimulatorPresetId)?.config.pitchDeg} deg</span>
+                    </div>
+                  )}
+
+                  {simulatorInitialPresets.find((preset) => preset.id === selectedSimulatorPresetId)?.description && (
+                    <div className="text-[11px] text-white/35 leading-snug">
+                      {simulatorInitialPresets.find((preset) => preset.id === selectedSimulatorPresetId)?.description}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={runSimulatorProfile}
+                  disabled={profileRunBusy}
+                  className="w-full py-2 bg-purple-600/15 border border-purple-500/25 hover:bg-purple-600/25 disabled:opacity-50 disabled:hover:bg-purple-600/15 text-purple-300 rounded-lg text-xs font-semibold transition cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {profileRunBusy ? 'Running profile...' : 'Run Profile'}
+                </button>
+
+                {profileRunResult && (
+                  <div className={`rounded-lg border p-2 text-[10px] leading-snug font-mono ${profileRunResult.ok ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300' : 'border-red-500/20 bg-red-500/5 text-red-300'}`}>
+                    {profileRunResult.ok ? (
+                      <div className="flex flex-col gap-1">
+                        <div>OK: {profileRunResult.frames} frames</div>
+                        {profileRunResult.telemetryRecordingId && <div>REPLAY: {profileRunResult.telemetryRecordingId}</div>}
+                        {profileRunResult.initialConfig && (
+                          <div>
+                            INIT: {profileRunResult.initialConfig.altitudeFt}ft / {profileRunResult.initialConfig.casKt}kt / THR {Math.round(profileRunResult.initialConfig.throttle * 100)}% / P {profileRunResult.initialConfig.pitchDeg}deg
+                          </div>
+                        )}
+                        <div className="truncate" title={profileRunResult.telemetryPath}>TEL: {profileRunResult.telemetryPath}</div>
+                        <div className="truncate" title={profileRunResult.blackboxPath}>BB: {profileRunResult.blackboxPath}</div>
+                      </div>
+                    ) : (
+                      <div>{profileRunResult.error}</div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Recording Controller */}
               <div className="border-t border-white/10 pt-3.5 flex flex-col gap-3">
