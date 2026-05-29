@@ -7,9 +7,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, FileJson, Play, Pause, Activity, Database, Radio, LayoutDashboard, Monitor, ArrowLeft, Zap, Gauge, Terminal, Settings } from 'lucide-react';
 import { TelemetryFrame } from './types';
 import { sampleFrames } from './sample-data';
-import { PFD } from './components/PFD/PFD';
 import RawMonitor from './components/RawMonitor/RawMonitor';
 import { PanelBuilder } from './components/PanelBuilder';
+import { PanelDisplay } from './components/PanelBuilder/PanelDisplay';
 import { TelemetryProvider } from './context/TelemetryContext';
 import { UI_SETTINGS } from './ui-settings';
 
@@ -623,7 +623,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-white font-medium text-lg tracking-tight">Primary Flight Display</h1>
-              <p className="text-white/50 text-sm">telemetry-frame.v1 viewer</p>
+              <p className="text-white/50 text-sm">saved PanelBuilder layout &middot; telemetry-frame.v1</p>
             </div>
           </div>
 
@@ -695,7 +695,7 @@ export default function App() {
           <div className={dataMode === 'live' ? "lg:col-span-3" : "lg:col-span-4"}>
             <main className="w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden shadow-2xl relative border-4 border-gray-900 select-none flex">
               {activeTab === 'pfd' ? (
-                <PFD frame={frame} />
+                <PanelDisplay frame={frame} />
               ) : (
                 <div className="w-full h-full p-6 overflow-auto text-sm font-mono text-green-400 bg-black/90">
                   <pre>{JSON.stringify(frame, null, 2)}</pre>

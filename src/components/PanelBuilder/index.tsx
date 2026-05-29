@@ -8,6 +8,14 @@ import { ArrowLeft, Download, Upload } from 'lucide-react';
 import { UdpSourceDialog } from './UdpSourceDialog';
 import { AviationWidget } from './AviationWidget';
 import {
+  CURRENT_CONFIG_API,
+  CURRENT_CONFIG_FILE_NAME,
+  PANEL_MENU_API,
+  createEmptyRoot,
+  normalizePanelNode,
+  toLegacyPanelNode,
+} from './panelConfig';
+import {
   PanelCanvas,
   PanelMenuProvider,
   Sidebar,
@@ -21,82 +29,6 @@ import { useTelemetry } from '../../context/TelemetryContext';
 // Importing the Instruments barrel triggers self-registration of all
 // instrument components into the registry.
 import '../Instruments';
-
-const CURRENT_CONFIG_API = '/api/panel/config/current';
-const PANEL_MENU_API = '/api/panel/menu';
-const CURRENT_CONFIG_FILE_NAME = 'panel-config-current.json';
-
-const createEmptyRoot = (): PanelKitNode => ({ id: 'root', type: 'empty' });
-
-type LegacyPanelNode = {
-  id: string;
-  type: 'empty' | 'instrument' | 'widget' | 'split';
-  instrumentId?: string;
-  widgetId?: string;
-  splitDirection?: 'horizontal' | 'vertical';
-  splitRatio?: number;
-  children?: [LegacyPanelNode, LegacyPanelNode];
-};
-
-const normalizePanelNode = (value: unknown): PanelKitNode | null => {
-  if (!value || typeof value !== 'object') return null;
-  const node = value as Record<string, unknown>;
-  if (typeof node.id !== 'string' || typeof node.type !== 'string') return null;
-
-  if (node.type === 'empty') {
-    return { id: node.id, type: 'empty' };
-  }
-
-  if (node.type === 'instrument' || node.type === 'widget') {
-    const widgetId =
-      typeof node.widgetId === 'string'
-        ? node.widgetId
-        : typeof node.instrumentId === 'string'
-          ? node.instrumentId
-          : undefined;
-    return {
-      id: node.id,
-      type: widgetId ? 'widget' : 'empty',
-      widgetId,
-    };
-  }
-
-  if (node.type === 'split') {
-    if (!Array.isArray(node.children) || node.children.length !== 2) return null;
-    const first = normalizePanelNode(node.children[0]);
-    const second = normalizePanelNode(node.children[1]);
-    if (!first || !second) return null;
-    return {
-      id: node.id,
-      type: 'split',
-      splitDirection: node.splitDirection === 'horizontal' ? 'horizontal' : 'vertical',
-      splitRatio: typeof node.splitRatio === 'number' ? node.splitRatio : 0.5,
-      children: [first, second],
-    };
-  }
-
-  return null;
-};
-
-const toLegacyPanelNode = (node: PanelKitNode): LegacyPanelNode => {
-  if (node.type === 'split' && node.children) {
-    return {
-      id: node.id,
-      type: 'split',
-      splitDirection: node.splitDirection ?? 'vertical',
-      splitRatio: node.splitRatio ?? 0.5,
-      children: [toLegacyPanelNode(node.children[0]), toLegacyPanelNode(node.children[1])],
-    };
-  }
-  if (node.type === 'widget') {
-    return {
-      id: node.id,
-      type: 'instrument',
-      instrumentId: node.widgetId,
-    };
-  }
-  return { id: node.id, type: 'empty' };
-};
 
 interface PanelBuilderProps {
   onBack: () => void;
