@@ -102,6 +102,7 @@ export class FlightSimulator {
   public altitude = DEFAULT_SIMULATOR_INITIAL_CONFIG.altitudeFt * 0.3048; // meters
   public vy = 0.0;           // m/s  (vertical speed)
   public cas = DEFAULT_SIMULATOR_INITIAL_CONFIG.casKt; // knots
+  public tasMs = DEFAULT_SIMULATOR_INITIAL_CONFIG.casKt * 0.51444; // true airspeed, m/s
   public throttle = DEFAULT_SIMULATOR_INITIAL_CONFIG.throttle; // 0 … 1
   public n1 = 68.0;          // % N1  (trim N1)
   public normalG = 1.0;      // Normal load factor
@@ -120,13 +121,13 @@ export class FlightSimulator {
   private readonly MASS = 60_000;      // kg
   private readonly G    = 9.81;        // m/s²
   private readonly S    = 122;         // wing area m²
-  private readonly MAX_THRUST = 220_000; // N  (total, both engines)
+  private readonly MAX_THRUST = 58_500; // N  (effective simplified thrust, both engines)
   private readonly RHO0 = 1.225;       // sea-level air density  kg/m³
 
   // ── trim constants (computed once to keep the model stable) ──────
   // At trim: Lift = Weight, Thrust = Drag.
-  // trimCl ≈ W / (0.5 * rho * V² * S)  at 5000 ft, 250 kt
-  private readonly TRIM_CL = 0.465;    // lift coefficient at trim
+  // trimCl ≈ W / (0.5 * rho * V² * S) at the active initial state.
+  private readonly TRIM_CL = 0.465;    // fallback lift coefficient at trim
   private readonly CL_ALPHA = 5.5;     // per radian
   private readonly CD0 = 0.022;        // zero-lift drag coeff
   private readonly K   = 0.045;        // induced drag factor  Cd = Cd0 + K*Cl²
@@ -142,10 +143,12 @@ export class FlightSimulator {
   // ── internal state ───────────────────────────────────────────────
   private pitchRate = 0;  // deg/s (smoothed)
   private initialConfig = { ...DEFAULT_SIMULATOR_INITIAL_CONFIG };
+  private trimCl = this.TRIM_CL;
+  private trimAlphaRad = DEFAULT_SIMULATOR_INITIAL_CONFIG.pitchDeg * Math.PI / 180;
   private lastDt = 0;
   private lastPhysics: SimulatorPhysicsSnapshot = {
     rho: this.RHO0,
-    tasMs: this.cas * 0.51444,
+    tasMs: this.tasMs,
     qS: 0,
     gammaDeg: 0,
     alphaDeg: this.pitch,
@@ -197,6 +200,7 @@ export class FlightSimulator {
     this.altitude   = initial.altitudeFt * 0.3048;
     this.vy         = 0.0;
     this.cas        = initial.casKt;
+    this.tasMs      = casKtToTasMs(initial.casKt, airDensity(this.altitude, this.RHO0), this.RHO0);
     this.throttle   = initialThrottle;
     this.n1         = 20 + initialThrottle * 80;
     this.normalG    = 1.0;
@@ -204,12 +208,21 @@ export class FlightSimulator {
     this.controls   = { roll: 0, pitch: 0, rudder: 0, throttle: initialThrottle };
     this.seq        = 0;
     this.lastDt     = 0;
+
+    const rho = airDensity(this.altitude, this.RHO0);
+    const qS = 0.5 * rho * this.tasMs * this.tasMs * this.S;
+    this.trimCl = qS > 0 ? clamp((this.MASS * this.G) / qS, 0.05, 1.5) : this.TRIM_CL;
+    this.trimAlphaRad = initial.pitchDeg * Math.PI / 180;
     this.lastPhysics = {
       ...this.lastPhysics,
-      rho: this.RHO0,
-      tasMs: this.cas * 0.51444,
+      rho,
+      tasMs: this.tasMs,
+      qS,
       gammaDeg: 0,
       alphaDeg: this.pitch,
+      cl: this.trimCl,
+      cd: this.CD0 + this.K * this.trimCl * this.trimCl,
+      liftN: this.MASS * this.G,
       nz: 1,
       pitchRateDegS: 0,
     };
@@ -235,23 +248,21 @@ export class FlightSimulator {
     this.n1 = clamp(this.n1, 20, 100);
 
     // ── 2. Atmosphere ────────────────────────────────────────────
-    const h   = Math.max(0, this.altitude);
-    const rho = this.RHO0 * Math.pow(Math.max(0.1, 1 - 2.25577e-5 * h), 4.2559);
+    const rho = airDensity(this.altitude, this.RHO0);
 
     // ── 3. Airspeed ──────────────────────────────────────────────
-    let tasMs = this.cas * 0.51444;             // CAS (kt) → TAS (m/s) simplified
-    tasMs = Math.max(20, tasMs);                // stall floor
+    this.tasMs = Math.max(20, this.tasMs);      // stall floor
 
     // ── 4. Forces ────────────────────────────────────────────────
-    const qS = 0.5 * rho * tasMs * tasMs * this.S;
+    const qS = 0.5 * rho * this.tasMs * this.tasMs * this.S;
 
     // Angle of attack from pitch + flight path
-    const gamma = Math.atan2(this.vy, tasMs);   // flight-path angle (rad)
+    const gamma = Math.atan2(this.vy, this.tasMs);   // flight-path angle (rad)
     const alphaRad = (this.pitch * Math.PI / 180) - gamma;
     const alphaDeg = alphaRad * 180 / Math.PI;
 
-    // Cl with linear α; clamp to avoid nonsense at extreme α
-    let Cl = this.TRIM_CL + this.CL_ALPHA * (alphaRad - this.TRIM_CL / this.CL_ALPHA);
+    // Cl with linear α around the active trim AoA.
+    let Cl = this.trimCl + this.CL_ALPHA * (alphaRad - this.trimAlphaRad);
     Cl = clamp(Cl, -0.5, 2.0);
 
     const Cd = this.CD0 + this.K * Cl * Cl;
@@ -261,13 +272,12 @@ export class FlightSimulator {
     const thrust = (this.n1 / 100) * this.MAX_THRUST;
 
     // ── 5. Longitudinal dynamics (speed) ─────────────────────────
-    const pitchRad = this.pitch * Math.PI / 180;
-    const ax = (thrust - drag) / this.MASS - this.G * Math.sin(pitchRad);
-    tasMs += ax * dt;
-    tasMs = Math.max(20, tasMs);
+    const ax = (thrust - drag) / this.MASS - this.G * Math.sin(gamma);
+    this.tasMs += ax * dt;
+    this.tasMs = Math.max(20, this.tasMs);
 
     // CAS back-calculation  (simplified: CAS ≈ TAS * sqrt(rho/rho0))
-    this.cas = (tasMs / 0.51444) * Math.sqrt(clamp(rho / this.RHO0, 0.3, 1.2));
+    this.cas = tasMsToCasKt(this.tasMs, rho, this.RHO0);
     this.cas = clamp(this.cas, 60, 500);
 
     // ── 6. Normal dynamics (vertical speed) ──────────────────────
@@ -306,8 +316,8 @@ export class FlightSimulator {
 
     // Heading: rudder + coordinated turn
     let coordRate = 0;
-    if (Math.abs(this.roll) > 0.5 && tasMs > 20) {
-      coordRate = (this.G / tasMs) * Math.tan(rollRad) * (180 / Math.PI);
+    if (Math.abs(this.roll) > 0.5 && this.tasMs > 20) {
+      coordRate = (this.G / this.tasMs) * Math.tan(rollRad) * (180 / Math.PI);
       coordRate = clamp(coordRate, -10, 10);
     }
     const yawRate = this.controls.rudder * this.MAX_YAW_RATE + coordRate;
@@ -318,7 +328,7 @@ export class FlightSimulator {
     this.lastDt = dt;
     this.lastPhysics = {
       rho,
-      tasMs,
+      tasMs: this.tasMs,
       qS,
       gammaDeg: gamma * 180 / Math.PI,
       alphaDeg,
@@ -421,4 +431,17 @@ export class FlightSimulator {
 // ── helpers ──────────────────────────────────────────────────────────
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
+}
+
+function airDensity(altitudeM: number, rho0: number): number {
+  const h = Math.max(0, altitudeM);
+  return rho0 * Math.pow(Math.max(0.1, 1 - 2.25577e-5 * h), 4.2559);
+}
+
+function casKtToTasMs(casKt: number, rho: number, rho0: number): number {
+  return (casKt * 0.51444) / Math.sqrt(clamp(rho / rho0, 0.3, 1.2));
+}
+
+function tasMsToCasKt(tasMs: number, rho: number, rho0: number): number {
+  return (tasMs / 0.51444) * Math.sqrt(clamp(rho / rho0, 0.3, 1.2));
 }

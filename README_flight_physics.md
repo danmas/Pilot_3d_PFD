@@ -96,6 +96,7 @@ export interface SimulatorInitialConfig {
 | `altitude` | m | Внутренняя высота, наружу отдаётся в ft |
 | `vy` | m/s | Внутренняя вертикальная скорость, наружу отдаётся как `Vy = vy * 1000` |
 | `cas` | kt | Calibrated Airspeed, пишется в `CAS` |
+| `tasMs` | m/s | True Airspeed, внутреннее состояние скорости |
 | `throttle` | `0..1` | Команда РУД, влияет на target N1 |
 | `n1` | % | Текущие обороты двигателя, апериодически следуют за throttle |
 | `normalG` | g | Нормальная перегрузка, пишется в `NormalG` |
@@ -108,6 +109,8 @@ export interface SimulatorInitialConfig {
 | `seq` | count | Внутренний счётчик шагов `step()` |
 | `pitchRate` | deg/s | Сглаженная скорость тангажа |
 | `initialConfig` | object | Последняя сохранённая initial config |
+| `trimCl` | coeff | Балансировочный `Cl`, пересчитывается на `reset()` из active initial state |
+| `trimAlphaRad` | rad | Балансировочный AoA, равен начальному `pitchDeg` при `Vy=0` |
 | `lastDt` | s | Последний `dt`, попадает в blackbox |
 | `lastPhysics` | object | Последний snapshot промежуточных расчётов FDM для blackbox |
 
@@ -162,9 +165,9 @@ Throttle не центрируется, а интегрируется вверх
 | `MASS` | `60000 kg` | Масса самолёта |
 | `G` | `9.81 m/s^2` | Ускорение свободного падения |
 | `S` | `122 m^2` | Площадь крыла |
-| `MAX_THRUST` | `220000 N` | Суммарная максимальная тяга двух двигателей |
+| `MAX_THRUST` | `58500 N` | Эффективная тяга simplified-модели, подобрана под cruise trim |
 | `RHO0` | `1.225 kg/m^3` | Плотность воздуха на уровне моря |
-| `TRIM_CL` | `0.465` | Балансировочный коэффициент подъёмной силы |
+| `TRIM_CL` | `0.465` | Fallback-значение; фактический `trimCl` пересчитывается при `reset()` |
 | `CL_ALPHA` | `5.5 1/rad` | Наклон линейной зависимости `Cl(alpha)` |
 | `CD0` | `0.022` | Профильное сопротивление |
 | `K` | `0.045` | Коэффициент индуцированного сопротивления |
@@ -173,7 +176,7 @@ Throttle не центрируется, а интегрируется вверх
 | `MAX_YAW_RATE` | `8 deg/s` | Предельная скорость yaw от rudder |
 | `PITCH_DAMPING` | `1.8 1/s` | Объявлено, но в текущем `step()` не используется |
 
-Комментарий в коде к `TRIM_CL` говорит про расчёт на `5000 ft`, а default config и комментарий верхнего блока говорят про `10000 ft`. Это реальное расхождение документации/калибровки.
+Для активного initial state `reset()` пересчитывает `trimCl = Weight / qS` и `trimAlphaRad = pitchDeg`. Поэтому базовый `cruise_10000_250` теперь действительно стартует около `CAS=250 kt`, `NormalG=1`, `Vy=0`.
 
 ## Частота и интегратор
 
@@ -237,14 +240,14 @@ rho = RHO0 * max(0.1, 1 - 2.25577e-5 * h)^4.2559
 
 ### 3. Скорость
 
-Внутри шага CAS грубо переводится в TAS:
+Внутри FDM скорость хранится как `tasMs`. При `reset()` она вычисляется из заданного CAS и плотности воздуха:
 
 ```text
-tasMs = cas * 0.51444
+tasMs = (casKt * 0.51444) / sqrt(rho / RHO0)
 tasMs = max(20, tasMs)
 ```
 
-Это упрощение: на самом деле CAS и TAS расходятся с высотой. Обратный пересчёт ниже частично учитывает плотность.
+На каждом шаге интегрируется именно `tasMs`; `CAS` вычисляется обратно только для телеметрии/PFD. Это убирает старую ошибку, где `CAS` каждый tick заново трактовался как `TAS` и скорость мгновенно проседала на высоте.
 
 `20 m/s` — искусственный floor, который не даёт модели уйти в ноль/отрицательную скорость. Это не stall model.
 
@@ -272,19 +275,11 @@ alphaDeg = alphaRad * 180/pi
 Коэффициент подъёмной силы:
 
 ```text
-Cl = TRIM_CL + CL_ALPHA * (alphaRad - TRIM_CL / CL_ALPHA)
+Cl = trimCl + CL_ALPHA * (alphaRad - trimAlphaRad)
 Cl = clamp(Cl, -0.5, 2.0)
 ```
 
-Эта запись эквивалентна:
-
-```text
-Cl = CL_ALPHA * alphaRad
-```
-
-потому что `TRIM_CL - CL_ALPHA * (TRIM_CL / CL_ALPHA) = 0`.
-
-То есть `TRIM_CL` здесь не задаёт отдельный offset lift curve, а только через `alphaTrim = TRIM_CL / CL_ALPHA` взаимно сокращается. Фактический `Cl` зависит только от `alphaRad` и clamp-ов. Это важный момент для проверки trim: комментарий про `TRIM_CL` как балансировочный коэффициент в текущей формуле вводит в заблуждение.
+`trimCl` и `trimAlphaRad` задаются при `reset()` из выбранных initial conditions. Для `cruise_10000_250` это даёт `lift ~= MASS * G` уже на первом кадре.
 
 Сопротивление:
 
@@ -305,8 +300,7 @@ lift = qS * Cl
 ### 5. Продольная динамика скорости
 
 ```text
-pitchRad = pitch * pi/180
-ax = (thrust - drag) / MASS - G * sin(pitchRad)
+ax = (thrust - drag) / MASS - G * sin(gamma)
 tasMs += ax * dt
 tasMs = max(20, tasMs)
 ```
@@ -703,13 +697,13 @@ Invoke-RestMethod -Method Post `
 
    Ручка задаёт `pitchRate` и `rollRate` напрямую. Нет моментов, инерции, angular acceleration, elevator/aileron effectiveness, damping derivatives.
 
-2. `TRIM_CL` фактически не работает как offset.
+2. Trim привязан к initial state, а не к полной аэродинамической устойчивости.
 
-   Формула `TRIM_CL + CL_ALPHA * (alpha - TRIM_CL / CL_ALPHA)` сокращается до `CL_ALPHA * alpha`. Поэтому комментарий "At trim: Lift = Weight" нельзя считать гарантией фактической балансировки.
+   `trimCl` и `trimAlphaRad` пересчитываются при `reset()`, поэтому выбранный preset может стартовать сбалансированным. Но после изменения режима pitch всё ещё задаётся кинематически, без моментной устойчивости самолёта.
 
-3. Начальный trim требует проверки.
+3. Начальный trim всё равно требует проверки для каждого preset.
 
-   Default: `10000 ft`, `250 kt`, `pitch=3 deg`, `throttle=0.6`. Комментарий к `TRIM_CL` говорит про `5000 ft`. На `10000 ft` при `alpha ~= 3 deg` lift может не давать ровно `normalG ~= 1`, несмотря на комментарий в шапке файла.
+   `cruise_10000_250` после правки держит `CAS/altitude/G` почти без дрейфа на 60 сек. Остальные presets могут быть не идеально сбалансированы по throttle/drag и нужны как тестовые режимы.
 
 4. Нет stall model.
 
@@ -817,17 +811,7 @@ Invoke-RestMethod -Method Post `
 
 Самые полезные следующие шаги:
 
-1. Починить trim-формулу.
-
-   Если нужен именно lift curve вокруг trim, лучше явно хранить `TRIM_ALPHA_RAD` и писать:
-
-   ```text
-   Cl = TRIM_CL + CL_ALPHA * (alphaRad - TRIM_ALPHA_RAD)
-   ```
-
-   А `TRIM_ALPHA_RAD` подобрать под default pitch/flight-path angle.
-
-2. Добавить простой pitch stability.
+1. Добавить простой pitch stability.
 
    Сейчас `PITCH_DAMPING` не используется. Минимальный вариант:
 
@@ -837,23 +821,19 @@ Invoke-RestMethod -Method Post `
 
    Более правильный вариант: отдельная динамика `q` и момент от elevator/AoA.
 
-3. Разделить `CAS` и `TAS` во внутреннем state.
-
-   Сейчас state хранит только `cas`, а `tasMs` каждый шаг пересоздаётся из CAS. Лучше хранить `tasMs` как state, а CAS вычислять только для output.
-
-4. Добавить stall-полярку.
+2. Добавить stall-полярку.
 
    Минимум: после `alphaCrit` ограничивать/снижать `Cl` и резко увеличивать `Cd`.
 
-5. Уточнить единицы `Vy` для реального UDP.
+3. Уточнить единицы `Vy` для реального UDP.
 
    Если реальный поток в `m/s`, ввести `dec_VyMs` и перевести PFD на него, не смешивая raw `Vy`.
 
-6. Синхронизировать частоты.
+4. Синхронизировать частоты.
 
    Для gamepad/мыши лучше controls `50..60 Hz`, physics `50 Hz` или fixed-step accumulator по реальному времени.
 
-7. Сделать `source` честным.
+5. Сделать `source` честным.
 
    Сейчас `publishDecodedFrame()` всегда ставит `source = tnparser-udp-${bridgeUdpPort}` даже для симулятора. Для диагностики лучше различать `simulator` и `tnparser-udp-*`.
 

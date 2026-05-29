@@ -58,6 +58,13 @@ type SimulatorProfileRunResult = {
   error?: string;
 };
 
+type ActiveProfileReplay = {
+  profileId: string;
+  presetId: string;
+  recordingId: string;
+  frames: number;
+};
+
 const LIVE_PFD_URL = '/events/pfd';
 
 export default function App() {
@@ -91,6 +98,7 @@ export default function App() {
   const [selectedSimulatorPresetId, setSelectedSimulatorPresetId] = useState('cruise_10000_250');
   const [profileRunBusy, setProfileRunBusy] = useState(false);
   const [profileRunResult, setProfileRunResult] = useState<SimulatorProfileRunResult | null>(null);
+  const [activeProfileReplay, setActiveProfileReplay] = useState<ActiveProfileReplay | null>(null);
 
   const frameRef = useRef(frameIndex);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -426,6 +434,13 @@ export default function App() {
       setError(null);
       await loadRecordings();
       if (data.telemetryRecordingId) {
+        setActiveTab('pfd');
+        setActiveProfileReplay({
+          profileId: selectedSimulatorProfileId,
+          presetId: selectedSimulatorPresetId,
+          recordingId: data.telemetryRecordingId,
+          frames: data.frames ?? 0
+        });
         await startReplay(data.telemetryRecordingId);
       }
     } catch (e: any) {
@@ -863,13 +878,13 @@ export default function App() {
             {/* Data source toggle */}
             <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
               <button
-                onClick={() => setDataMode('sample')}
+                onClick={() => { setDataMode('sample'); setActiveProfileReplay(null); }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition flex items-center gap-2 ${dataMode === 'sample' ? 'bg-purple-500/20 text-purple-400' : 'text-white/60 hover:text-white'}`}
               >
                 <Play className="w-4 h-4" /> Sample
               </button>
               <button
-                onClick={() => setDataMode('live')}
+                onClick={() => { setDataMode('live'); setActiveProfileReplay(null); }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition flex items-center gap-2 ${dataMode === 'live' ? 'bg-green-500/20 text-green-400' : 'text-white/60 hover:text-white'}`}
               >
                 <Radio className="w-4 h-4" /> Live
@@ -888,6 +903,18 @@ export default function App() {
                   {backendMode === 'simulator' ? 'Simulating' : connStatusLabel}
                 </span>
                 {liveSeq !== null && <span className="text-white/30 text-xs">#{liveSeq}</span>}
+              </div>
+            )}
+
+            {dataMode === 'replay' && activeProfileReplay && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-purple-400 animate-pulse' : 'bg-white/35'}`} />
+                <span className="text-purple-200 text-sm">
+                  Profile {isPlaying ? 'running' : 'paused'}
+                </span>
+                <span className="text-purple-200/50 text-xs font-mono">
+                  {replayIndex + 1}/{replayFrames.length || activeProfileReplay.frames}
+                </span>
               </div>
             )}
 
@@ -1039,6 +1066,35 @@ export default function App() {
                   <span className="text-xs font-bold uppercase tracking-wider text-white/60">Scripted Profiles</span>
                   <span className="text-[10px] text-white/35 font-mono">{simulatorProfiles.length} tests</span>
                 </div>
+
+                {activeProfileReplay && dataMode === 'replay' && (
+                  <div className="rounded-xl border border-purple-500/20 bg-purple-500/10 p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-purple-200 font-semibold">Profile Replay</span>
+                      <span className="text-purple-200/60 font-mono">
+                        {isPlaying ? 'RUNNING' : replayIndex >= replayFrames.length - 1 ? 'FINISHED' : 'PAUSED'}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-purple-100/60 font-mono truncate" title={activeProfileReplay.recordingId}>
+                      {activeProfileReplay.profileId} / {activeProfileReplay.presetId}
+                    </div>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden bg-black/40 border border-white/5">
+                      <div
+                        className="h-full bg-purple-400 transition-all duration-75"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, ((replayIndex + 1) / Math.max(1, replayFrames.length || activeProfileReplay.frames)) * 100))}%`
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-purple-100/50 font-mono">
+                      <span>Frame {replayIndex + 1}</span>
+                      <span>{replayFrames.length || activeProfileReplay.frames}</span>
+                    </div>
+                    <div className="text-[10px] text-purple-100/45 leading-snug">
+                      `trim_hold_60s` специально почти неподвижен: это проверка удержания CAS/ALT/G.
+                    </div>
+                  </div>
+                )}
 
                 <select
                   value={selectedSimulatorProfileId}
