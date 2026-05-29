@@ -14,7 +14,8 @@ import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
 import { AircraftModel } from './aircraft3d/AircraftModel';
-import { VelocityVector } from './aircraft3d/VelocityVector';
+// VelocityVector disabled — inherits airplane rotation + noisy telemetry = unstable
+// import { VelocityVector } from './aircraft3d/VelocityVector';
 import {
   CameraController,
   CAMERA_PRESETS,
@@ -47,16 +48,14 @@ interface SceneProps {
   pitch: number;
   roll: number;
   heading: number;
-  vy: number;
-  cas: number;
   cameraRef: React.RefObject<CameraControls | null>;
 }
 
-const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, vy, cas, cameraRef }) => (
+const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, cameraRef }) => (
   <>
     <HorizonSphere />
     <AircraftModel pitchDeg={pitch} rollDeg={roll} headingDeg={heading} />
-    <VelocityVector vyMps={vy} casKts={cas} />
+    {/* VelocityVector disabled — chaotic due to noisy telemetry + inherited rotation */}
     <CameraController ref={cameraRef} />
 
     {/* Lighting */}
@@ -107,8 +106,6 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
             pitch={pitch}
             roll={roll}
             heading={heading}
-            vy={vy}
-            cas={cas}
             cameraRef={cameraRef}
           />
         </Canvas>

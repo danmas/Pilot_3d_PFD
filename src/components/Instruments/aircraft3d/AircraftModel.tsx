@@ -61,7 +61,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = ({
       </mesh>
 
       {/* ── Nose cone ── */}
-      <mesh material={accentMat} position={[0, 0, -1.85]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh material={accentMat} position={[0, 0, -1.85]} rotation={[-Math.PI / 2, 0, 0]}>
         <coneGeometry args={[0.36, 0.7, 16]} />
       </mesh>
 
