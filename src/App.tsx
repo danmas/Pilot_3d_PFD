@@ -13,7 +13,7 @@ import { PanelBuilder } from './components/PanelBuilder';
 import { TelemetryProvider } from './context/TelemetryContext';
 import { UI_SETTINGS } from './ui-settings';
 
-type DataMode = 'sample' | 'live';
+type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
 type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings';
 
@@ -42,8 +42,16 @@ export default function App() {
   const [settingsPort, setSettingsPort] = useState('14443');
   const [settingsBusy, setSettingsBusy] = useState(false);
 
+  const [backendMode, setBackendMode] = useState<'udp' | 'simulator'>('udp');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingFrames, setRecordingFrames] = useState(0);
+  const [recordings, setRecordings] = useState<any[]>([]);
+  const [replayFrames, setReplayFrames] = useState<TelemetryFrame[]>([]);
+  const [replayIndex, setReplayIndex] = useState(0);
+
   const frameRef = useRef(frameIndex);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const pressedKeys = useRef<Set<string>>(new Set());
 
   // ---- Sample animation ----
   useEffect(() => {
@@ -82,8 +90,11 @@ export default function App() {
     es.addEventListener('status', (event) => {
       try {
         const status = JSON.parse(event.data);
-        const fresh = status.lastPacketAgeMs !== null && status.lastPacketAgeMs < 3000;
+        const fresh = (status.lastPacketAgeMs !== null && status.lastPacketAgeMs < 3000) || status.simulatorActive;
         setConnStatus(fresh ? 'receiving' : 'waiting');
+        if (status.simulatorMode) {
+          setBackendMode(status.simulatorMode);
+        }
       } catch { /* ignore */ }
     });
     es.addEventListener('error', () => { setConnStatus('disconnected'); setError('SSE connection lost. Retrying...'); });
@@ -124,6 +135,217 @@ export default function App() {
       setSettingsPort(String(sourceStatus.udpPort));
     }
   }, [sourceStatus, currentView]);
+
+  // ---- Flight Simulator & Recordings Poll ----
+  const loadRecordings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/recordings');
+      if (res.ok) {
+        const data = await res.json();
+        setRecordings(data);
+      }
+    } catch {}
+  }, []);
+
+  const checkCaptureStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/capture/status');
+      if (res.ok) {
+        const data = await res.json();
+        setIsRecording(data.active);
+        setRecordingFrames(data.frames);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (dataMode !== 'live') return;
+    loadRecordings();
+    checkCaptureStatus();
+    const id = setInterval(() => {
+      loadRecordings();
+      checkCaptureStatus();
+    }, 2000);
+    return () => clearInterval(id);
+  }, [dataMode, loadRecordings, checkCaptureStatus]);
+
+  // ---- Simulator controls keyboard input listeners ----
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+      pressedKeys.current.add(e.key.toLowerCase());
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'spacebar'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      pressedKeys.current.delete(e.key.toLowerCase());
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Send controls to backend at 20Hz (every 50ms)
+  useEffect(() => {
+    if (dataMode !== 'live' || backendMode !== 'simulator') return;
+
+    let currentRoll = 0;
+    let currentPitch = 0;
+    let currentRudder = 0;
+    let currentThrottle = 0.6;
+
+    // Fetch initial controls
+    fetch('/api/simulator/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.controls) {
+          currentRoll = data.controls.roll;
+          currentPitch = data.controls.pitch;
+          currentRudder = data.controls.rudder;
+          currentThrottle = data.controls.throttle;
+        }
+      })
+      .catch(() => {});
+
+    const interval = setInterval(() => {
+      const keys = pressedKeys.current;
+      
+      let targetRoll = 0;
+      let targetPitch = 0;
+      let targetRudder = 0;
+
+      if (keys.has('a') || keys.has('arrowleft')) targetRoll = -1.0;
+      else if (keys.has('d') || keys.has('arrowright')) targetRoll = 1.0;
+
+      if (keys.has('w') || keys.has('arrowup')) targetPitch = -1.0; // nose down
+      else if (keys.has('s') || keys.has('arrowdown')) targetPitch = 1.0; // nose up
+
+      if (keys.has('q')) targetRudder = -1.0;
+      else if (keys.has('e')) targetRudder = 1.0;
+
+      // Centering spring simulation
+      currentRoll += (targetRoll - currentRoll) * 0.35;
+      currentPitch += (targetPitch - currentPitch) * 0.35;
+      currentRudder += (targetRudder - currentRudder) * 0.35;
+
+      if (keys.has('shift')) {
+        currentThrottle = Math.min(1.0, currentThrottle + 0.015);
+      }
+      if (keys.has('control')) {
+        currentThrottle = Math.max(0.0, currentThrottle - 0.015);
+      }
+
+      // Reset shortcut
+      if (keys.has(' ') || keys.has('r')) {
+        resetSimulation();
+      }
+
+      fetch('/api/simulator/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roll: currentRoll,
+          pitch: currentPitch,
+          rudder: currentRudder,
+          throttle: currentThrottle
+        })
+      }).catch(() => {});
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [dataMode, backendMode]);
+
+  // ---- Replay playback timer ----
+  useEffect(() => {
+    if (dataMode !== 'replay' || replayFrames.length === 0 || !isPlaying) return;
+
+    const interval = setInterval(() => {
+      setReplayIndex((prevIndex) => {
+        const nextIndex = prevIndex + 1;
+        if (nextIndex >= replayFrames.length) {
+          setIsPlaying(false);
+          return prevIndex;
+        }
+        setFrame(replayFrames[nextIndex]);
+        return nextIndex;
+      });
+    }, 40);
+
+    return () => clearInterval(interval);
+  }, [dataMode, replayFrames, isPlaying]);
+
+  // ---- Simulator REST API requests ----
+  const setBackendSimulatorMode = async (mode: 'udp' | 'simulator') => {
+    try {
+      const res = await fetch('/api/simulator/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      });
+      if (res.ok) {
+        setBackendMode(mode);
+        setError(null);
+      }
+    } catch {
+      setError('Failed to switch backend mode');
+    }
+  };
+
+  const resetSimulation = async () => {
+    try {
+      await fetch('/api/simulator/reset', { method: 'POST' });
+    } catch {}
+  };
+
+  const handleStartCapture = async () => {
+    try {
+      const res = await fetch('/api/capture/start', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setIsRecording(data.active);
+        setRecordingFrames(data.frames);
+      }
+    } catch {}
+  };
+
+  const handleStopCapture = async () => {
+    try {
+      const res = await fetch('/api/capture/stop', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setIsRecording(data.active);
+        await loadRecordings();
+      }
+    } catch {}
+  };
+
+  const startReplay = async (recordingId: string) => {
+    try {
+      setError('Loading recording...');
+      const res = await fetch(`/api/recordings/${recordingId}/range?limit=50000`);
+      if (!res.ok) throw new Error('Failed to load recording frames');
+      const frames = await res.json();
+      if (!Array.isArray(frames) || frames.length === 0) {
+        throw new Error('Recording is empty');
+      }
+      setReplayFrames(frames);
+      setReplayIndex(0);
+      setFrame(frames[0]);
+      setDataMode('replay');
+      setIsPlaying(true);
+      setError(null);
+    } catch (e: any) {
+      setError(e.message || 'Failed to start replay');
+    }
+  };
 
   // ---- Handlers ----
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -420,12 +642,19 @@ export default function App() {
               >
                 <Radio className="w-4 h-4" /> Live
               </button>
+              {dataMode === 'replay' && (
+                <span className="px-3 py-1.5 rounded-md text-sm font-medium bg-blue-500/20 text-blue-400 flex items-center gap-2">
+                  <FileJson className="w-4 h-4" /> Replay Mode
+                </span>
+              )}
             </div>
 
             {dataMode === 'live' && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
                 <span className={`w-2 h-2 rounded-full ${connStatusColor}`} />
-                <span className="text-white/60 text-sm">{connStatusLabel}</span>
+                <span className="text-white/60 text-sm">
+                  {backendMode === 'simulator' ? 'Simulating' : connStatusLabel}
+                </span>
                 {liveSeq !== null && <span className="text-white/30 text-xs">#{liveSeq}</span>}
               </div>
             )}
@@ -445,7 +674,7 @@ export default function App() {
               </button>
             </div>
 
-            {dataMode === 'sample' && (
+            {(dataMode === 'sample' || dataMode === 'replay') && (
               <button
                 onClick={() => setIsPlaying(!isPlaying)}
                 className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/15 transition text-white text-sm font-medium rounded-lg border border-white/10"
@@ -462,15 +691,173 @@ export default function App() {
           </div>
         </header>
 
-        <main className="w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden shadow-2xl relative border-4 border-gray-900 select-none flex">
-          {activeTab === 'pfd' ? (
-            <PFD frame={frame} />
-          ) : (
-            <div className="w-full h-full p-6 overflow-auto text-sm font-mono text-green-400 bg-black/90">
-              <pre>{JSON.stringify(frame, null, 2)}</pre>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start w-full">
+          <div className={dataMode === 'live' ? "lg:col-span-3" : "lg:col-span-4"}>
+            <main className="w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden shadow-2xl relative border-4 border-gray-900 select-none flex">
+              {activeTab === 'pfd' ? (
+                <PFD frame={frame} />
+              ) : (
+                <div className="w-full h-full p-6 overflow-auto text-sm font-mono text-green-400 bg-black/90">
+                  <pre>{JSON.stringify(frame, null, 2)}</pre>
+                </div>
+              )}
+            </main>
+
+            {/* Replay Timeline Scrubber */}
+            {dataMode === 'replay' && replayFrames.length > 0 && (
+              <div className="mt-4 bg-black/45 border border-white/10 rounded-xl p-4 flex flex-col gap-2 shadow-lg backdrop-blur-md">
+                <div className="flex justify-between items-center text-xs text-white/50">
+                  <span className="font-mono">Time: {(frame.timeMs / 1000).toFixed(1)}s</span>
+                  <span className="font-mono">Total: {((replayFrames[replayFrames.length - 1]?.timeMs ?? 0) / 1000).toFixed(1)}s</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={replayFrames.length - 1}
+                  value={replayIndex}
+                  onChange={(e) => {
+                    const idx = Number(e.target.value);
+                    setReplayIndex(idx);
+                    setFrame(replayFrames[idx]);
+                  }}
+                  className="w-full accent-blue-500 bg-zinc-750 h-1.5 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Simulator Panel / Playback List */}
+          {dataMode === 'live' && (
+            <div className="bg-black/40 border border-white/10 rounded-2xl p-5 flex flex-col gap-4 text-white shadow-lg backdrop-blur-md">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-md font-bold tracking-tight">Backend Source Mode</h3>
+                <div className="flex bg-white/5 rounded-lg p-1 border border-white/10 w-full mt-1">
+                  <button
+                    onClick={() => setBackendSimulatorMode('udp')}
+                    className={`flex-1 py-1 rounded-md text-xs font-semibold transition text-center ${backendMode === 'udp' ? 'bg-blue-600/90 text-white shadow-sm shadow-black/40 cursor-pointer' : 'text-white/60 hover:text-white cursor-pointer'}`}
+                  >
+                    UDP Stream
+                  </button>
+                  <button
+                    onClick={() => setBackendSimulatorMode('simulator')}
+                    className={`flex-1 py-1 rounded-md text-xs font-semibold transition text-center ${backendMode === 'simulator' ? 'bg-purple-600/90 text-white shadow-sm shadow-black/40 cursor-pointer' : 'text-white/60 hover:text-white cursor-pointer'}`}
+                  >
+                    Simulator
+                  </button>
+                </div>
+              </div>
+
+              {backendMode === 'simulator' && (
+                <div className="flex flex-col gap-4 border-t border-white/5 pt-3 animate-fadeIn">
+                  {/* Visual controls deflection box */}
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Stick Control</span>
+                    <div className="w-32 h-32 bg-zinc-950/80 border border-zinc-800 rounded-xl relative overflow-hidden flex items-center justify-center shadow-inner">
+                      <div className="absolute w-full h-[1px] bg-zinc-900" />
+                      <div className="absolute h-full w-[1px] bg-zinc-900" />
+                      <div
+                        className="w-3.5 h-3.5 bg-red-500 rounded-full absolute transition-all duration-75 shadow-lg shadow-red-500/50"
+                        style={{
+                          left: `calc(50% + ${(frame.FCU_Roll_Left ?? 0) * 42}% - 7px)`,
+                          top: `calc(50% + ${(frame.FCU_Pitch_Left ?? 0) * -42}% - 7px)`
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-white/30 text-center font-mono">
+                      Roll: {((frame.FCU_Roll_Left ?? 0) * 100).toFixed(0)}% | Pitch: {((frame.FCU_Pitch_Left ?? 0) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+
+                  {/* Throttle progress bar */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-white/50 font-mono font-semibold">
+                      <span>Throttle (Shift/Ctrl)</span>
+                      <span>{Math.round(frame.Engine_N1_Target_Left ?? 60)}%</span>
+                    </div>
+                    <div className="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-white/5">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-75"
+                        style={{ width: `${Math.max(0, Math.min(100, frame.Engine_N1_Target_Left ?? 60))}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Keyboard guide and Reset button */}
+                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/50 flex flex-col gap-1.5">
+                    <div className="font-semibold text-white/70 mb-0.5">Control Bindings:</div>
+                    <div className="flex justify-between"><span>Pitch (Elevator):</span> <kbd className="bg-zinc-800 text-white/80 px-1 rounded font-semibold">W / S</kbd></div>
+                    <div className="flex justify-between"><span>Roll (Aileron):</span> <kbd className="bg-zinc-800 text-white/80 px-1 rounded font-semibold">A / D</kbd></div>
+                    <div className="flex justify-between"><span>Yaw (Rudder):</span> <kbd className="bg-zinc-800 text-white/80 px-1 rounded font-semibold">Q / E</kbd></div>
+                    <div className="flex justify-between"><span>Thrust:</span> <kbd className="bg-zinc-800 text-white/80 px-1 rounded font-semibold">Shift / Ctrl</kbd></div>
+                    <div className="flex justify-between"><span>Reset Simulation:</span> <kbd className="bg-zinc-800 text-white/80 px-1 rounded font-semibold">Space / R</kbd></div>
+                    
+                    <button
+                      onClick={resetSimulation}
+                      className="mt-2 w-full py-1.5 bg-zinc-850 hover:bg-zinc-800 text-white rounded-lg text-xs font-semibold transition border border-white/5 cursor-pointer"
+                    >
+                      Reset Plane
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Recording Controller */}
+              <div className="border-t border-white/10 pt-3.5 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/60">Flight Recording</span>
+                  {isRecording && (
+                    <span className="flex items-center gap-1 text-[11px] text-red-400 font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                      REC ({recordingFrames} f)
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {!isRecording ? (
+                    <button
+                      onClick={handleStartCapture}
+                      className="flex-1 py-2 bg-red-600/10 border border-red-500/20 hover:bg-red-600/20 text-red-400 rounded-lg text-xs font-semibold transition text-center cursor-pointer"
+                    >
+                      Start Recording
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleStopCapture}
+                      className="flex-1 py-2 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-white rounded-lg text-xs font-semibold transition text-center cursor-pointer"
+                    >
+                      Stop Recording
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Recordings List */}
+              <div className="border-t border-white/10 pt-3.5 flex flex-col gap-2 min-h-0">
+                <span className="text-[10px] text-white/40 uppercase tracking-wider font-bold">Recent Recordings</span>
+                <div className="flex flex-col gap-1.5 overflow-y-auto max-h-48 pr-0.5 scrollbar-thin scrollbar-thumb-zinc-800">
+                  {recordings.length === 0 ? (
+                    <span className="text-xs text-white/30 italic py-1">No recordings yet</span>
+                  ) : (
+                    recordings.slice(0, 5).map((rec) => (
+                      <button
+                        key={rec.id}
+                        onClick={() => startReplay(rec.id)}
+                        className="text-left p-2 rounded bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition flex items-center justify-between text-xs group w-full cursor-pointer"
+                      >
+                        <div className="truncate flex flex-col gap-0.5 max-w-[80%]">
+                          <span className="font-semibold text-white/80 group-hover:text-blue-400 transition truncate">{rec.id}</span>
+                          <span className="text-[10px] text-white/40 font-mono">{(rec.bytes / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <Play className="w-3.5 h-3.5 text-white/40 group-hover:text-blue-400 transition flex-shrink-0" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ import {
   validateSchema,
   type DecodeSchema,
 } from "./decoding";
+import { FlightSimulator } from "./simulator";
 
 // ── types ──────────────────────────────────────────────────────────
 
@@ -95,6 +96,11 @@ let captureEnabled = true;
 let captureStream: fs.WriteStream | undefined;
 let capturePath: string | undefined;
 let captureFrames = 0;
+
+// ── simulator state ────────────────────────────────────────────────
+let bridgeMode: "udp" | "simulator" = "udp";
+const simulator = new FlightSimulator();
+let simulatorInterval: ReturnType<typeof setInterval> | undefined;
 
 // ── raw monitor state ──────────────────────────────────────────────
 let rawLastDecoded: Record<string, number> | null = null;
@@ -180,6 +186,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
     udpServer = socket;
 
     socket.on("message", (message) => {
+      if (bridgeMode === "simulator") return;
       const now = Date.now();
       receivedPackets += 1;
       lastPacketAtMs = now;
@@ -340,6 +347,58 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             sendJson(res, stopCapture()); return;
           }
 
+          // API: simulator
+          if (req.method === "GET" && url.pathname === "/api/simulator/status") {
+            sendJson(res, {
+              mode: bridgeMode,
+              active: Boolean(simulatorInterval),
+              controls: simulator.controls,
+              state: {
+                pitch: simulator.pitch,
+                roll: simulator.roll,
+                heading: simulator.heading,
+                altitude: simulator.altitude,
+                vy: simulator.vy,
+                cas: simulator.cas,
+                throttle: simulator.throttle,
+                n1: simulator.n1,
+                normalG: simulator.normalG
+              }
+            });
+            return;
+          }
+          if (req.method === "POST" && url.pathname === "/api/simulator/mode") {
+            const body = await readRequestBody(req);
+            const nextMode = body?.mode;
+            if (nextMode === "simulator") {
+              bridgeMode = "simulator";
+              startSimulator(captureDir);
+            } else if (nextMode === "udp") {
+              bridgeMode = "udp";
+              stopSimulator();
+            } else {
+              sendJson(res, { error: "Invalid mode" }, 400); return;
+            }
+            sendJson(res, { ok: true, mode: bridgeMode });
+            return;
+          }
+          if (req.method === "POST" && url.pathname === "/api/simulator/control") {
+            const body = await readRequestBody(req);
+            simulator.setControls({
+              roll: body?.roll !== undefined ? Number(body.roll) : undefined,
+              pitch: body?.pitch !== undefined ? Number(body.pitch) : undefined,
+              rudder: body?.rudder !== undefined ? Number(body.rudder) : undefined,
+              throttle: body?.throttle !== undefined ? Number(body.throttle) : undefined,
+            });
+            sendJson(res, { ok: true, controls: simulator.controls });
+            return;
+          }
+          if (req.method === "POST" && url.pathname === "/api/simulator/reset") {
+            simulator.reset();
+            sendJson(res, { ok: true });
+            return;
+          }
+
           // API: live current
           if (req.method === "GET" && url.pathname === "/api/live/current") {
             sendJson(res, currentTelemetryFrame); return;
@@ -417,6 +476,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
 
     closeBundle() {
       if (statusInterval) clearInterval(statusInterval);
+      stopSimulator();
       closeUdpServer();
     },
   };
@@ -517,6 +577,8 @@ function getStatus(): object {
     schema: "telemetry-frame.v1",
     capturePath, capture: getCaptureStatus(""),
     sseClients: sseClients.size, pfdSseClients: pfdSseClients.size, lastError,
+    simulatorMode: bridgeMode,
+    simulatorActive: Boolean(simulatorInterval),
   };
 }
 
@@ -531,6 +593,8 @@ function getPfdStatus(): object {
     sseClients: pfdSseClients.size,
     fieldCount: currentPfdFrame ? Object.keys(currentPfdFrame).filter(k => k !== "schema" && k !== "seq" && k !== "timeMs" && k !== "replayTimeMs" && k !== "receivedAt" && k !== "source").length : 0,
     lastError,
+    simulatorMode: bridgeMode,
+    simulatorActive: Boolean(simulatorInterval),
   };
 }
 
@@ -624,6 +688,30 @@ function closeCapture(): void {
   if (!captureStream) return;
   captureStream.end();
   captureStream = undefined;
+}
+
+// ── simulator loops ────────────────────────────────────────────────
+function startSimulator(captureDir: string): void {
+  if (simulatorInterval) return;
+  simulator.reset();
+  firstReceiveTime = undefined;
+  simulatorInterval = setInterval(() => {
+    const now = Date.now();
+    const decoded = simulator.step(0.04);
+    publishDecodedFrame(decoded, now, captureDir);
+  }, 40);
+  console.log("[BRIDGE] Flight Simulator active at 25Hz");
+  sendSse("status", getStatus());
+  sendPfdSse("status", getPfdStatus());
+}
+
+function stopSimulator(): void {
+  if (!simulatorInterval) return;
+  clearInterval(simulatorInterval);
+  simulatorInterval = undefined;
+  console.log("[BRIDGE] Flight Simulator stopped");
+  sendSse("status", getStatus());
+  sendPfdSse("status", getPfdStatus());
 }
 
 function writeCaptureFrame(frame: TelemetryFrame, captureDir: string): void {
