@@ -25,6 +25,13 @@ type SourceStatus = {
   source: string;
 };
 
+type SimulatorInitialConfig = {
+  altitudeFt: number;
+  casKt: number;
+  throttle: number;
+  pitchDeg: number;
+};
+
 const LIVE_PFD_URL = '/events/pfd';
 
 export default function App() {
@@ -40,6 +47,10 @@ export default function App() {
   const [sourceStatus, setSourceStatus] = useState<SourceStatus | null>(null);
   const [settingsHost, setSettingsHost] = useState('0.0.0.0');
   const [settingsPort, setSettingsPort] = useState('14443');
+  const [settingsSimAltitudeFt, setSettingsSimAltitudeFt] = useState('10000');
+  const [settingsSimCasKt, setSettingsSimCasKt] = useState('250');
+  const [settingsSimThrottlePct, setSettingsSimThrottlePct] = useState('60');
+  const [settingsSimPitchDeg, setSettingsSimPitchDeg] = useState('3');
   const [settingsBusy, setSettingsBusy] = useState(false);
 
   const [backendMode, setBackendMode] = useState<'udp' | 'simulator'>('udp');
@@ -116,6 +127,20 @@ export default function App() {
     }
   }, []);
 
+  const loadSimulatorConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/simulator/config');
+      if (!res.ok) return;
+      const data: SimulatorInitialConfig = await res.json();
+      setSettingsSimAltitudeFt(String(Math.round(data.altitudeFt)));
+      setSettingsSimCasKt(String(Math.round(data.casKt)));
+      setSettingsSimThrottlePct(String(Math.round(data.throttle * 100)));
+      setSettingsSimPitchDeg(String(data.pitchDeg));
+    } catch {
+      // ignore temporary fetch errors
+    }
+  }, []);
+
   useEffect(() => {
     if (dataMode === 'live') { setIsPlaying(false); connectLive(); }
     else disconnectLive();
@@ -124,9 +149,10 @@ export default function App() {
 
   useEffect(() => {
     loadSourceStatus();
+    loadSimulatorConfig();
     const id = window.setInterval(loadSourceStatus, 1500);
     return () => window.clearInterval(id);
-  }, [loadSourceStatus]);
+  }, [loadSourceStatus, loadSimulatorConfig]);
 
   useEffect(() => {
     if (!sourceStatus) return;
@@ -135,6 +161,12 @@ export default function App() {
       setSettingsPort(String(sourceStatus.udpPort));
     }
   }, [sourceStatus, currentView]);
+
+  useEffect(() => {
+    if (currentView === 'settings') {
+      void loadSimulatorConfig();
+    }
+  }, [currentView, loadSimulatorConfig]);
 
   // ---- Flight Simulator & Recordings Poll ----
   const loadRecordings = useCallback(async () => {
@@ -370,22 +402,69 @@ export default function App() {
       setError('Invalid UDP port (1-65535)');
       return;
     }
+
+    const altitudeFt = Number(settingsSimAltitudeFt);
+    const casKt = Number(settingsSimCasKt);
+    const throttlePct = Number(settingsSimThrottlePct);
+    const pitchDeg = Number(settingsSimPitchDeg);
+
+    if (!Number.isFinite(altitudeFt) || altitudeFt < 0 || altitudeFt > 60000) {
+      setError('Invalid simulator altitude (0-60000 ft)');
+      return;
+    }
+    if (!Number.isFinite(casKt) || casKt < 60 || casKt > 500) {
+      setError('Invalid simulator CAS (60-500 kt)');
+      return;
+    }
+    if (!Number.isFinite(throttlePct) || throttlePct < 0 || throttlePct > 100) {
+      setError('Invalid simulator throttle (0-100%)');
+      return;
+    }
+    if (!Number.isFinite(pitchDeg) || pitchDeg < -10 || pitchDeg > 15) {
+      setError('Invalid simulator pitch (-10..15 deg)');
+      return;
+    }
+
     setSettingsBusy(true);
     try {
-      const res = await fetch('/api/source/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ host: settingsHost.trim() || '0.0.0.0', port }),
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
+      const [sourceRes, simulatorRes] = await Promise.all([
+        fetch('/api/source/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host: settingsHost.trim() || '0.0.0.0', port }),
+        }),
+        fetch('/api/simulator/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            altitudeFt,
+            casKt,
+            throttle: throttlePct / 100,
+            pitchDeg,
+          }),
+        }),
+      ]);
+
+      if (!sourceRes.ok) {
+        const e = await sourceRes.json().catch(() => ({}));
         setError(e.error || 'Failed to update source');
+      } else if (!simulatorRes.ok) {
+        const e = await simulatorRes.json().catch(() => ({}));
+        setError(e.error || 'Failed to update simulator');
       } else {
+        const simulatorData = await simulatorRes.json().catch(() => null);
+        const config = simulatorData?.initialConfig as SimulatorInitialConfig | undefined;
+        if (config) {
+          setSettingsSimAltitudeFt(String(Math.round(config.altitudeFt)));
+          setSettingsSimCasKt(String(Math.round(config.casKt)));
+          setSettingsSimThrottlePct(String(Math.round(config.throttle * 100)));
+          setSettingsSimPitchDeg(String(config.pitchDeg));
+        }
         setError(null);
         await loadSourceStatus();
       }
     } catch {
-      setError('Failed to update source');
+      setError('Failed to update settings');
     } finally {
       setSettingsBusy(false);
     }
@@ -538,7 +617,7 @@ export default function App() {
   if (currentView === 'settings') {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-6">
-        <div className="w-full max-w-2xl bg-black/40 border border-white/10 rounded-2xl p-6">
+        <div className="w-full max-w-3xl bg-black/40 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <button
@@ -571,6 +650,59 @@ export default function App() {
                 onChange={(e) => setSettingsPort(e.target.value)}
                 className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white font-mono"
               />
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-sm font-medium text-white mb-3">Simulator initial state</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-white/60 mb-2">Start altitude, ft</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={60000}
+                    value={settingsSimAltitudeFt}
+                    onChange={(e) => setSettingsSimAltitudeFt(e.target.value)}
+                    className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-white/60 mb-2">Start CAS, kt</label>
+                  <input
+                    type="number"
+                    min={60}
+                    max={500}
+                    value={settingsSimCasKt}
+                    onChange={(e) => setSettingsSimCasKt(e.target.value)}
+                    className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-white/60 mb-2">Start throttle, %</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={settingsSimThrottlePct}
+                    onChange={(e) => setSettingsSimThrottlePct(e.target.value)}
+                    className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-white/60 mb-2">Start pitch, deg</label>
+                  <input
+                    type="number"
+                    min={-10}
+                    max={15}
+                    step={0.1}
+                    value={settingsSimPitchDeg}
+                    onChange={(e) => setSettingsSimPitchDeg(e.target.value)}
+                    className="w-full px-3 py-2 bg-black/60 border border-white/15 rounded-lg text-white font-mono"
+                  />
+                </div>
+              </div>
+              <div className="text-xs text-white/35 mt-3">
+                Applies on simulator start/reset. Active simulation keeps current state until reset.
+              </div>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-sm font-medium text-white mb-3">UI settings</div>

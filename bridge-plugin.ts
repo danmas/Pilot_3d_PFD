@@ -24,7 +24,11 @@ import {
   validateSchema,
   type DecodeSchema,
 } from "./decoding";
-import { FlightSimulator } from "./simulator";
+import {
+  DEFAULT_SIMULATOR_INITIAL_CONFIG,
+  FlightSimulator,
+  type SimulatorInitialConfig,
+} from "./simulator";
 
 // ── types ──────────────────────────────────────────────────────────
 
@@ -69,6 +73,7 @@ type RawMonitorState = {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const PANEL_CONFIG_CURRENT_PATH = path.join(PROJECT_ROOT, "panel-config-current.json");
+const SIMULATOR_CONFIG_PATH = path.join(PROJECT_ROOT, "simulator-config.json");
 const PANEL_MENU_PATH = path.join(__dirname, "panel-menu.json");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
 const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
@@ -152,6 +157,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
   bridgeUdpPort = opts.udpPort ?? 14443;
   const captureDir = opts.captureDir ?? DEFAULT_CAPTURE_DIR;
   captureEnabled = !opts.noCapture;
+  simulator.reset(readSimulatorConfig());
 
   let udpServer: dgram.Socket | undefined;
   let statusInterval: ReturnType<typeof setInterval> | undefined;
@@ -352,6 +358,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             sendJson(res, {
               mode: bridgeMode,
               active: Boolean(simulatorInterval),
+              initialConfig: simulator.getInitialConfig(),
               controls: simulator.controls,
               state: {
                 pitch: simulator.pitch,
@@ -380,6 +387,18 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
               sendJson(res, { error: "Invalid mode" }, 400); return;
             }
             sendJson(res, { ok: true, mode: bridgeMode });
+            return;
+          }
+          if (req.method === "GET" && url.pathname === "/api/simulator/config") {
+            sendJson(res, simulator.getInitialConfig());
+            return;
+          }
+          if (req.method === "POST" && url.pathname === "/api/simulator/config") {
+            const body = await readRequestBody(req);
+            const config = simulator.setInitialConfig(normalizeSimulatorConfig(body));
+            writeSimulatorConfig(config);
+            if (!simulatorInterval) simulator.reset();
+            sendJson(res, { ok: true, initialConfig: config });
             return;
           }
           if (req.method === "POST" && url.pathname === "/api/simulator/control") {
@@ -623,6 +642,40 @@ function getRawStatus() {
     sseClients: rawSseClients.size,
     lastError: rawLastError,
   };
+}
+
+function normalizeSimulatorConfig(value: unknown): SimulatorInitialConfig {
+  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const numberOrDefault = (key: keyof SimulatorInitialConfig) => {
+    const value = Number(source[key]);
+    return Number.isFinite(value) ? value : DEFAULT_SIMULATOR_INITIAL_CONFIG[key];
+  };
+
+  return {
+    altitudeFt: clamp(numberOrDefault("altitudeFt"), 0, 60_000),
+    casKt: clamp(numberOrDefault("casKt"), 60, 500),
+    throttle: clamp(numberOrDefault("throttle"), 0, 1),
+    pitchDeg: clamp(numberOrDefault("pitchDeg"), -10, 15),
+  };
+}
+
+function readSimulatorConfig(): SimulatorInitialConfig {
+  try {
+    if (!fs.existsSync(SIMULATOR_CONFIG_PATH)) {
+      writeSimulatorConfig(DEFAULT_SIMULATOR_INITIAL_CONFIG);
+      return { ...DEFAULT_SIMULATOR_INITIAL_CONFIG };
+    }
+
+    const parsed = JSON.parse(fs.readFileSync(SIMULATOR_CONFIG_PATH, "utf8"));
+    return normalizeSimulatorConfig(parsed);
+  } catch (error) {
+    console.warn("[BRIDGE] Failed to read simulator config", error);
+    return { ...DEFAULT_SIMULATOR_INITIAL_CONFIG };
+  }
+}
+
+function writeSimulatorConfig(config: SimulatorInitialConfig): void {
+  fs.writeFileSync(SIMULATOR_CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
 }
 
 // ── raw monitor (decoder stream only) ──────────────────────────────
@@ -869,6 +922,10 @@ function readRequestBody(req: http.IncomingMessage): Promise<Record<string, unkn
     });
     req.on("error", reject);
   });
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function optionalNumber(v: string | null): number | undefined {

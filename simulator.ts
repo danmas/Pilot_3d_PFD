@@ -7,6 +7,20 @@ export interface SimulatorControls {
   throttle: number;  // 0 to 1
 }
 
+export interface SimulatorInitialConfig {
+  altitudeFt: number;
+  casKt: number;
+  throttle: number;
+  pitchDeg: number;
+}
+
+export const DEFAULT_SIMULATOR_INITIAL_CONFIG: SimulatorInitialConfig = {
+  altitudeFt: 10_000,
+  casKt: 250,
+  throttle: 0.6,
+  pitchDeg: 3.0,
+};
+
 /**
  * Simplified flight dynamics model designed for PFD instrument visualization.
  *
@@ -14,7 +28,7 @@ export interface SimulatorControls {
  * behaviour on the PFD displays rather than true aerodynamic fidelity.
  *
  * Key design decisions:
- *  - Trim state: at reset conditions (CAS 250 kt, alt 5000 ft, throttle 0.6)
+ *  - Trim state: at reset conditions (CAS 250 kt, alt 10000 ft, throttle 0.6)
  *    the aircraft is in trimmed level flight with vy=0, normalG≈1.
  *  - Pitch stability: inherent pitch damping brings the aircraft back to its
  *    trimmed AoA when controls are released.
@@ -23,13 +37,13 @@ export interface SimulatorControls {
  */
 export class FlightSimulator {
   // ── flight state ─────────────────────────────────────────────────
-  public pitch = 3.0;        // degrees (trim pitch)
+  public pitch = DEFAULT_SIMULATOR_INITIAL_CONFIG.pitchDeg; // degrees (trim pitch)
   public roll = 0.0;         // degrees
   public heading = 0.0;      // degrees (-180 … +180)
-  public altitude = 1524.0;  // meters  (≈ 5 000 ft)
+  public altitude = DEFAULT_SIMULATOR_INITIAL_CONFIG.altitudeFt * 0.3048; // meters
   public vy = 0.0;           // m/s  (vertical speed)
-  public cas = 250.0;        // knots
-  public throttle = 0.6;     // 0 … 1
+  public cas = DEFAULT_SIMULATOR_INITIAL_CONFIG.casKt; // knots
+  public throttle = DEFAULT_SIMULATOR_INITIAL_CONFIG.throttle; // 0 … 1
   public n1 = 68.0;          // % N1  (trim N1)
   public normalG = 1.0;      // Normal load factor
 
@@ -38,7 +52,7 @@ export class FlightSimulator {
     roll: 0,
     pitch: 0,
     rudder: 0,
-    throttle: 0.6,
+    throttle: DEFAULT_SIMULATOR_INITIAL_CONFIG.throttle,
   };
 
   private seq = 0;
@@ -68,20 +82,45 @@ export class FlightSimulator {
 
   // ── internal state ───────────────────────────────────────────────
   private pitchRate = 0;  // deg/s (smoothed)
+  private initialConfig = { ...DEFAULT_SIMULATOR_INITIAL_CONFIG };
 
   // ================================================================
-  public reset(): void {
-    this.pitch      = 3.0;
+  public getInitialConfig(): SimulatorInitialConfig {
+    return { ...this.initialConfig };
+  }
+
+  public setInitialConfig(config: Partial<SimulatorInitialConfig>): SimulatorInitialConfig {
+    if (config.altitudeFt !== undefined) {
+      this.initialConfig.altitudeFt = clamp(config.altitudeFt, 0, 60_000);
+    }
+    if (config.casKt !== undefined) {
+      this.initialConfig.casKt = clamp(config.casKt, 60, 500);
+    }
+    if (config.throttle !== undefined) {
+      this.initialConfig.throttle = clamp(config.throttle, 0, 1);
+    }
+    if (config.pitchDeg !== undefined) {
+      this.initialConfig.pitchDeg = clamp(config.pitchDeg, -10, 15);
+    }
+
+    return this.getInitialConfig();
+  }
+
+  public reset(config?: Partial<SimulatorInitialConfig>): void {
+    const initial = config ? this.setInitialConfig(config) : this.initialConfig;
+    const initialThrottle = clamp(initial.throttle, 0, 1);
+
+    this.pitch      = initial.pitchDeg;
     this.roll       = 0.0;
     this.heading    = 0.0;
-    this.altitude   = 1524.0;
+    this.altitude   = initial.altitudeFt * 0.3048;
     this.vy         = 0.0;
-    this.cas        = 250.0;
-    this.throttle   = 0.6;
-    this.n1         = 68.0;
+    this.cas        = initial.casKt;
+    this.throttle   = initialThrottle;
+    this.n1         = 20 + initialThrottle * 80;
     this.normalG    = 1.0;
     this.pitchRate  = 0;
-    this.controls   = { roll: 0, pitch: 0, rudder: 0, throttle: 0.6 };
+    this.controls   = { roll: 0, pitch: 0, rudder: 0, throttle: initialThrottle };
     this.seq        = 0;
   }
 
