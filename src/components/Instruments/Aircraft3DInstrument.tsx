@@ -10,6 +10,7 @@
  */
 import React, { useRef, useCallback, Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
@@ -19,7 +20,9 @@ import { AircraftModel } from './aircraft3d/AircraftModel';
 import {
   CameraController,
   CAMERA_PRESETS,
+  PROJECTION_LABELS,
   type CameraControls,
+  type ProjectionType,
 } from './aircraft3d/CameraController';
 import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/modelConfig';
 import { ModelDialog } from './aircraft3d/ModelDialog';
@@ -87,6 +90,7 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
   const [selectedModel, setSelectedModel] = useState<ModelEntry>(PRIMITIVE_MODEL);
   const [models, setModels] = useState<ModelEntry[]>([PRIMITIVE_MODEL]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [projection, setProjection] = useState<ProjectionType>('perspective');
 
   // Загружаем манифест моделей при монтировании
   useEffect(() => {
@@ -103,6 +107,10 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
   const setPreset = useCallback((name: string) => cameraRef.current?.setPreset(name), []);
   const rotateBy  = useCallback((az: number, po: number) => cameraRef.current?.rotateBy(az, po), []);
   const resetView = useCallback(() => cameraRef.current?.reset(), []);
+  const changeProjection = useCallback((type: ProjectionType) => {
+    setProjection(type);
+    cameraRef.current?.setProjection(type);
+  }, []);
 
   /** Сохранить модели в models.json через bridge-plugin API */
   const handleSaveModels = useCallback(async (allModels: ModelEntry[]) => {
@@ -127,10 +135,15 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
       {/* ── 3D Canvas ── */}
       <Suspense fallback={<LoadingOverlay />}>
         <Canvas
-          camera={{ position: CAMERA_PRESETS.chase.position, fov: 50, near: 0.1, far: 500 }}
           gl={{ antialias: true }}
           shadows
         >
+          {/* Active camera (switched by projection type) */}
+          {projection === 'ortho' ? (
+            <OrthographicCamera makeDefault position={CAMERA_PRESETS.chase.position} zoom={40} near={0.1} far={500} />
+          ) : (
+            <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
+          )}
           <Scene
             pitch={pitch}
             roll={roll}
@@ -166,6 +179,22 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
             onClick={() => setPreset(key)}
           >
             {label}
+          </button>
+        ))}
+        {/* ── Projection selector ── */}
+        <span className="mx-0.5 text-white/30 select-none">│</span>
+        {(Object.keys(PROJECTION_LABELS) as ProjectionType[]).map((key) => (
+          <button
+            key={key}
+            title={PROJECTION_LABELS[key]}
+            className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+              ${projection === key
+                ? 'bg-cyan-600/50 text-white font-medium'
+                : 'bg-white/15 hover:bg-white/30 text-white/70'
+              }`}
+            onClick={() => changeProjection(key)}
+          >
+            {PROJECTION_LABELS[key]}
           </button>
         ))}
       </div>

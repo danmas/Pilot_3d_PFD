@@ -7,9 +7,7 @@
  *  • Плавные пресеты: Сзади / Сверху / Сбоку / Кабина
  *  • Кнопочное вращение ◀▶▲▼
  *  • Сброс ↺ в дефолтный вид (сзади-сверху)
- *
- * Управление осуществляется через imperativ API, вызываемый из
- * Aircraft3DInstrument по нажатию HTML-кнопок.
+ *  • Переключение проекции: Perspective / Wide / Orthographic
  */
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -36,16 +34,29 @@ export interface CameraControls {
   setPreset: (name: string) => void;
   rotateBy: (azimuthDeltaDeg: number, polarDeltaDeg: number) => void;
   reset: () => void;
+  setProjection: (type: ProjectionType) => void;
 }
+
+/* ──────────────── Projection types ──────────────── */
+export type ProjectionType = 'perspective' | 'wide' | 'ortho';
+
+export const PROJECTION_LABELS: Record<ProjectionType, string> = {
+  perspective: 'Перспектива',
+  wide: 'Широкоуг.',
+  ortho: 'Орто',
+};
 
 /* ──────────────── Internal state ──────────────── */
 const LERP_SPEED = 0.07;
+/** Half-size of orthographic frustum (world units) */
+const ORTHO_SIZE = 12;
 
 const CameraController = forwardRef<CameraControls>((_props, ref) => {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const targetPos = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].position));
   const targetLookAt = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].target));
   const animating = useRef(false);
+  const projectionRef = useRef<ProjectionType>('perspective');
 
   useImperativeHandle(ref, () => ({
     setPreset(name: string) {
@@ -56,7 +67,6 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
       animating.current = true;
     },
     rotateBy(azimuthDeg: number, polarDeg: number) {
-      // Orbit around target: azimuth = Y rotation, polar = pitch
       const azRad = (azimuthDeg * Math.PI) / 180;
       const poRad = (polarDeg * Math.PI) / 180;
 
@@ -75,10 +85,38 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
       targetLookAt.current.set(...p.target);
       animating.current = true;
     },
+    setProjection(type: ProjectionType) {
+      projectionRef.current = type;
+      animating.current = true;
+    },
   }));
 
   useFrame(() => {
     if (!animating.current) return;
+
+    const proj = projectionRef.current;
+
+    if (proj === 'ortho') {
+      // Orthographic: update frustum based on canvas aspect ratio
+      const cam = camera as THREE.OrthographicCamera;
+      if (cam.isOrthographicCamera) {
+        const aspect = size.width / size.height;
+        cam.left = -ORTHO_SIZE * aspect;
+        cam.right = ORTHO_SIZE * aspect;
+        cam.top = ORTHO_SIZE;
+        cam.bottom = -ORTHO_SIZE;
+        cam.zoom = 1;
+        cam.updateProjectionMatrix();
+      }
+    } else {
+      // Perspective: update FOV
+      const cam = camera as THREE.PerspectiveCamera;
+      if (cam.isPerspectiveCamera) {
+        const targetFov = proj === 'wide' ? 80 : 50;
+        cam.fov += (targetFov - cam.fov) * 0.1;
+        cam.updateProjectionMatrix();
+      }
+    }
 
     camera.position.lerp(targetPos.current, LERP_SPEED);
 
