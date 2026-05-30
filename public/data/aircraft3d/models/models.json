@@ -26,7 +26,7 @@
       "url": "/data/aircraft3d/models/tupolev_tu_204.glb",
       "scale": 1,
       "yawOffsetDeg": 180,
-      "offsetX": 7,
+      "offsetX": 0,
       "offsetY": 0,
       "offsetZ": -10
     },

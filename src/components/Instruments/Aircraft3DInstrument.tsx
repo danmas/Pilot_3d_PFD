@@ -15,6 +15,8 @@ import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
 import { AircraftModel } from './aircraft3d/AircraftModel';
+import { Ground } from './aircraft3d/Ground';
+import { Clouds } from './aircraft3d/Clouds';
 // VelocityVector disabled — inherits airplane rotation + noisy telemetry = unstable
 // import { VelocityVector } from './aircraft3d/VelocityVector';
 import {
@@ -58,6 +60,8 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => (
   <>
     <HorizonSphere />
     <AircraftModel model={model} />
+    <Ground />
+    <Clouds />
     {/* VelocityVector disabled — chaotic due to noisy telemetry + inherited rotation */}
     <CameraController ref={cameraRef} />
 
@@ -65,12 +69,6 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => (
     <ambientLight intensity={0.5} />
     <directionalLight position={[10, 20, -10]} intensity={1.0} />
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
-
-    {/* Shadow-receiving ground disc */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -6, 0]} receiveShadow>
-      <circleGeometry args={[30, 48]} />
-      <shadowMaterial opacity={0.25} />
-    </mesh>
   </>
 );
 
