@@ -8,7 +8,7 @@
  *
  * Регистрируется через registerPanelKitWidget и доступен в PanelBuilder.
  */
-import React, { useRef, useCallback, Suspense, useState } from 'react';
+import React, { useRef, useCallback, Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
@@ -21,7 +21,8 @@ import {
   CAMERA_PRESETS,
   type CameraControls,
 } from './aircraft3d/CameraController';
-import { ALL_MODELS, PRIMITIVE_MODEL, type ModelEntry } from './aircraft3d/modelConfig';
+import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/modelConfig';
+import { ModelDialog } from './aircraft3d/ModelDialog';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -84,6 +85,13 @@ const LoadingOverlay: React.FC = () => (
 const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
   const cameraRef = useRef<CameraControls>(null);
   const [selectedModel, setSelectedModel] = useState<ModelEntry>(PRIMITIVE_MODEL);
+  const [models, setModels] = useState<ModelEntry[]>([PRIMITIVE_MODEL]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Загружаем манифест моделей при монтировании
+  useEffect(() => {
+    fetchModels().then(setModels);
+  }, []);
 
   const pitch   = finite(frame.PitchAngle);
   const roll    = finite(frame.RollAngle);
@@ -95,6 +103,24 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
   const setPreset = useCallback((name: string) => cameraRef.current?.setPreset(name), []);
   const rotateBy  = useCallback((az: number, po: number) => cameraRef.current?.rotateBy(az, po), []);
   const resetView = useCallback(() => cameraRef.current?.reset(), []);
+
+  /** Сохранить модели в models.json через bridge-plugin API */
+  const handleSaveModels = useCallback(async (allModels: ModelEntry[]) => {
+    // Сохраняем только GLB-модели (примитивная всегда добавляется автоматически)
+    const glbModels = allModels.filter((m) => m.url != null);
+    try {
+      await fetch('/api/aircraft3d/models', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: glbModels }),
+      });
+      // Перечитываем после сохранения
+      const refreshed = await fetchModels();
+      setModels(refreshed);
+    } catch (e) {
+      console.error('[Aircraft3D] Failed to save models:', e);
+    }
+  }, []);
 
   return (
     <div className="w-full h-full relative bg-black overflow-hidden select-none">
@@ -144,24 +170,28 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
         ))}
       </div>
 
-      {/* ── Model selector (bottom right) ── */}
-      {ALL_MODELS.length > 1 && (
-        <select
-          value={selectedModel.id}
-          onChange={(e) => {
-            const found = ALL_MODELS.find((m) => m.id === e.target.value);
-            if (found) setSelectedModel(found);
+      {/* ── Model button (bottom right) ── */}
+      <button
+        onClick={() => setDialogOpen(true)}
+        className="absolute bottom-1.5 right-2 px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-white/30
+                   text-white/90 backdrop-blur-sm transition-colors leading-none"
+        title="Выбор модели"
+      >
+        ✈ {selectedModel.label}
+      </button>
+
+      {/* ── Model dialog ── */}
+      {dialogOpen && (
+        <ModelDialog
+          models={models}
+          current={selectedModel}
+          onApply={(m) => {
+            setSelectedModel(m);
+            setDialogOpen(false);
           }}
-          className="absolute bottom-1.5 right-2 text-[11px] bg-black/60 text-white/90 border border-white/20
-                     rounded px-1 py-0.5 backdrop-blur-sm outline-none cursor-pointer
-                     hover:border-white/40 transition-colors"
-        >
-          {ALL_MODELS.map((m) => (
-            <option key={m.id} value={m.id} className="bg-gray-900">
-              {m.label}
-            </option>
-          ))}
-        </select>
+          onSave={handleSaveModels}
+          onClose={() => setDialogOpen(false)}
+        />
       )}
 
       {/* ── Rotation + reset buttons (bottom centre) ── */}

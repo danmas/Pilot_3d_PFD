@@ -54,9 +54,12 @@ export const AircraftModel: React.FC<AircraftModelProps> = ({
   });
 
   const useGlb = model?.url != null;
+  const ox = model?.offsetX ?? 0;
+  const oy = model?.offsetY ?? 0;
+  const oz = model?.offsetZ ?? 0;
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} position={[ox, oy, oz]}>
       {useGlb ? (
         <Suspense fallback={null}>
           <GLBAircraft

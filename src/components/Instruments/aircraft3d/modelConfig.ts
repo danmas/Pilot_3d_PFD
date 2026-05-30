@@ -1,13 +1,16 @@
 /**
  * modelConfig.ts — конфигурация доступных 3D-моделей самолётов.
  *
- * Файлы .glb размещаются в public/data/aircraft3d/models/.
- * URL относительно корня Vite-dev-сервера (т.е. /data/aircraft3d/models/...).
+ * Модели описываются в JSON-манифесте:
+ *   public/data/aircraft3d/models/models.json
  *
- * Чтобы добавить модель:
- *   1. Положить файл .glb в public/data/aircraft3d/models/
- *   2. Добавить запись в MODELS ниже
+ * Файлы .glb размещаются рядом с манифестом:
+ *   public/data/aircraft3d/models/*.glb
+ *
+ * Функция fetchModels() загружает манифест при старте прибора.
  */
+
+/* ─────────── Интерфейс модели ─────────── */
 
 export interface ModelEntry {
   /** Уникальный id модели */
@@ -20,24 +23,43 @@ export interface ModelEntry {
   scale?: number;
   /** Поворот модели вокруг Y в градусах (для корректировки «носа») */
   yawOffsetDeg?: number;
+  /** Сдвиг модели по X (влево/вправо) */
+  offsetX?: number;
+  /** Сдвиг модели по Y (вверх/вниз) */
+  offsetY?: number;
+  /** Сдвиг модели по Z (вперёд/назад) */
+  offsetZ?: number;
 }
 
-/** «Встроенная» процедурная модель — всегда первая */
+/* ─────────── Встроенная процедурная модель ─────────── */
+
 export const PRIMITIVE_MODEL: ModelEntry = {
   id: 'primitive',
   label: 'Схематичный (примитивы)',
   url: null,
 };
 
-/**
- * Список GLB-моделей. Добавьте сюда свои файлы:
- *   { id: 'il96', label: 'Ил-96-300М', url: '/data/aircraft3d/models/il96.glb', scale: 1.0 },
- *   { id: 'tu204', label: 'Ту-204',     url: '/data/aircraft3d/models/tu204.glb' },
- */
-export const GLB_MODELS: ModelEntry[] = [
-  // Добавьте свои .glb файлы и раскомментируйте:
-  // { id: 'example', label: 'Пример', url: '/data/aircraft3d/models/example.glb' },
-];
+/* ─────────── Загрузка манифеста ─────────── */
 
-/** Все доступные модели (примитивы + GLB) */
-export const ALL_MODELS: ModelEntry[] = [PRIMITIVE_MODEL, ...GLB_MODELS];
+const MANIFEST_URL = '/data/aircraft3d/models/models.json';
+
+interface ManifestJSON {
+  models: ModelEntry[];
+}
+
+/**
+ * Загружает список GLB-моделей из models.json.
+ * Если файл отсутствует или невалиден — возвращает пустой массив.
+ * «Примитивная» модель всегда добавляется первой автоматически.
+ */
+export async function fetchModels(): Promise<ModelEntry[]> {
+  try {
+    const res = await fetch(MANIFEST_URL);
+    if (!res.ok) return [PRIMITIVE_MODEL];
+    const data: ManifestJSON = await res.json();
+    const glbModels = (data.models ?? []).filter((m) => m.url);
+    return [PRIMITIVE_MODEL, ...glbModels];
+  } catch {
+    return [PRIMITIVE_MODEL];
+  }
+}
