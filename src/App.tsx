@@ -13,6 +13,7 @@ import { PanelDisplay } from './components/PanelBuilder/PanelDisplay';
 import { TelemetryProvider } from './context/TelemetryContext';
 import Aircraft3DInstrument from './components/Instruments/Aircraft3DInstrument';
 import { UI_SETTINGS } from './ui-settings';
+import { telemetryRef } from './telemetryRef';
 
 type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
@@ -116,7 +117,9 @@ export default function App() {
       if (dt > 33) {
         frameRef.current = (frameRef.current + 1) % sampleFrames.length;
         setFrameIndex(frameRef.current);
-        setFrame(sampleFrames[frameRef.current]);
+        const f = sampleFrames[frameRef.current];
+        telemetryRef.current = f;
+        setFrame(f);
         lastTime = time;
       }
       if (isPlaying) animationId = requestAnimationFrame(tick);
@@ -135,6 +138,7 @@ export default function App() {
     es.addEventListener('pfd-frame', (event) => {
       try {
         const data: TelemetryFrame = JSON.parse(event.data);
+        telemetryRef.current = data;
         setFrame(data); setLiveSeq(data.seq ?? null);
         setConnStatus('receiving'); setError(null);
       } catch { setError('Failed to parse pfd-frame'); }
@@ -384,7 +388,9 @@ export default function App() {
           setIsPlaying(false);
           return prevIndex;
         }
-        setFrame(replayFrames[nextIndex]);
+        const f = replayFrames[nextIndex];
+        telemetryRef.current = f;
+        setFrame(f);
         return nextIndex;
       });
     }, 40);
@@ -486,6 +492,7 @@ export default function App() {
       }
       setReplayFrames(frames);
       setReplayIndex(0);
+      telemetryRef.current = frames[0];
       setFrame(frames[0]);
       setDataMode('replay');
       setIsPlaying(true);
@@ -504,6 +511,7 @@ export default function App() {
       try {
         const text = e.target?.result as string;
         const json = JSON.parse(text);
+        telemetryRef.current = json as TelemetryFrame;
         setFrame(json as TelemetryFrame); setIsPlaying(false); setError(null);
       } catch { setError('Failed to parse JSON file.'); }
     };

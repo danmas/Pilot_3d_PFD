@@ -59,9 +59,9 @@ export const HorizonSphere: React.FC = () => {
     });
   }, []);
 
+  const geometry = useMemo(() => new THREE.SphereGeometry(HORIZON_RADIUS, 32, 16), []);
+
   return (
-    <mesh renderOrder={-1} material={material}>
-      <sphereGeometry args={[HORIZON_RADIUS, 64, 32]} />
-    </mesh>
+    <mesh renderOrder={-1} material={material} geometry={geometry} />
   );
 };

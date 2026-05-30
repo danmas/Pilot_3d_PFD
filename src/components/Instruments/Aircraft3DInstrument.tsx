@@ -8,13 +8,17 @@
  *
  * Регистрируется через registerPanelKitWidget и доступен в PanelBuilder.
  */
-import React, { useRef, useCallback, Suspense, useState, useEffect } from 'react';
+import React, { useRef, useCallback, Suspense, useState, useEffect, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
 import { AircraftModel } from './aircraft3d/AircraftModel';
+import { GroundDisc } from './aircraft3d/Ground';
+import { Runway } from './aircraft3d/Runway';
+import { Clouds } from './aircraft3d/Clouds';
+import { WorldGroup } from './aircraft3d/WorldGroup';
 // VelocityVector disabled — inherits airplane rotation + noisy telemetry = unstable
 // import { VelocityVector } from './aircraft3d/VelocityVector';
 import {
@@ -50,17 +54,25 @@ const ROTATE_BUTTONS = [
 
 /* ─── Scene (runs inside <Canvas>) ─── */
 interface SceneProps {
-  pitch: number;
-  roll: number;
-  heading: number;
   model: ModelEntry;
   cameraRef: React.RefObject<CameraControls | null>;
 }
 
-const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, model, cameraRef }) => (
+const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => (
   <>
+    {/* Sky sphere — always surrounds the camera (never translates) */}
     <HorizonSphere />
-    <AircraftModel pitchDeg={pitch} rollDeg={roll} headingDeg={heading} model={model} />
+
+    {/* Ground disc — follows aircraft XZ, fades at edges (infinite ground) */}
+    <GroundDisc />
+
+    {/* World group: runway + clouds — moves opposite to aircraft flight */}
+    <WorldGroup>
+      <Runway />
+      <Clouds />
+    </WorldGroup>
+
+    <AircraftModel model={model} />
     {/* VelocityVector disabled — chaotic due to noisy telemetry + inherited rotation */}
     <CameraController ref={cameraRef} />
 
@@ -68,14 +80,27 @@ const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, model, cameraRef })
     <ambientLight intensity={0.5} />
     <directionalLight position={[10, 20, -10]} intensity={1.0} />
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
-
-    {/* Shadow-receiving ground disc */}
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -6, 0]} receiveShadow>
-      <circleGeometry args={[30, 48]} />
-      <shadowMaterial opacity={0.25} />
-    </mesh>
   </>
 );
+
+/* ─── Memoized Canvas wrapper (never re-renders on telemetry ticks) ─── */
+interface Aircraft3DCanvasProps {
+  model: ModelEntry;
+  projection: ProjectionType;
+  cameraRef: React.RefObject<CameraControls | null>;
+}
+
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef }) => (
+  <Canvas gl={{ antialias: true }} shadows>
+    {/* Active camera (switched by projection type) */}
+    {projection === 'ortho' ? (
+      <OrthographicCamera makeDefault position={CAMERA_PRESETS.chase.position} zoom={40} near={0.1} far={500} />
+    ) : (
+      <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
+    )}
+    <Scene model={model} cameraRef={cameraRef} />
+  </Canvas>
+));
 
 /* ─── Loading placeholder ─── */
 const LoadingOverlay: React.FC = () => (
@@ -85,7 +110,7 @@ const LoadingOverlay: React.FC = () => (
 );
 
 /* ─── Main instrument component ─── */
-const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
+const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }) => {
   const cameraRef = useRef<CameraControls>(null);
   const [selectedModel, setSelectedModel] = useState<ModelEntry>(PRIMITIVE_MODEL);
   const [models, setModels] = useState<ModelEntry[]>([PRIMITIVE_MODEL]);
@@ -132,26 +157,13 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
 
   return (
     <div className="w-full h-full relative bg-black overflow-hidden select-none">
-      {/* ── 3D Canvas ── */}
+      {/* ── 3D Canvas (memoized — never re-renders on telemetry ticks) ── */}
       <Suspense fallback={<LoadingOverlay />}>
-        <Canvas
-          gl={{ antialias: true }}
-          shadows
-        >
-          {/* Active camera (switched by projection type) */}
-          {projection === 'ortho' ? (
-            <OrthographicCamera makeDefault position={CAMERA_PRESETS.chase.position} zoom={40} near={0.1} far={500} />
-          ) : (
-            <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
-          )}
-          <Scene
-            pitch={pitch}
-            roll={roll}
-            heading={heading}
-            model={selectedModel}
-            cameraRef={cameraRef}
-          />
-        </Canvas>
+        <Aircraft3DCanvas
+          model={selectedModel}
+          projection={projection}
+          cameraRef={cameraRef}
+        />
       </Suspense>
 
       {/* ── HUD overlay ── */}
@@ -245,7 +257,18 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
       </div>
     </div>
   );
-};
+}, (prev, next) => {
+  const pf = prev.frame;
+  const nf = next.frame;
+  return (
+    pf.PitchAngle === nf.PitchAngle &&
+    pf.RollAngle === nf.RollAngle &&
+    pf.Heading1 === nf.Heading1 &&
+    pf.CAS === nf.CAS &&
+    pf.Vy === nf.Vy &&
+    pf.RAltitude === nf.RAltitude
+  );
+});
 
 /* ─── Registration ─── */
 registerPanelKitWidget({
