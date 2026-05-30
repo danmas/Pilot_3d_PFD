@@ -4,18 +4,20 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, FileJson, Play, Pause, Activity, Database, Radio, LayoutDashboard, Monitor, ArrowLeft, Zap, Gauge, Terminal, Settings } from 'lucide-react';
+import { Upload, FileJson, Play, Pause, Activity, Database, Radio, LayoutDashboard, Monitor, ArrowLeft, Zap, Gauge, Terminal, Settings, Plane } from 'lucide-react';
 import { TelemetryFrame } from './types';
 import { sampleFrames } from './sample-data';
 import RawMonitor from './components/RawMonitor/RawMonitor';
 import { PanelBuilder } from './components/PanelBuilder';
 import { PanelDisplay } from './components/PanelBuilder/PanelDisplay';
 import { TelemetryProvider } from './context/TelemetryContext';
+import Aircraft3DInstrument from './components/Instruments/Aircraft3DInstrument';
 import { UI_SETTINGS } from './ui-settings';
+import { telemetryRef } from './telemetryRef';
 
 type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
-type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings';
+type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings' | 'aircraft3d';
 
 type SourceStatus = {
   udpHost: string;
@@ -115,7 +117,9 @@ export default function App() {
       if (dt > 33) {
         frameRef.current = (frameRef.current + 1) % sampleFrames.length;
         setFrameIndex(frameRef.current);
-        setFrame(sampleFrames[frameRef.current]);
+        const f = sampleFrames[frameRef.current];
+        telemetryRef.current = f;
+        setFrame(f);
         lastTime = time;
       }
       if (isPlaying) animationId = requestAnimationFrame(tick);
@@ -134,6 +138,7 @@ export default function App() {
     es.addEventListener('pfd-frame', (event) => {
       try {
         const data: TelemetryFrame = JSON.parse(event.data);
+        telemetryRef.current = data;
         setFrame(data); setLiveSeq(data.seq ?? null);
         setConnStatus('receiving'); setError(null);
       } catch { setError('Failed to parse pfd-frame'); }
@@ -383,7 +388,9 @@ export default function App() {
           setIsPlaying(false);
           return prevIndex;
         }
-        setFrame(replayFrames[nextIndex]);
+        const f = replayFrames[nextIndex];
+        telemetryRef.current = f;
+        setFrame(f);
         return nextIndex;
       });
     }, 40);
@@ -485,6 +492,7 @@ export default function App() {
       }
       setReplayFrames(frames);
       setReplayIndex(0);
+      telemetryRef.current = frames[0];
       setFrame(frames[0]);
       setDataMode('replay');
       setIsPlaying(true);
@@ -503,6 +511,7 @@ export default function App() {
       try {
         const text = e.target?.result as string;
         const json = JSON.parse(text);
+        telemetryRef.current = json as TelemetryFrame;
         setFrame(json as TelemetryFrame); setIsPlaying(false); setError(null);
       } catch { setError('Failed to parse JSON file.'); }
     };
@@ -604,7 +613,7 @@ export default function App() {
           </div>
 
           {/* Cards */}
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {/* PFD Card */}
             <button
               onClick={() => setCurrentView('pfd')}
@@ -621,6 +630,25 @@ export default function App() {
               </p>
               <div className="flex items-center gap-2 mt-4 text-blue-400 text-sm font-medium">
                 <Play className="w-4 h-4" /> Open PFD &rarr;
+              </div>
+            </button>
+
+            {/* 3D Aircraft Card */}
+            <button
+              onClick={() => setCurrentView('aircraft3d')}
+              className="group relative bg-gradient-to-br from-sky-900/40 to-indigo-900/40 border border-sky-500/20 rounded-2xl p-8 text-left hover:border-sky-400/50 hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-sky-500/10"
+            >
+              <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-sky-400 group-hover:animate-pulse" />
+              <div className="p-3 bg-sky-500/20 rounded-xl w-fit mb-5">
+                <Plane className="w-8 h-8 text-sky-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">3D Aircraft</h2>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Full-screen 3D aircraft instrument:<br />
+                GLB models, projection modes, orbit camera.
+              </p>
+              <div className="flex items-center gap-2 mt-4 text-sky-400 text-sm font-medium">
+                <Zap className="w-4 h-4" /> Open 3D &rarr;
               </div>
             </button>
 
@@ -709,6 +737,33 @@ export default function App() {
             <span>{sourceStatus?.schema ?? 'telemetry-frame.v1'}</span>
             <span>{sourceStatus?.active ? 'active' : 'inactive'}</span>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════ 3D AIRCRAFT VIEW
+  if (currentView === 'aircraft3d') {
+    return (
+      <div className="h-screen w-screen bg-[#121212] flex flex-col overflow-hidden">
+        {/* Minimal header with back button */}
+        <div className="shrink-0 flex items-center gap-3 bg-black/60 px-4 py-2 border-b border-white/10">
+          <button
+            onClick={() => setCurrentView('hub')}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+            title="Back to Hub"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="p-1.5 bg-sky-500/20 text-sky-400 rounded-lg">
+            <Plane className="w-5 h-5" />
+          </div>
+          <h1 className="text-white font-medium text-base tracking-tight">3D Aircraft</h1>
+          <span className="text-white/30 text-xs ml-auto">Pitch / Roll / Heading &middot; telemetry-frame.v1</span>
+        </div>
+        {/* Full-page instrument */}
+        <div className="flex-1 min-h-0">
+          <Aircraft3DInstrument frame={frame} />
         </div>
       </div>
     );

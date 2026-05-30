@@ -13,44 +13,54 @@
  *
  * Порядок вращения: Y → X → Z (yaw → pitch → roll).
  */
-import { useMemo, useRef, Suspense } from 'react';
+import React, { useMemo, useRef, useEffect, Suspense, memo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ModelEntry } from './modelConfig';
+import { telemetryRef } from '../../../telemetryRef';
+import { aircraftPosition } from './aircraftPosition';
 
 const DEG = Math.PI / 180;
 
 /* ─────────────────── Общие пропсы ─────────────────── */
 interface AircraftModelProps {
-  rollDeg: number;
-  pitchDeg: number;
-  headingDeg: number;
   /** Текущая выбранная модель (null = примитивы) */
   model?: ModelEntry;
 }
 
 /* ─────────────────── Главный компонент ─────────────────── */
-export const AircraftModel: React.FC<AircraftModelProps> = ({
-  rollDeg,
-  pitchDeg,
-  headingDeg,
+export const AircraftModel: React.FC<AircraftModelProps> = memo(({
   model,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const eulerRef = useRef(new THREE.Euler(0, 0, 0, 'YXZ'));
 
-  useFrame(() => {
+  useFrame((_state, delta) => {
     const g = groupRef.current;
     if (!g) return;
-    const target = new THREE.Euler(
-      pitchDeg * DEG,
-      -headingDeg * DEG,
-      rollDeg * DEG,
-      'YXZ',
-    );
+    const f = telemetryRef.current;
+    if (!f) return;
+
+    const pitchRad = (typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0) * DEG;
+    const rollRad = (typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0) * DEG;
+    const headingRad = (typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0) * DEG;
+
+    const target = eulerRef.current;
+    target.set(pitchRad, -headingRad, rollRad, 'YXZ');
     g.rotation.x += (target.x - g.rotation.x) * 0.12;
     g.rotation.y += (target.y - g.rotation.y) * 0.12;
     g.rotation.z += (target.z - g.rotation.z) * 0.12;
+
+    /* ── Integrate forward position from CAS + heading ── */
+    const cas = typeof f.CAS === 'number' && Number.isFinite(f.CAS) ? f.CAS : 0;
+    // 1 knot = 0.5144 m/s; scene scale ~1/40 → world-units/s
+    const speedWU = cas * 0.5144 / 40;
+    const dt = Math.min(delta, 0.1);
+    const heading = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
+    const hRad = heading * DEG;
+    aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
+    aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
   });
 
   const useGlb = model?.url != null;
@@ -73,11 +83,11 @@ export const AircraftModel: React.FC<AircraftModelProps> = ({
       )}
     </group>
   );
-};
+});
 
 /* ─────────────────── Процедурная модель (примитивы) ─────────────────── */
 
-const PrimitiveAircraft: React.FC = () => {
+const PrimitiveAircraft: React.FC = memo(() => {
   const bodyMat = useMemo(
     () => new THREE.MeshStandardMaterial({ color: '#d8d8d8', metalness: 0.35, roughness: 0.55 }),
     [],
@@ -87,38 +97,46 @@ const PrimitiveAircraft: React.FC = () => {
     [],
   );
 
+  // Memoize all geometries to prevent recreation on every render
+  const fuselageGeom = useMemo(() => new THREE.CapsuleGeometry(0.35, 3.0, 8, 20), []);
+  const noseGeom = useMemo(() => new THREE.ConeGeometry(0.36, 0.7, 16), []);
+  const wingsGeom = useMemo(() => new THREE.BoxGeometry(7.0, 0.07, 1.3), []);
+  const stabilizerGeom = useMemo(() => new THREE.BoxGeometry(2.6, 0.06, 0.75), []);
+  const finGeom = useMemo(() => new THREE.BoxGeometry(0.06, 1.3, 0.85), []);
+  const engineGeom = useMemo(() => new THREE.CylinderGeometry(0.22, 0.22, 1.1, 12), []);
+
+  // Cleanup: dispose geometries and materials on unmount
+  useEffect(() => {
+    return () => {
+      fuselageGeom.dispose();
+      noseGeom.dispose();
+      wingsGeom.dispose();
+      stabilizerGeom.dispose();
+      finGeom.dispose();
+      engineGeom.dispose();
+      bodyMat.dispose();
+      accentMat.dispose();
+    };
+  }, [fuselageGeom, noseGeom, wingsGeom, stabilizerGeom, finGeom, engineGeom, bodyMat, accentMat]);
+
   return (
     <>
       {/* Fuselage */}
-      <mesh material={bodyMat} rotation={[Math.PI / 2, 0, 0]}>
-        <capsuleGeometry args={[0.35, 3.0, 8, 20]} />
-      </mesh>
+      <mesh material={bodyMat} geometry={fuselageGeom} rotation={[Math.PI / 2, 0, 0]} />
       {/* Nose cone */}
-      <mesh material={accentMat} position={[0, 0, -1.85]} rotation={[-Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.36, 0.7, 16]} />
-      </mesh>
+      <mesh material={accentMat} geometry={noseGeom} position={[0, 0, -1.85]} rotation={[-Math.PI / 2, 0, 0]} />
       {/* Main wings */}
-      <mesh material={accentMat} position={[0, 0.02, 0.1]}>
-        <boxGeometry args={[7.0, 0.07, 1.3]} />
-      </mesh>
+      <mesh material={accentMat} geometry={wingsGeom} position={[0, 0.02, 0.1]} />
       {/* Horizontal stabiliser */}
-      <mesh material={accentMat} position={[0, 0.02, 1.75]}>
-        <boxGeometry args={[2.6, 0.06, 0.75]} />
-      </mesh>
+      <mesh material={accentMat} geometry={stabilizerGeom} position={[0, 0.02, 1.75]} />
       {/* Vertical fin */}
-      <mesh material={accentMat} position={[0, 0.75, 1.55]}>
-        <boxGeometry args={[0.06, 1.3, 0.85]} />
-      </mesh>
+      <mesh material={accentMat} geometry={finGeom} position={[0, 0.75, 1.55]} />
       {/* Engine nacelles */}
-      <mesh material={bodyMat} position={[-1.6, -0.22, 0.3]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.22, 0.22, 1.1, 12]} />
-      </mesh>
-      <mesh material={bodyMat} position={[1.6, -0.22, 0.3]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.22, 0.22, 1.1, 12]} />
-      </mesh>
+      <mesh material={bodyMat} geometry={engineGeom} position={[-1.6, -0.22, 0.3]} rotation={[Math.PI / 2, 0, 0]} />
+      <mesh material={bodyMat} geometry={engineGeom} position={[1.6, -0.22, 0.3]} rotation={[Math.PI / 2, 0, 0]} />
     </>
   );
-};
+});
 
 /* ─────────────────── GLB модель ─────────────────── */
 
