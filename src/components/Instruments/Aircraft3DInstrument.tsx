@@ -8,7 +8,7 @@
  *
  * Регистрируется через registerPanelKitWidget и доступен в PanelBuilder.
  */
-import React, { useRef, useCallback, Suspense } from 'react';
+import React, { useRef, useCallback, Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
@@ -21,6 +21,7 @@ import {
   CAMERA_PRESETS,
   type CameraControls,
 } from './aircraft3d/CameraController';
+import { ALL_MODELS, PRIMITIVE_MODEL, type ModelEntry } from './aircraft3d/modelConfig';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -48,13 +49,14 @@ interface SceneProps {
   pitch: number;
   roll: number;
   heading: number;
+  model: ModelEntry;
   cameraRef: React.RefObject<CameraControls | null>;
 }
 
-const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, cameraRef }) => (
+const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, model, cameraRef }) => (
   <>
     <HorizonSphere />
-    <AircraftModel pitchDeg={pitch} rollDeg={roll} headingDeg={heading} />
+    <AircraftModel pitchDeg={pitch} rollDeg={roll} headingDeg={heading} model={model} />
     {/* VelocityVector disabled — chaotic due to noisy telemetry + inherited rotation */}
     <CameraController ref={cameraRef} />
 
@@ -81,6 +83,7 @@ const LoadingOverlay: React.FC = () => (
 /* ─── Main instrument component ─── */
 const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
   const cameraRef = useRef<CameraControls>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelEntry>(PRIMITIVE_MODEL);
 
   const pitch   = finite(frame.PitchAngle);
   const roll    = finite(frame.RollAngle);
@@ -106,6 +109,7 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
             pitch={pitch}
             roll={roll}
             heading={heading}
+            model={selectedModel}
             cameraRef={cameraRef}
           />
         </Canvas>
@@ -139,6 +143,26 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
           </button>
         ))}
       </div>
+
+      {/* ── Model selector (bottom right) ── */}
+      {ALL_MODELS.length > 1 && (
+        <select
+          value={selectedModel.id}
+          onChange={(e) => {
+            const found = ALL_MODELS.find((m) => m.id === e.target.value);
+            if (found) setSelectedModel(found);
+          }}
+          className="absolute bottom-1.5 right-2 text-[11px] bg-black/60 text-white/90 border border-white/20
+                     rounded px-1 py-0.5 backdrop-blur-sm outline-none cursor-pointer
+                     hover:border-white/40 transition-colors"
+        >
+          {ALL_MODELS.map((m) => (
+            <option key={m.id} value={m.id} className="bg-gray-900">
+              {m.label}
+            </option>
+          ))}
+        </select>
+      )}
 
       {/* ── Rotation + reset buttons (bottom centre) ── */}
       <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1">
