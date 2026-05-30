@@ -8,7 +8,7 @@
  *
  * Регистрируется через registerPanelKitWidget и доступен в PanelBuilder.
  */
-import React, { useRef, useCallback, Suspense } from 'react';
+import React, { useRef, useCallback, Suspense, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
@@ -21,6 +21,8 @@ import {
   CAMERA_PRESETS,
   type CameraControls,
 } from './aircraft3d/CameraController';
+import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/modelConfig';
+import { ModelDialog } from './aircraft3d/ModelDialog';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -48,13 +50,14 @@ interface SceneProps {
   pitch: number;
   roll: number;
   heading: number;
+  model: ModelEntry;
   cameraRef: React.RefObject<CameraControls | null>;
 }
 
-const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, cameraRef }) => (
+const Scene: React.FC<SceneProps> = ({ pitch, roll, heading, model, cameraRef }) => (
   <>
     <HorizonSphere />
-    <AircraftModel pitchDeg={pitch} rollDeg={roll} headingDeg={heading} />
+    <AircraftModel pitchDeg={pitch} rollDeg={roll} headingDeg={heading} model={model} />
     {/* VelocityVector disabled — chaotic due to noisy telemetry + inherited rotation */}
     <CameraController ref={cameraRef} />
 
@@ -81,6 +84,14 @@ const LoadingOverlay: React.FC = () => (
 /* ─── Main instrument component ─── */
 const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) => {
   const cameraRef = useRef<CameraControls>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelEntry>(PRIMITIVE_MODEL);
+  const [models, setModels] = useState<ModelEntry[]>([PRIMITIVE_MODEL]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Загружаем манифест моделей при монтировании
+  useEffect(() => {
+    fetchModels().then(setModels);
+  }, []);
 
   const pitch   = finite(frame.PitchAngle);
   const roll    = finite(frame.RollAngle);
@@ -92,6 +103,24 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
   const setPreset = useCallback((name: string) => cameraRef.current?.setPreset(name), []);
   const rotateBy  = useCallback((az: number, po: number) => cameraRef.current?.rotateBy(az, po), []);
   const resetView = useCallback(() => cameraRef.current?.reset(), []);
+
+  /** Сохранить модели в models.json через bridge-plugin API */
+  const handleSaveModels = useCallback(async (allModels: ModelEntry[]) => {
+    // Сохраняем только GLB-модели (примитивная всегда добавляется автоматически)
+    const glbModels = allModels.filter((m) => m.url != null);
+    try {
+      await fetch('/api/aircraft3d/models', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: glbModels }),
+      });
+      // Перечитываем после сохранения
+      const refreshed = await fetchModels();
+      setModels(refreshed);
+    } catch (e) {
+      console.error('[Aircraft3D] Failed to save models:', e);
+    }
+  }, []);
 
   return (
     <div className="w-full h-full relative bg-black overflow-hidden select-none">
@@ -106,6 +135,7 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
             pitch={pitch}
             roll={roll}
             heading={heading}
+            model={selectedModel}
             cameraRef={cameraRef}
           />
         </Canvas>
@@ -139,6 +169,30 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = ({ frame }) =>
           </button>
         ))}
       </div>
+
+      {/* ── Model button (bottom right) ── */}
+      <button
+        onClick={() => setDialogOpen(true)}
+        className="absolute bottom-1.5 right-2 px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-white/30
+                   text-white/90 backdrop-blur-sm transition-colors leading-none"
+        title="Выбор модели"
+      >
+        ✈ {selectedModel.label}
+      </button>
+
+      {/* ── Model dialog ── */}
+      {dialogOpen && (
+        <ModelDialog
+          models={models}
+          current={selectedModel}
+          onApply={(m) => {
+            setSelectedModel(m);
+            setDialogOpen(false);
+          }}
+          onSave={handleSaveModels}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
 
       {/* ── Rotation + reset buttons (bottom centre) ── */}
       <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1">

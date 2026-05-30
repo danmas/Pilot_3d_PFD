@@ -1,0 +1,54 @@
+{
+  "models": [
+    {
+      "id": "6c107c4d",
+      "label": "Модель 1 (деревянный самолётик)",
+      "url": "/data/aircraft3d/models/wooden.glb",
+      "scale": 1,
+      "yawOffsetDeg": 90,
+      "offsetX": 0,
+      "offsetY": 0,
+      "offsetZ": 0
+    },
+    {
+      "id": "a06ac5f1",
+      "label": "Модель 2 (airliner ~40m)",
+      "url": "/data/aircraft3d/models/airliner.glb",
+      "scale": 1,
+      "yawOffsetDeg": 270,
+      "offsetX": 0,
+      "offsetY": 0,
+      "offsetZ": 0
+    },
+    {
+      "id": "tu204",
+      "label": "Ту-204",
+      "url": "/data/aircraft3d/models/tupolev_tu_204.glb",
+      "scale": 1,
+      "yawOffsetDeg": 180,
+      "offsetX": 7,
+      "offsetY": 0,
+      "offsetZ": -10
+    },
+    {
+      "id": "tupolev_tu-154",
+      "label": "Ту-154",
+      "url": "/data/aircraft3d/models/tupolev_tu-154.glb",
+      "scale": 1,
+      "yawOffsetDeg": 180,
+      "offsetX": 0,
+      "offsetY": 0,
+      "offsetZ": 0
+    },
+    {
+      "id": "aircraft",
+      "label": "aircraft",
+      "url": "/data/aircraft3d/models/aircraft.glb",
+      "scale": 1,
+      "yawOffsetDeg": 180,
+      "offsetX": 0,
+      "offsetY": 0,
+      "offsetZ": 0
+    }
+  ]
+}
