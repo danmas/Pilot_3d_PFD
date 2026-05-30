@@ -25,11 +25,11 @@ export const Ground: React.FC = memo(() => {
     [],
   );
 
-  const groundGeom = useMemo(() => new THREE.PlaneGeometry(400, 400), []);
-  const runwayGeom = useMemo(() => new THREE.PlaneGeometry(8, 200), []);
-  const edgeGeom = useMemo(() => new THREE.PlaneGeometry(0.25, 200), []);
+  const groundGeom = useMemo(() => new THREE.PlaneGeometry(1200, 1200), []);
+  const runwayGeom = useMemo(() => new THREE.PlaneGeometry(16, 500), []);
+  const edgeGeom = useMemo(() => new THREE.PlaneGeometry(0.35, 500), []);
   const dashGeom = useMemo(() => new THREE.PlaneGeometry(0.3, 5), []);
-  const threshGeom = useMemo(() => new THREE.PlaneGeometry(0.5, 8), []);
+  const threshGeom = useMemo(() => new THREE.PlaneGeometry(0.7, 12), []);
 
   useEffect(
     () => () => {
@@ -42,17 +42,17 @@ export const Ground: React.FC = memo(() => {
   // Center-line dash positions along Z (symmetric, skip center)
   const dashZ = useMemo(() => {
     const arr: number[] = [];
-    for (let z = -90; z <= 90; z += 12) {
-      if (Math.abs(z) < 4) continue;
+    for (let z = -240; z <= 240; z += 14) {
+      if (Math.abs(z) < 6) continue;
       arr.push(z);
     }
     return arr;
   }, []);
 
   // Threshold stripe X-offsets
-  const threshX = [-3, -2, -1, 0, 1, 2, 3];
+  const threshX = [-6, -4, -2, 0, 2, 4, 6];
 
-  /* ── Animate ground position from telemetry ── */
+  /* ── Altitude → ground drops as aircraft climbs ── */
   useFrame(() => {
     const g = groupRef.current;
     if (!g) return;
@@ -60,20 +60,8 @@ export const Ground: React.FC = memo(() => {
     if (!f) return;
 
     const alt = typeof f.RAltitude === 'number' && Number.isFinite(f.RAltitude) ? f.RAltitude : 0;
-    const roll = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
-    const pitch = typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0;
-
-    // Altitude → ground drops as aircraft climbs
     const targetY = -6 - alt / 150;
     g.position.y += (targetY - g.position.y) * 0.04;
-
-    // Roll → ground slides sideways (opposite to bank)
-    const targetX = -(roll / 45) * 8;
-    g.position.x += (targetX - g.position.x) * 0.03;
-
-    // Pitch → ground slides forward/backward (nose-up = forward motion)
-    const targetZ = -(pitch / 20) * 15;
-    g.position.z += (targetZ - g.position.z) * 0.03;
   });
 
   return (
@@ -97,7 +85,7 @@ export const Ground: React.FC = memo(() => {
       />
 
       {/* Runway edge lines */}
-      {[-3.85, 3.85].map((x) => (
+      {[-7.7, 7.7].map((x) => (
         <mesh
           key={x}
           rotation={[-Math.PI / 2, 0, 0]}
@@ -118,23 +106,23 @@ export const Ground: React.FC = memo(() => {
         />
       ))}
 
-      {/* Threshold stripes — near end (z ≈ −94) */}
+      {/* Threshold stripes — near end (z ≈ −245) */}
       {threshX.map((x) => (
         <mesh
           key={`n${x}`}
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[x, -5.95, -94]}
+          position={[x, -5.95, -245]}
           material={markMat}
           geometry={threshGeom}
         />
       ))}
 
-      {/* Threshold stripes — far end (z ≈ +94) */}
+      {/* Threshold stripes — far end (z ≈ +245) */}
       {threshX.map((x) => (
         <mesh
           key={`f${x}`}
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[x, -5.95, 94]}
+          position={[x, -5.95, 245]}
           material={markMat}
           geometry={threshGeom}
         />

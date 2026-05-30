@@ -5,10 +5,8 @@
  * Несколько групп сплюснутых сфероидов, разбросанных по небу.
  * Все «пуффы» используют одну общую геометрию + один материал → минимум draw-calls.
  */
-import { useMemo, useEffect, useRef, memo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useMemo, useEffect, memo } from 'react';
 import * as THREE from 'three';
-import { telemetryRef } from '../../../telemetryRef';
 
 /* Puff positions & scales for each cloud group */
 const PUFFS: ReadonlyArray<{
@@ -40,8 +38,6 @@ const PUFFS: ReadonlyArray<{
 ];
 
 export const Clouds: React.FC = memo(() => {
-  const groupRef = useRef<THREE.Group>(null);
-
   const geom = useMemo(() => new THREE.SphereGeometry(1, 8, 5), []);
   const mat = useMemo(
     () =>
@@ -63,30 +59,8 @@ export const Clouds: React.FC = memo(() => {
     [geom, mat],
   );
 
-  /* ── Slow drift + roll response ── */
-  useFrame((_state, _delta) => {
-    const g = groupRef.current;
-    if (!g) return;
-    const f = telemetryRef.current;
-    if (!f) return;
-
-    const roll = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
-    const heading = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
-
-    // Roll → clouds slide opposite to bank
-    const targetX = (roll / 45) * 5;
-    g.position.x += (targetX - g.position.x) * 0.02;
-
-    // Heading-based slow drift (world moves opposite to flight direction)
-    const hRad = heading * (Math.PI / 180);
-    const targetZ = Math.cos(hRad) * 8;
-    const targetXh = -Math.sin(hRad) * 8;
-    g.position.z += (targetZ - g.position.z) * 0.01;
-    g.position.x += (targetXh + targetX - g.position.x) * 0.015;
-  });
-
   return (
-    <group ref={groupRef}>
+    <group>
       {PUFFS.map((p, i) => (
         <mesh
           key={i}

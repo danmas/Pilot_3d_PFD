@@ -19,6 +19,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ModelEntry } from './modelConfig';
 import { telemetryRef } from '../../../telemetryRef';
+import { aircraftPosition } from './aircraftPosition';
 
 const DEG = Math.PI / 180;
 
@@ -35,7 +36,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
   const groupRef = useRef<THREE.Group>(null);
   const eulerRef = useRef(new THREE.Euler(0, 0, 0, 'YXZ'));
 
-  useFrame(() => {
+  useFrame((_state, delta) => {
     const g = groupRef.current;
     if (!g) return;
     const f = telemetryRef.current;
@@ -50,6 +51,16 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     g.rotation.x += (target.x - g.rotation.x) * 0.12;
     g.rotation.y += (target.y - g.rotation.y) * 0.12;
     g.rotation.z += (target.z - g.rotation.z) * 0.12;
+
+    /* ── Integrate forward position from CAS + heading ── */
+    const cas = typeof f.CAS === 'number' && Number.isFinite(f.CAS) ? f.CAS : 0;
+    // 1 knot = 0.5144 m/s; scene scale ~1/40 → world-units/s
+    const speedWU = cas * 0.5144 / 40;
+    const dt = Math.min(delta, 0.1);
+    const heading = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
+    const hRad = heading * DEG;
+    aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
+    aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
   });
 
   const useGlb = model?.url != null;

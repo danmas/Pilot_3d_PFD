@@ -17,6 +17,7 @@ import { HorizonSphere } from './aircraft3d/HorizonSphere';
 import { AircraftModel } from './aircraft3d/AircraftModel';
 import { Ground } from './aircraft3d/Ground';
 import { Clouds } from './aircraft3d/Clouds';
+import { WorldGroup } from './aircraft3d/WorldGroup';
 // VelocityVector disabled — inherits airplane rotation + noisy telemetry = unstable
 // import { VelocityVector } from './aircraft3d/VelocityVector';
 import {
@@ -58,10 +59,14 @@ interface SceneProps {
 
 const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => (
   <>
-    <HorizonSphere />
+    {/* World group: ground, clouds, horizon — moves opposite to aircraft */}
+    <WorldGroup>
+      <HorizonSphere />
+      <Ground />
+      <Clouds />
+    </WorldGroup>
+
     <AircraftModel model={model} />
-    <Ground />
-    <Clouds />
     {/* VelocityVector disabled — chaotic due to noisy telemetry + inherited rotation */}
     <CameraController ref={cameraRef} />
 
