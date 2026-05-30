@@ -15,7 +15,8 @@ import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
 import { AircraftModel } from './aircraft3d/AircraftModel';
-import { Ground } from './aircraft3d/Ground';
+import { GroundDisc } from './aircraft3d/Ground';
+import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { WorldGroup } from './aircraft3d/WorldGroup';
 // VelocityVector disabled — inherits airplane rotation + noisy telemetry = unstable
@@ -59,10 +60,15 @@ interface SceneProps {
 
 const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => (
   <>
-    {/* World group: ground, clouds, horizon — moves opposite to aircraft */}
+    {/* Sky sphere — always surrounds the camera (never translates) */}
+    <HorizonSphere />
+
+    {/* Ground disc — follows aircraft XZ, fades at edges (infinite ground) */}
+    <GroundDisc />
+
+    {/* World group: runway + clouds — moves opposite to aircraft flight */}
     <WorldGroup>
-      <HorizonSphere />
-      <Ground />
+      <Runway />
       <Clouds />
     </WorldGroup>
 

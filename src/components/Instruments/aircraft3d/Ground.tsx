@@ -1,132 +1,107 @@
 /// <reference types="@react-three/fiber" />
 /**
- * Ground.tsx — земля с взлётно-посадочной полосой для 3D-сцены «Самолёт».
+ * Ground.tsx — бесконечная земля для 3D-сцены «Самолёт».
  *
- * Большая плоскость с бетонной ВПП, осевой разметкой и пороговыми полосами.
- * Все геометрии и материалы — общие (useMemo), для экономии draw-calls.
+ * Большой круглый диск (CircleGeometry), который:
+ *  • Следует за самолётом (всегда под ним по XZ)
+ *  • Опускается по высоте (RAltitude)
+ *  • Плавно растворяется к краям через шейдер — нет видимой границы
+ *
+ * Рендерится ДО HorizonSphere (renderOrder −2), чтобы прозрачные края
+ * корректно накладывались на землю сферы.
  */
 import { useMemo, useEffect, useRef, memo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { telemetryRef } from '../../../telemetryRef';
+import { aircraftPosition } from './aircraftPosition';
 
-export const Ground: React.FC = memo(() => {
+/* ── Shaders for seamless ground disc ── */
+const GROUND_VERT = /* glsl */ `
+  varying float vDist;
+  void main() {
+    vDist = length(position.xy);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const GROUND_FRAG = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uRadius;
+  varying float vDist;
+
+  void main() {
+    float fadeStart = uRadius * 0.55;
+    float t = smoothstep(fadeStart, uRadius, vDist);
+    float alpha = 1.0 - t;
+    if (alpha < 0.01) discard;
+    gl_FragColor = vec4(uColor, alpha);
+  }
+`;
+
+const DISC_RADIUS = 600;
+
+export const GroundDisc: React.FC = memo(() => {
   const groupRef = useRef<THREE.Group>(null);
-  const groundMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: '#4a7a3a', roughness: 0.95 }),
-    [],
-  );
-  const runwayMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: '#555555', roughness: 0.85 }),
-    [],
-  );
-  const markMat = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: '#dddddd' }),
+
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: GROUND_VERT,
+        fragmentShader: GROUND_FRAG,
+        uniforms: {
+          uColor: { value: new THREE.Color('#4a7a3a') },
+          uRadius: { value: DISC_RADIUS },
+        },
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
     [],
   );
 
-  const groundGeom = useMemo(() => new THREE.PlaneGeometry(1200, 1200), []);
-  const runwayGeom = useMemo(() => new THREE.PlaneGeometry(16, 500), []);
-  const edgeGeom = useMemo(() => new THREE.PlaneGeometry(0.35, 500), []);
-  const dashGeom = useMemo(() => new THREE.PlaneGeometry(0.3, 5), []);
-  const threshGeom = useMemo(() => new THREE.PlaneGeometry(0.7, 12), []);
+  const geometry = useMemo(
+    () => new THREE.CircleGeometry(DISC_RADIUS, 64),
+    [],
+  );
 
   useEffect(
     () => () => {
-      [groundGeom, runwayGeom, edgeGeom, dashGeom, threshGeom].forEach((g) => g.dispose());
-      [groundMat, runwayMat, markMat].forEach((m) => m.dispose());
+      geometry.dispose();
+      material.dispose();
     },
-    [groundGeom, runwayGeom, edgeGeom, dashGeom, threshGeom, groundMat, runwayMat, markMat],
+    [geometry, material],
   );
 
-  // Center-line dash positions along Z (symmetric, skip center)
-  const dashZ = useMemo(() => {
-    const arr: number[] = [];
-    for (let z = -240; z <= 240; z += 14) {
-      if (Math.abs(z) < 6) continue;
-      arr.push(z);
-    }
-    return arr;
-  }, []);
-
-  // Threshold stripe X-offsets
-  const threshX = [-6, -4, -2, 0, 2, 4, 6];
-
-  /* ── Altitude → ground drops as aircraft climbs ── */
+  /* ── Follow aircraft XZ + altitude Y ── */
   useFrame(() => {
     const g = groupRef.current;
     if (!g) return;
     const f = telemetryRef.current;
     if (!f) return;
 
-    const alt = typeof f.RAltitude === 'number' && Number.isFinite(f.RAltitude) ? f.RAltitude : 0;
+    // Follow aircraft horizontal position
+    g.position.x = aircraftPosition.x;
+    g.position.z = aircraftPosition.z;
+
+    // Altitude → ground drops as aircraft climbs
+    const alt =
+      typeof f.RAltitude === 'number' && Number.isFinite(f.RAltitude)
+        ? f.RAltitude
+        : 0;
     const targetY = -6 - alt / 150;
     g.position.y += (targetY - g.position.y) * 0.04;
   });
 
   return (
     <group ref={groupRef}>
-      {/* Ground surface */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -6, 0]}
-        receiveShadow
-        material={groundMat}
-        geometry={groundGeom}
+        renderOrder={-2}
+        material={material}
+        geometry={geometry}
       />
-
-      {/* Runway surface */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -5.97, 0]}
-        receiveShadow
-        material={runwayMat}
-        geometry={runwayGeom}
-      />
-
-      {/* Runway edge lines */}
-      {[-7.7, 7.7].map((x) => (
-        <mesh
-          key={x}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[x, -5.95, 0]}
-          material={markMat}
-          geometry={edgeGeom}
-        />
-      ))}
-
-      {/* Center-line dashes */}
-      {dashZ.map((z) => (
-        <mesh
-          key={z}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, -5.95, z]}
-          material={markMat}
-          geometry={dashGeom}
-        />
-      ))}
-
-      {/* Threshold stripes — near end (z ≈ −245) */}
-      {threshX.map((x) => (
-        <mesh
-          key={`n${x}`}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[x, -5.95, -245]}
-          material={markMat}
-          geometry={threshGeom}
-        />
-      ))}
-
-      {/* Threshold stripes — far end (z ≈ +245) */}
-      {threshX.map((x) => (
-        <mesh
-          key={`f${x}`}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[x, -5.95, 245]}
-          material={markMat}
-          geometry={threshGeom}
-        />
-      ))}
     </group>
   );
 });
