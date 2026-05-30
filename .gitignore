@@ -1,6 +1,7 @@
 node_modules/
 build/
 dist/
+tmp/
 /data/
 public/data/**
 !public/data/aircraft3d/
