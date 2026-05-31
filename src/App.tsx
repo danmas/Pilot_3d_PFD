@@ -601,7 +601,7 @@ export default function App() {
   // ═══════════════════════════════════════════════ HUB VIEW
   if (currentView === 'hub') {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center p-8">
+      <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center p-8 pt-16">
         <div className="w-full max-w-3xl mx-auto flex flex-col gap-8">
           {/* Title */}
           <div className="text-center">
@@ -789,7 +789,7 @@ export default function App() {
   // ═══════════════════════════════════════════════ SETTINGS VIEW
   if (currentView === 'settings') {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#0a0a0f] flex items-start justify-center p-6 pt-16">
         <div className="w-full max-w-3xl bg-black/40 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
