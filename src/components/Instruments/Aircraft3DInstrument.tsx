@@ -61,26 +61,18 @@ interface SceneProps {
 
 const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => (
   <>
-    {/* Sky sphere — always surrounds the camera (never translates) */}
-    <HorizonSphere />
-
-    {/* Ground disc — follows aircraft XZ, fades at edges (infinite ground) */}
-    <GroundDisc />
-
-    {/* World group: runway + clouds — moves opposite to aircraft flight */}
-    <WorldGroup>
-      <Runway />
-      <Clouds />
-    </WorldGroup>
-
-    <AircraftModel model={model} />
-    {/* VelocityVector disabled — chaotic due to noisy telemetry + inherited rotation */}
     <CameraController ref={cameraRef} />
 
     {/* Lighting */}
     <ambientLight intensity={0.5} />
     <directionalLight position={[10, 20, -10]} intensity={1.0} />
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
+
+    {/* HorizonSphere + AircraftModel + GroundDisc + Runway */}
+    <HorizonSphere />
+    <AircraftModel />
+    <GroundDisc />
+    <Runway />
   </>
 );
 

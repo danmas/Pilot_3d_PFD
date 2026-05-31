@@ -42,6 +42,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     if (!g) return;
 
     let pitchDeg = 0, rollDeg = 0, headingDeg = 0;
+    let f: typeof telemetryRef.current = null;
 
     const override = aircraftControlsRef.current;
     if (override.active) {
@@ -50,7 +51,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       rollDeg    = override.roll;
       headingDeg = override.yaw;
     } else {
-      const f = telemetryRef.current;
+      f = telemetryRef.current;
       if (!f) return;
       pitchDeg   = typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0;
       rollDeg    = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
@@ -68,14 +69,16 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     g.rotation.z += (target.z - g.rotation.z) * 0.12;
 
     /* ── Integrate forward position from CAS + heading ── */
-    const cas = typeof f.CAS === 'number' && Number.isFinite(f.CAS) ? f.CAS : 0;
-    // 1 knot = 0.5144 m/s; scene scale ~1/40 → world-units/s
-    const speedWU = cas * 0.5144 / 40;
-    const dt = Math.min(delta, 0.1);
-    const heading = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
-    const hRad = heading * DEG;
-    aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
-    aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
+    if (f) {
+      const cas = typeof f.CAS === 'number' && Number.isFinite(f.CAS) ? f.CAS : 0;
+      // 1 knot = 0.5144 m/s; scene scale ~1/40 → world-units/s
+      const speedWU = cas * 0.5144 / 40;
+      const dt = Math.min(delta, 0.1);
+      const heading = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
+      const hRad = heading * DEG;
+      aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
+      aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
+    }
   });
 
   const useGlb = model?.url != null;
@@ -112,18 +115,20 @@ const PrimitiveAircraft: React.FC = memo(() => {
     [],
   );
 
-  // Memoize all geometries to prevent recreation on every render
-  const fuselageGeom = useMemo(() => new THREE.CapsuleGeometry(0.35, 3.0, 8, 20), []);
+  // Simple geometries — no CapsuleGeometry (not supported on some mobile WebGL)
+  const fuseCylGeom = useMemo(() => new THREE.CylinderGeometry(0.35, 0.35, 3.0, 12), []);
+  const fuseSphereGeom = useMemo(() => new THREE.SphereGeometry(0.35, 12, 8), []);
   const noseGeom = useMemo(() => new THREE.ConeGeometry(0.36, 0.7, 16), []);
   const wingsGeom = useMemo(() => new THREE.BoxGeometry(7.0, 0.07, 1.3), []);
   const stabilizerGeom = useMemo(() => new THREE.BoxGeometry(2.6, 0.06, 0.75), []);
   const finGeom = useMemo(() => new THREE.BoxGeometry(0.06, 1.3, 0.85), []);
-  const engineGeom = useMemo(() => new THREE.CylinderGeometry(0.22, 0.22, 1.1, 12), []);
+  const engineGeom = useMemo(() => new THREE.CylinderGeometry(0.22, 0.22, 1.1, 8), []);
 
-  // Cleanup: dispose geometries and materials on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
-      fuselageGeom.dispose();
+      fuseCylGeom.dispose();
+      fuseSphereGeom.dispose();
       noseGeom.dispose();
       wingsGeom.dispose();
       stabilizerGeom.dispose();
@@ -132,12 +137,14 @@ const PrimitiveAircraft: React.FC = memo(() => {
       bodyMat.dispose();
       accentMat.dispose();
     };
-  }, [fuselageGeom, noseGeom, wingsGeom, stabilizerGeom, finGeom, engineGeom, bodyMat, accentMat]);
+  }, [fuseCylGeom, fuseSphereGeom, noseGeom, wingsGeom, stabilizerGeom, finGeom, engineGeom, bodyMat, accentMat]);
 
   return (
     <>
-      {/* Fuselage */}
-      <mesh material={bodyMat} geometry={fuselageGeom} rotation={[Math.PI / 2, 0, 0]} />
+      {/* Fuselage — cylinder + spheres for capsule shape */}
+      <mesh material={bodyMat} geometry={fuseCylGeom} rotation={[Math.PI / 2, 0, 0]} />
+      <mesh material={bodyMat} geometry={fuseSphereGeom} position={[0, 0, -1.5]} />
+      <mesh material={bodyMat} geometry={fuseSphereGeom} position={[0, 0, 1.5]} />
       {/* Nose cone */}
       <mesh material={accentMat} geometry={noseGeom} position={[0, 0, -1.85]} rotation={[-Math.PI / 2, 0, 0]} />
       {/* Main wings */}
