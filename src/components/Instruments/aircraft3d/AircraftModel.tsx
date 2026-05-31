@@ -20,6 +20,7 @@ import * as THREE from 'three';
 import type { ModelEntry } from './modelConfig';
 import { telemetryRef } from '../../../telemetryRef';
 import { aircraftPosition } from './aircraftPosition';
+import { aircraftControlsRef } from '../../../aircraftControlsRef';
 
 const DEG = Math.PI / 180;
 
@@ -39,12 +40,26 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
   useFrame((_state, delta) => {
     const g = groupRef.current;
     if (!g) return;
-    const f = telemetryRef.current;
-    if (!f) return;
 
-    const pitchRad = (typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0) * DEG;
-    const rollRad = (typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0) * DEG;
-    const headingRad = (typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0) * DEG;
+    let pitchDeg = 0, rollDeg = 0, headingDeg = 0;
+
+    const override = aircraftControlsRef.current;
+    if (override.active) {
+      // Manual control via joystick/rudder
+      pitchDeg   = override.pitch;
+      rollDeg    = override.roll;
+      headingDeg = override.yaw;
+    } else {
+      const f = telemetryRef.current;
+      if (!f) return;
+      pitchDeg   = typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0;
+      rollDeg    = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
+      headingDeg = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
+    }
+
+    const pitchRad   = pitchDeg * DEG;
+    const rollRad    = rollDeg * DEG;
+    const headingRad = headingDeg * DEG;
 
     const target = eulerRef.current;
     target.set(pitchRad, -headingRad, rollRad, 'YXZ');

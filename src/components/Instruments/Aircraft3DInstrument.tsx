@@ -30,6 +30,7 @@ import {
 } from './aircraft3d/CameraController';
 import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/modelConfig';
 import { ModelDialog } from './aircraft3d/ModelDialog';
+import TouchControls from '../Controls/TouchControls';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -165,6 +166,9 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame 
           cameraRef={cameraRef}
         />
       </Suspense>
+
+      {/* ── Touch Controls (mobile joystick + rudder slider) ── */}
+      <TouchControls />
 
       {/* ── HUD overlay ── */}
       <div className="absolute top-2 left-2 text-[11px] font-mono text-white/80 leading-tight pointer-events-none">
