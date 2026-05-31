@@ -59,10 +59,15 @@ function destroyGhost() {
 
 /* ─── Поиск drop-зоны под пальцем ─── */
 
-function findDropZone(x: number, y: number): HTMLElement | null {
-  // Ищем элемент с data-drop-zone="true" под координатами
-  // Используем document.elementsFromPoint для точности
+function findDropZoneOrWidget(x: number, y: number): HTMLElement | null {
   const elements = document.elementsFromPoint(x, y);
+  // Сначала ищем элемент с data-drop-widget (точная замена прибора)
+  for (const el of elements) {
+    if (el instanceof HTMLElement && el.dataset.dropWidget !== undefined) {
+      return el;
+    }
+  }
+  // Иначе — пустая drop-зона
   for (const el of elements) {
     if (el instanceof HTMLElement && el.dataset.dropZone === 'true') {
       return el;
@@ -94,7 +99,7 @@ export function useSidebarTouchDrag() {
       window.__touchDragState.ghost.style.top = `${t.clientY}px`;
 
       // Подсветка drop-зоны
-      const zone = findDropZone(t.clientX, t.clientY);
+      const zone = findDropZoneOrWidget(t.clientX, t.clientY);
       document.querySelectorAll('[data-drop-zone="true"]').forEach((z) => {
         if (z instanceof HTMLElement) {
           z.style.outline = z === zone ? '2px solid #3b82f6' : '';
@@ -120,7 +125,7 @@ export function useSidebarTouchDrag() {
       const changedTouch = ev.changedTouches[0];
       if (!changedTouch) { destroyGhost(); return; }
 
-      const zone = findDropZone(changedTouch.clientX, changedTouch.clientY);
+      const zone = findDropZoneOrWidget(changedTouch.clientX, changedTouch.clientY);
       if (zone) {
         // Dispatch a custom event similar to HTML5 drop
         const dropEvent = new CustomEvent('touchdrop', {

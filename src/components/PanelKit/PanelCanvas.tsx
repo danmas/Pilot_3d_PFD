@@ -33,6 +33,9 @@ export const PanelCanvas = <TData,>({
   usePanelCanvasTouchDrop(canvasRef, (widgetId: string) => {
     if (node.type === 'empty' || (node.type === 'widget' && !node.widgetId)) {
       onChange({ ...node, type: 'widget', widgetId });
+    } else if (node.type === 'widget' && node.widgetId) {
+      // Replace existing widget on touch drop
+      onChange({ ...node, widgetId });
     }
   });
 
@@ -78,6 +81,7 @@ export const PanelCanvas = <TData,>({
     <div
       ref={canvasRef}
       data-drop-zone="true"
+      data-drop-widget={node.type === 'widget' && node.widgetId ? '' : undefined}
       className={`w-full h-full relative group flex flex-col items-center justify-center
         ${
           node.type === 'empty'
