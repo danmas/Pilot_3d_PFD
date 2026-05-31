@@ -92,7 +92,19 @@ interface Aircraft3DCanvasProps {
 }
 
 const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef }) => (
-  <Canvas gl={{ antialias: true }} shadows>
+  <Canvas
+    gl={{
+      antialias: true,
+      powerPreference: 'high-performance',
+      failIfMajorPerformanceCaveat: false,
+    }}
+    onCreated={(state) => {
+      // Check if WebGL context was actually created
+      if (!state.gl.getContextAttributes()) {
+        console.warn('[Aircraft3D] WebGL context creation failed');
+      }
+    }}
+  >
     {/* Active camera (switched by projection type) */}
     {projection === 'ortho' ? (
       <OrthographicCamera makeDefault position={CAMERA_PRESETS.chase.position} zoom={40} near={0.1} far={500} />
