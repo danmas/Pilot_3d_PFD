@@ -312,3 +312,89 @@ event: status       → { port, active, receivedPackets, receivedFrames, ... }
 | 14444 | Компактный AVIONICS (9 полей) | Устарел, не используется |
 
 Настройка: `UDP_PORT` в `.env` или `BridgeOptions.udpPort`.
+
+---
+
+## Мобильные джойстики (Touch Controls) для 3D Aircraft
+
+В компоненте **3D Aircraft** (`Aircraft3DInstrument`) добавлено сенсорное управление для планшетов и телефонов.
+
+### Как это работает
+
+Touch Controls отображаются всегда (нет условия `window.innerWidth < 1024`):
+
+| Элемент | Расположение | Оси | Диапазон |
+|---------|-------------|-----|----------|
+| **Joystick** (джойстик) | Слева внизу | X → **Roll** (крен), Y → **Pitch** (тангаж) | ±60° roll, ±45° pitch |
+| **RudderSlider** (педали) | Справа внизу | Y → **Yaw** (рыскание/курс) | ±90° |
+
+При отпускании — значения сбрасываются в 0 (нейтраль).
+
+### Архитектура
+
+```
+Joystick.tsx + RudderSlider.tsx
+        ↓ (запись)
+aircraftControlsRef.ts  ← module-level ref { active, pitch, roll, yaw }
+        ↓ (чтение)
+AircraftModel.tsx → useFrame() проверяет override.active
+```
+
+- `aircraftControlsRef.ts` — общий модуль с ref'ом `{ active: false, pitch: 0, roll: 0, yaw: 0 }`
+- `Joystick.tsx` — 140px круглый джойстик, touch + mouse drag от центра
+- `RudderSlider.tsx` — 36×200px вертикальный слайдер, touch + mouse drag
+- `TouchControls.tsx` — overlay `inset-0 z-50 pointer-events-none`
+- `AircraftModel.tsx` — в `useFrame()`: если `override.active === true`, берёт pitch/roll/yaw из ref'а вместо телеметрии
+
+### Как добавить новый орган управления
+
+1. Создай компонент (аналог `Joystick.tsx` или `RudderSlider.tsx`)
+2. Импортируй `aircraftControlsRef` и пиши значения через `aircraftControlsRef.current = { ... }`
+3. Добавь компонент в `TouchControls.tsx`
+4. В `AircraftModel.tsx` при необходимости добавь новый параметр в useFrame
+
+### Известные баги (исправленные)
+
+#### ❌ ReferenceError: `f is not defined` — чёрный экран на мобильных
+
+**Проблема:** В исходном `useFrame` переменная `f` (телеметрия) была объявлена через `const` внутри блока `else`, но использовалась ниже вне этого блока для интеграции позиции самолёта:
+
+```typescript
+// ❌ БЫЛО — ReferenceError на мобильных
+useFrame((_state, delta) => {
+  // ...
+  } else {
+    const f = telemetryRef.current;  // ← объявлена в else
+    if (!f) return;
+    pitchDeg = f.PitchAngle;
+  }
+  // ↓ А используется снаружи — ReferenceError!
+  const cas = typeof f.CAS === 'number' ...;
+  aircraftPosition.x += ...;
+});
+```
+
+На мобильных браузерах (особенно Яндекс.Браузер на Android) это вызывало `ReferenceError`, который прекращал выполнение `useFrame` и приводил к чёрному экрану (Three.js не мог завершить рендер кадра).
+
+**Решение:** Вынести `f` в `let` перед if/else:
+
+```typescript
+// ✅ СТАЛО — работает везде
+useFrame((_state, delta) => {
+  let f: typeof telemetryRef.current = null;  // ← объявлена заранее
+  // ...
+  } else {
+    f = telemetryRef.current;  // ← просто присвоение
+    if (!f) return;
+  }
+  if (f) {  // ← безопасная проверка
+    const cas = typeof f.CAS === 'number' ...;
+    aircraftPosition.x += ...;
+  }
+});
+```
+
+#### ❌ CapsuleGeometry — может не поддерживаться на старых WebGL
+
+Заменена на `CylinderGeometry` + две `SphereGeometry` для фюзеляжа. Сегменты цилиндров уменьшены с 12 до 8 для лёгкости.
+
