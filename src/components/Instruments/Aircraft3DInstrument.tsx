@@ -10,7 +10,7 @@
  */
 import React, { useRef, useCallback, Suspense, useState, useEffect, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei';
+import { PerspectiveCamera, OrthographicCamera, OrbitControls } from '@react-three/drei';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
@@ -59,22 +59,44 @@ interface SceneProps {
   cameraRef: React.RefObject<CameraControls | null>;
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => (
-  <>
-    <CameraController ref={cameraRef} />
+const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => {
+  const [isMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024);
+
+  return (
+    <>
+      <CameraController ref={cameraRef} />
+
+      {/* OrbitControls — только для десктопа (ширина >= 1024px) */}
+      {!isMobile && (
+        <OrbitControls
+          enablePan={false}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={3}
+          maxDistance={50}
+        />
+      )}
 
     {/* Lighting */}
     <ambientLight intensity={0.5} />
     <directionalLight position={[10, 20, -10]} intensity={1.0} />
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
-    {/* HorizonSphere + AircraftModel + GroundDisc + Runway */}
-    <HorizonSphere />
+    {/* Full scene */}
+
+    {/* World wraps the moving elements so they appear to scroll past the aircraft */}
+    <WorldGroup>
+      <HorizonSphere />
+      <GroundDisc />
+      <Runway />
+      <Clouds count={40} />
+    </WorldGroup>
+
+    {/* Aircraft (static in world coords, rotates via useFrame) */}
     <AircraftModel />
-    <GroundDisc />
-    <Runway />
-  </>
-);
+    </>
+  );
+};
 
 /* ─── Memoized Canvas wrapper (never re-renders on telemetry ticks) ─── */
 interface Aircraft3DCanvasProps {
