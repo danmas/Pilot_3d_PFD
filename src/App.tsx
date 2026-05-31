@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Upload, FileJson, Play, Pause, Activity, Database, Radio, LayoutDashboard, Monitor, ArrowLeft, Zap, Gauge, Terminal, Settings, Plane } from 'lucide-react';
 import { TelemetryFrame } from './types';
 import { sampleFrames } from './sample-data';
@@ -11,9 +11,10 @@ import RawMonitor from './components/RawMonitor/RawMonitor';
 import { PanelBuilder } from './components/PanelBuilder';
 import { PanelDisplay } from './components/PanelBuilder/PanelDisplay';
 import { TelemetryProvider } from './context/TelemetryContext';
-import Aircraft3DInstrument from './components/Instruments/Aircraft3DInstrument';
 import { UI_SETTINGS } from './ui-settings';
 import { telemetryRef } from './telemetryRef';
+
+const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
 
 type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
@@ -763,7 +764,9 @@ export default function App() {
         </div>
         {/* Full-page instrument */}
         <div className="flex-1 min-h-0">
-          <Aircraft3DInstrument frame={frame} />
+          <Suspense fallback={<div className="flex items-center justify-center h-full text-white/30">Loading 3D...</div>}>
+            <Aircraft3DInstrument frame={frame} />
+          </Suspense>
         </div>
       </div>
     );

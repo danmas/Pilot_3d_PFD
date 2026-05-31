@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { LayoutPanelLeft, LayoutPanelTop } from 'lucide-react';
 import { SplitContainer } from './SplitContainer';
 import { PanelCommandMenu } from './PanelCommandMenu';
+import { usePanelCanvasTouchDrop } from '../../hooks/useTouchDrag';
 import type { PanelKitNode, SplitDirection } from './types';
 
 interface Props<TData = unknown> {
@@ -27,6 +28,14 @@ export const PanelCanvas = <TData,>({
   data,
   renderWidget,
 }: Props<TData>) => {
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  usePanelCanvasTouchDrop(canvasRef, (widgetId: string) => {
+    if (node.type === 'empty' || (node.type === 'widget' && !node.widgetId)) {
+      onChange({ ...node, type: 'widget', widgetId });
+    }
+  });
+
   if (node.type === 'split' && node.children) {
     return (
       <SplitContainer
@@ -83,6 +92,8 @@ export const PanelCanvas = <TData,>({
 
   return (
     <div
+      ref={canvasRef}
+      data-drop-zone="true"
       className={`w-full h-full relative group flex flex-col items-center justify-center
         ${
           node.type === 'empty'

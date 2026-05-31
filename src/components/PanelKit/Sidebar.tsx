@@ -1,5 +1,6 @@
 import React from 'react';
 import type { PanelKitItem } from './types';
+import { useSidebarTouchDrag } from '../../hooks/useTouchDrag';
 
 interface Props {
   items: PanelKitItem[];
@@ -7,6 +8,8 @@ interface Props {
 }
 
 export const Sidebar: React.FC<Props> = ({ items, getIcon }) => {
+  const { onTouchStart } = useSidebarTouchDrag();
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('panelkit/widgetId', id);
     e.dataTransfer.setData('instrumentId', id);
@@ -27,7 +30,8 @@ export const Sidebar: React.FC<Props> = ({ items, getIcon }) => {
               key={item.id}
               draggable
               onDragStart={(e) => handleDragStart(e, item.id)}
-              className="aspect-square bg-[#252628] border border-[#2d2e30] flex flex-col items-center justify-center gap-1 cursor-grab active:cursor-grabbing hover:bg-[#2d2e30] transition-colors group"
+              onTouchStart={(e) => onTouchStart(e, item.id)}
+              className="aspect-square bg-[#252628] border border-[#2d2e30] flex flex-col items-center justify-center gap-1 cursor-grab active:cursor-grabbing hover:bg-[#2d2e30] transition-colors group select-none touch-none"
             >
               <div className="text-gray-400 group-hover:text-blue-400 transition-colors flex items-center justify-center h-8">
                 <Icon size={20} className="stroke-2" />
