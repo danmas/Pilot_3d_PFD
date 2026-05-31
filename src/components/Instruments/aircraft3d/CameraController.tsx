@@ -8,10 +8,12 @@
  *  • Кнопочное вращение ◀▶▲▼
  *  • Сброс ↺ в дефолтный вид (сзади-сверху)
  *  • Переключение проекции: Perspective / Wide / Orthographic
+ *
+ * БЕЗ OrbitControls — используем ручную useFrame логику для совместимости
+ * с мобильными браузерами (OrbitControls блокировал WebGL рендер).
  */
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
 /* ──────────────── Preset camera positions ──────────────── */
@@ -129,21 +131,7 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
     camera.lookAt(targetLookAt.current);
   });
 
-  return (
-    <OrbitControls
-      makeDefault
-      enableDamping
-      dampingFactor={0.08}
-      minDistance={4}
-      maxDistance={35}
-      enablePan={false}
-      enableZoom={true}
-      enableRotate={true}
-      target={targetLookAt.current}
-      // Disable touch events on mobile to avoid conflict with TouchControls
-      touches={{ one: THREE.MOUSE.ROTATE, two: THREE.MOUSE.DOLLY }}
-    />
-  );
+  return null;
 });
 
 CameraController.displayName = 'CameraController';
