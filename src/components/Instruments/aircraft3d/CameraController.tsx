@@ -55,7 +55,7 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
   const { camera, size } = useThree();
   const targetPos = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].position));
   const targetLookAt = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].target));
-  const animating = useRef(false);
+  const animating = useRef(true); // Start animating immediately on mount
   const projectionRef = useRef<ProjectionType>('perspective');
 
   useImperativeHandle(ref, () => ({
@@ -136,7 +136,12 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
       dampingFactor={0.08}
       minDistance={4}
       maxDistance={35}
+      enablePan={false}
+      enableZoom={true}
+      enableRotate={true}
       target={targetLookAt.current}
+      // Disable touch events on mobile to avoid conflict with TouchControls
+      touches={{ one: THREE.MOUSE.ROTATE, two: THREE.MOUSE.DOLLY }}
     />
   );
 });

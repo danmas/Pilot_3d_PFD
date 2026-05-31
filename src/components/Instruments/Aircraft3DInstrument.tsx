@@ -135,6 +135,14 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame 
     fetchModels().then(setModels);
   }, []);
 
+  // Reset camera on mount — ensures camera is pointing at the aircraft
+  useEffect(() => {
+    const t = setTimeout(() => {
+      cameraRef.current?.reset();
+    }, 500);
+    return () => clearTimeout(t);
+  }, []);
+
   const pitch   = finite(frame.PitchAngle);
   const roll    = finite(frame.RollAngle);
   const heading = finite(frame.Heading1);
