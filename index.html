@@ -189,6 +189,14 @@
         if (!allDone) window.__bootError('Connection timeout. Try refreshing the page.');
       }, 30000);
 
+      // Safety: hide boot-screen on any error (React error boundary fallback)
+      window.addEventListener('error', () => {
+        const allDone = window.__bootSteps.app && window.__bootSteps.bridge;
+        if (allDone) {
+          document.getElementById('boot-screen')?.classList.add('hidden');
+        }
+      });
+
       // Bridge status — set by app code
       window.__bootBridgeReady = function() {
         window.__bootStatus('bridge', 'done', 'Ready');

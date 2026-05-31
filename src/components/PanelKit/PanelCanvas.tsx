@@ -61,22 +61,6 @@ export const PanelCanvas = <TData,>({
     );
   }
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const widgetId =
-      e.dataTransfer.getData('panelkit/widgetId') || e.dataTransfer.getData('instrumentId');
-    if (widgetId) {
-      onChange({ ...node, type: 'widget', widgetId });
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = 'copy';
-  };
-
   const handleSplit = (direction: SplitDirection) => {
     onChange({
       id: node.id,
@@ -100,8 +84,6 @@ export const PanelCanvas = <TData,>({
             ? 'border-2 border-dashed border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40 cursor-pointer'
             : 'bg-[#161719] border border-[#2d2e30]'
         }`}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
     >
       <div className="absolute top-1 right-1 hidden group-hover:flex space-x-1 z-20 bg-[#161719] rounded-sm p-1 shadow-lg border border-[#2d2e30]">
         <button
