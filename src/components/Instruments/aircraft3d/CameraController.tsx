@@ -173,14 +173,9 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
     // Get model's actual yaw (Euler Y, rad) — from the model's lerp-smoothed rotation
     const rawYaw = aircraftControlsRef.current.modelYaw || 0;
 
-    // Smooth yaw with ~8-frame lag (same as aircraft lerp = 0.12)
-    const sy = smoothYaw.current;
-    sy.target = rawYaw;
-    sy.value += (sy.target - sy.value) * 0.12;
-
-    // Rotate the baseOffset by smoothed yaw to stay behind the aircraft
+    // Rotate the baseOffset by model's actual yaw (already lerp-smoothed by AircraftModel)
     const rotatedOffset = baseOffset.current.clone();
-    rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), sy.value);
+    rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rawYaw);
 
     // Instant snap to target — no lerp, so mouse drag and zoom work immediately
     camera.position.copy(rotatedOffset);
