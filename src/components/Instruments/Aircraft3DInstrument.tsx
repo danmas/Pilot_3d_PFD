@@ -84,10 +84,13 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => {
 
     {/* Full scene */}
 
-    {/* World wraps the moving elements so they appear to scroll past the aircraft */}
+    {/* World wraps moving elements (Runway, Clouds) so they scroll past the aircraft */}
+
+    {/* HorizonSphere and GroundDisc stay at origin — they're infinite */}
+    <HorizonSphere />
+    <GroundDisc />
+
     <WorldGroup>
-      <HorizonSphere />
-      <GroundDisc />
       <Runway />
       <Clouds count={40} />
     </WorldGroup>

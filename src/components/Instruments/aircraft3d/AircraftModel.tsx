@@ -78,6 +78,27 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       const hRad = heading * DEG;
       aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
       aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
+
+      /* ── Cyclic reset: when too far, teleport world back ── */
+      const LIMIT = 2000;
+      if (Math.abs(aircraftPosition.x) > LIMIT || Math.abs(aircraftPosition.z) > LIMIT) {
+        aircraftPosition.x = 0;
+        aircraftPosition.z = 0;
+      }
+    } else if (override.active) {
+      // Manual control: still move forward at last known heading
+      const cas = 250; // assume ~250 kt cruise when manually controlling
+      const speedWU = cas * 0.5144 / 40;
+      const dt = Math.min(delta, 0.1);
+      const hRad = headingDeg * DEG;
+      aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
+      aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
+
+      const LIMIT = 2000;
+      if (Math.abs(aircraftPosition.x) > LIMIT || Math.abs(aircraftPosition.z) > LIMIT) {
+        aircraftPosition.x = 0;
+        aircraftPosition.z = 0;
+      }
     }
   });
 
