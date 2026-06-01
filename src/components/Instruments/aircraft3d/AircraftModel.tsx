@@ -36,6 +36,8 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const eulerRef = useRef(new THREE.Euler(0, 0, 0, 'YXZ'));
+  /** Накопленный курс для мануального управления (yaw накапливается) */
+  const headingAccumRef = useRef(0);
 
   useFrame((_state, delta) => {
     const g = groupRef.current;
@@ -49,13 +51,18 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       // Manual control via joystick/rudder
       pitchDeg   = override.pitch;
       rollDeg    = override.roll;
-      headingDeg = override.yaw;
+      // Yaw is rotation rate (deg/s): integrate into accumulated heading
+      const dt = Math.min(delta, 0.1);
+      headingAccumRef.current += override.yaw * dt;
+      headingDeg = headingAccumRef.current;
     } else {
       f = telemetryRef.current;
       if (!f) return;
       pitchDeg   = typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0;
       rollDeg    = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
       headingDeg = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
+      // Sync accumulator so manual takeover is smooth
+      headingAccumRef.current = headingDeg;
     }
 
     const pitchRad   = pitchDeg * DEG;
@@ -90,7 +97,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       const cas = 250; // assume ~250 kt cruise when manually controlling
       const speedWU = cas * 0.5144 / 40;
       const dt = Math.min(delta, 0.1);
-      const hRad = headingDeg * DEG;
+      const hRad = -headingDeg * DEG;
       aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
       aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
 

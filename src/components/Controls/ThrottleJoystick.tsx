@@ -1,15 +1,15 @@
 /**
- * ThrottleJoystick.tsx — джойстик газа и рыскания с фиксацией.
+ * ThrottleJoystick.tsx — управление рысканием и газом.
  *
- * Вертикаль (ось Y) → газ (throttle, 0..1), фиксированное положение.
+ * Вертикаль (ось Y) → дельта газа (пружина, возвращается в 0).
+ *   Движение вверх → +дельта → gas up
+ *   Движение вниз  → -дельта → gas down
+ *
  * Горизонталь (ось X) → рыскание (yaw, -1..1), с пружиной (возврат в 0).
  *
- * Как на моделях радиоуправления: движок газа остаётся там, где его
- * оставили, а руль направления сам возвращается в нейтраль.
- *
  * Пропсы:
- *   value: { x, y } — текущее смещение (-1..1)
- *   onChange: (x, y) => void — y это газ (0..1), x это рыскание (-1..1)
+ *   value: { x, y } — текущее смещение (-1..1), y возвращается в 0
+ *   onChange: (x, y) => void — x это рыскание (-1..1), y это смещение (-1..1)
  *   size?: number — диаметр в px (default 140)
  */
 import React, { useRef, useCallback } from 'react';
@@ -24,7 +24,6 @@ const ThrottleJoystick: React.FC<ThrottleJoystickProps> = ({ value, onChange, si
   const baseRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const active = useRef(false);
-  const lastY = useRef(0); // last committed Y (gas) position
 
   const radius = size / 2;
   const knobRadius = 22;
@@ -46,9 +45,8 @@ const ThrottleJoystick: React.FC<ThrottleJoystickProps> = ({ value, onChange, si
         dx /= dist;
         dy /= dist;
       }
-      // Y is inverted: up = negative clientY delta = positive gas
+      // Y is inverted: up = negative clientY delta = positive output
       const newY = clamp(-dy);
-      lastY.current = newY;
       onChange(clamp(dx), newY);
     },
     [onChange, radius],
@@ -79,8 +77,8 @@ const ThrottleJoystick: React.FC<ThrottleJoystickProps> = ({ value, onChange, si
       e.preventDefault();
       if (active.current) {
         active.current = false;
-        // Y (gas) stays where it was (lastY), X (yaw) snaps to 0
-        onChange(0, lastY.current);
+        // BOTH axes spring back to 0
+        onChange(0, 0);
       }
     },
     [onChange],
@@ -98,8 +96,8 @@ const ThrottleJoystick: React.FC<ThrottleJoystickProps> = ({ value, onChange, si
       const onMouseUp = () => {
         window.removeEventListener('mousemove', onMouseMove);
         window.removeEventListener('mouseup', onMouseUp);
-        // Y (gas) stays, X (yaw) snaps to 0
-        onChange(0, lastY.current);
+        // Both spring back
+        onChange(0, 0);
       };
       window.addEventListener('mousemove', onMouseMove);
       window.addEventListener('mouseup', onMouseUp);
@@ -173,22 +171,6 @@ const ThrottleJoystick: React.FC<ThrottleJoystickProps> = ({ value, onChange, si
           transition: active.current ? 'none' : 'transform 0.15s ease-out',
         }}
       />
-
-      {/* Throttle indicator label */}
-      <div
-        className="absolute pointer-events-none select-none"
-        style={{
-          bottom: -20,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          color: 'rgba(239, 68, 68, 0.6)',
-          fontSize: 10,
-          fontFamily: 'monospace',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        ГАЗ {Math.round(value.y * 100)}%
-      </div>
     </div>
   );
 };
