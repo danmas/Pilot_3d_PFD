@@ -75,6 +75,9 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     g.rotation.y += (target.y - g.rotation.y) * 0.12;
     g.rotation.z += (target.z - g.rotation.z) * 0.12;
 
+    // Publish actual model yaw (after lerp) for CameraController
+    override.modelYaw = g.rotation.y;
+
     /* ── Integrate forward position from CAS + heading ── */
     if (f) {
       const cas = typeof f.CAS === 'number' && Number.isFinite(f.CAS) ? f.CAS : 0;

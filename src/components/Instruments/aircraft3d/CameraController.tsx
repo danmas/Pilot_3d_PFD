@@ -3,18 +3,22 @@
  * CameraController.tsx — управление камерой в 3D Aircraft Instrument.
  *
  * Поддерживает:
- *  • Свободное вращение мышью (OrbitControls)
  *  • Плавные пресеты: Сзади / Сверху / Сбоку / Кабина
  *  • Кнопочное вращение ◀▶▲▼
  *  • Сброс ↺ в дефолтный вид (сзади-сверху)
  *  • Переключение проекции: Perspective / Wide / Orthographic
+ *  • Мышиный drag для вращения вокруг самолёта (десктоп)
+ *  • Колёсико мыши для zoom
+ *  • Камера всегда следует за самолётом — offset вращается вместе с моделью
  *
- * БЕЗ OrbitControls — используем ручную useFrame логику для совместимости
- * с мобильными браузерами (OrbitControls блокировал WebGL рендер).
+ * БЕЗ OrbitControls — ручная логика для совместимости
+ * с мобильными браузерами.
  */
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+
+import { aircraftControlsRef } from '../../../aircraftControlsRef';
 
 /* ──────────────── Preset camera positions ──────────────── */
 export interface CameraPreset {
@@ -52,54 +56,101 @@ export const PROJECTION_LABELS: Record<ProjectionType, string> = {
 const LERP_SPEED = 0.07;
 /** Half-size of orthographic frustum (world units) */
 const ORTHO_SIZE = 12;
+/** Zoom limits */
+const MIN_DIST = 3;
+const MAX_DIST = 50;
+/** Mouse drag sensitivity (radians per pixel) */
+const DRAG_SENSITIVITY = 0.006;
 
 const CameraController = forwardRef<CameraControls>((_props, ref) => {
-  const { camera, size } = useThree();
+  const { camera, size, gl } = useThree();
+  /** Базовый оффсет камеры относительно самолёта (world space, без вращения) */
+  const baseOffset = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].position));
   const targetPos = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].position));
-  const targetLookAt = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].target));
-  const animating = useRef(true); // Start animating immediately on mount
+  const isDragging = useRef(false);
+  const lastMouse = useRef({ x: 0, y: 0 });
   const projectionRef = useRef<ProjectionType>('perspective');
 
   useImperativeHandle(ref, () => ({
     setPreset(name: string) {
       const p = CAMERA_PRESETS[name];
       if (!p) return;
-      targetPos.current.set(...p.position);
-      targetLookAt.current.set(...p.target);
-      animating.current = true;
+      baseOffset.current.set(...p.position);
     },
     rotateBy(azimuthDeg: number, polarDeg: number) {
       const azRad = (azimuthDeg * Math.PI) / 180;
       const poRad = (polarDeg * Math.PI) / 180;
 
-      const offset = targetPos.current.clone().sub(targetLookAt.current);
-      const spherical = new THREE.Spherical().setFromVector3(offset);
+      const spherical = new THREE.Spherical().setFromVector3(baseOffset.current);
       spherical.theta -= azRad;
       spherical.phi = THREE.MathUtils.clamp(spherical.phi - poRad, 0.15, Math.PI - 0.15);
-      offset.setFromSpherical(spherical);
-
-      targetPos.current.copy(targetLookAt.current).add(offset);
-      animating.current = true;
+      baseOffset.current.setFromSpherical(spherical);
     },
     reset() {
       const p = CAMERA_PRESETS[DEFAULT_PRESET];
-      targetPos.current.set(...p.position);
-      targetLookAt.current.set(...p.target);
-      animating.current = true;
+      baseOffset.current.set(...p.position);
     },
     setProjection(type: ProjectionType) {
       projectionRef.current = type;
-      animating.current = true;
     },
   }));
 
-  useFrame(() => {
-    if (!animating.current) return;
+  /* ── Mouse drag for desktop rotation ── */
+  useEffect(() => {
+    const canvas = gl.domElement;
+    if (!canvas) return;
 
+    const isMobile = window.innerWidth < 1024;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (isMobile) return;
+      isDragging.current = true;
+      lastMouse.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current || isMobile) return;
+      const dx = e.clientX - lastMouse.current.x;
+      const dy = e.clientY - lastMouse.current.y;
+      lastMouse.current = { x: e.clientX, y: e.clientY };
+
+      const spherical = new THREE.Spherical().setFromVector3(baseOffset.current);
+      spherical.theta -= dx * DRAG_SENSITIVITY;
+      spherical.phi = THREE.MathUtils.clamp(spherical.phi - dy * DRAG_SENSITIVITY, 0.15, Math.PI - 0.15);
+      baseOffset.current.setFromSpherical(spherical);
+    };
+
+    const onMouseUp = () => {
+      isDragging.current = false;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (isMobile) return;
+      e.preventDefault();
+      const spherical = new THREE.Spherical().setFromVector3(baseOffset.current);
+      const factor = e.deltaY > 0 ? 1.1 : 0.9;
+      spherical.radius = THREE.MathUtils.clamp(spherical.radius * factor, MIN_DIST, MAX_DIST);
+      baseOffset.current.setFromSpherical(spherical);
+    };
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      canvas.removeEventListener('wheel', onWheel);
+    };
+  }, [gl]);
+
+  /* ── Every frame: follow aircraft model rotation ── */
+  useFrame(() => {
     const proj = projectionRef.current;
 
     if (proj === 'ortho') {
-      // Orthographic: update frustum based on canvas aspect ratio
       const cam = camera as THREE.OrthographicCamera;
       if (cam.isOrthographicCamera) {
         const aspect = size.width / size.height;
@@ -111,7 +162,6 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
         cam.updateProjectionMatrix();
       }
     } else {
-      // Perspective: update FOV
       const cam = camera as THREE.PerspectiveCamera;
       if (cam.isPerspectiveCamera) {
         const targetFov = proj === 'wide' ? 80 : 50;
@@ -120,15 +170,21 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
       }
     }
 
+    // Get model's actual yaw (Euler Y, rad) — already matches the visual rotation
+    const modelYaw = aircraftControlsRef.current.modelYaw || 0;
+
+    // Rotate the baseOffset by model yaw to stay behind the aircraft
+    const rotatedOffset = baseOffset.current.clone();
+    rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), modelYaw);
+
+    // Target position = rotated offset (aircraft is at world origin visually)
+    targetPos.current.copy(rotatedOffset);
+
+    // Smoothly move camera toward target
     camera.position.lerp(targetPos.current, LERP_SPEED);
 
-    const dist = camera.position.distanceTo(targetPos.current);
-    if (dist < 0.05) {
-      camera.position.copy(targetPos.current);
-      animating.current = false;
-    }
-
-    camera.lookAt(targetLookAt.current);
+    // Look at world origin (aircraft is centered here thanks to WorldGroup)
+    camera.lookAt(0, 0, 0);
   });
 
   return null;

@@ -10,7 +10,7 @@
  */
 import React, { useRef, useCallback, Suspense, useState, useEffect, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { PerspectiveCamera, OrthographicCamera, OrbitControls } from '@react-three/drei';
+import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
@@ -60,22 +60,9 @@ interface SceneProps {
 }
 
 const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => {
-  const [isMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024);
-
   return (
     <>
       <CameraController ref={cameraRef} />
-
-      {/* OrbitControls — только для десктопа (ширина >= 1024px) */}
-      {!isMobile && (
-        <OrbitControls
-          enablePan={false}
-          enableZoom={true}
-          enableRotate={true}
-          minDistance={3}
-          maxDistance={50}
-        />
-      )}
 
     {/* Lighting */}
     <ambientLight intensity={0.5} />
