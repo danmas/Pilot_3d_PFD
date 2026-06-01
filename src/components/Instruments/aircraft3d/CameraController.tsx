@@ -53,7 +53,6 @@ export const PROJECTION_LABELS: Record<ProjectionType, string> = {
 };
 
 /* ──────────────── Internal state ──────────────── */
-const LERP_SPEED = 0.07;
 /** Half-size of orthographic frustum (world units) */
 const ORTHO_SIZE = 12;
 /** Zoom limits */
@@ -66,7 +65,6 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
   const { camera, size, gl } = useThree();
   /** Базовый оффсет камеры относительно самолёта (world space, без вращения) */
   const baseOffset = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].position));
-  const targetPos = useRef(new THREE.Vector3(...CAMERA_PRESETS[DEFAULT_PRESET].position));
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const projectionRef = useRef<ProjectionType>('perspective');
@@ -177,11 +175,8 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
     const rotatedOffset = baseOffset.current.clone();
     rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), modelYaw);
 
-    // Target position = rotated offset (aircraft is at world origin visually)
-    targetPos.current.copy(rotatedOffset);
-
-    // Smoothly move camera toward target
-    camera.position.lerp(targetPos.current, LERP_SPEED);
+    // Instant snap to target — no lerp, so mouse drag and zoom work immediately
+    camera.position.copy(rotatedOffset);
 
     // Look at world origin (aircraft is centered here thanks to WorldGroup)
     camera.lookAt(0, 0, 0);
