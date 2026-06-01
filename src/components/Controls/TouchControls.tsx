@@ -52,7 +52,8 @@ const TouchControls: React.FC = memo(() => {
     ref.roll = 0;
     ref.yaw = 0;
     ref.throttle = 0;
-    // Don't touch modelYaw or _wasActive — they're managed by AircraftModel
+    // Reset _wasActive so next activation syncs headingAccumRef properly
+    ref._wasActive = false;
   }, []);
 
   useEffect(() => {
