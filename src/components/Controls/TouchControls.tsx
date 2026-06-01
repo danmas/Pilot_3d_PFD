@@ -65,7 +65,7 @@ const TouchControls: React.FC = memo(() => {
   const onLeftChange = useCallback(
     (x: number, y: number) => {
       setLeftJoy({ x, y });
-      const pitch = y * MAX_PITCH;
+      const pitch = -y * MAX_PITCH;  // инвертирован
       const roll  = -x * MAX_ROLL;  // инвертирован
       if (x === 0 && y === 0 && rightJoy.x === 0) {
         clearOverride();

@@ -20,6 +20,7 @@ export const WorldGroup: React.FC<{ children: React.ReactNode }> = memo(({ child
     if (!g) return;
     // Move the world opposite to the accumulated aircraft position
     g.position.x = -aircraftPosition.x;
+    g.position.y = -aircraftPosition.y;
     g.position.z = -aircraftPosition.z;
   });
 

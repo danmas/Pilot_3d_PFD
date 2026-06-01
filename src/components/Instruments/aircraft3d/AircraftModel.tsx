@@ -83,8 +83,13 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       const dt = Math.min(delta, 0.1);
       const heading = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
       const hRad = heading * DEG;
-      aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
-      aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
+      const pRad = pitchDeg * DEG;
+      // Horizontal: forward component projected by pitch
+      const forwardHoriz = Math.cos(pRad);
+      aircraftPosition.x += -Math.sin(hRad) * speedWU * forwardHoriz * dt;
+      aircraftPosition.z += -Math.cos(hRad) * speedWU * forwardHoriz * dt;
+      // Vertical: sin(pitch) — positive pitch = climb
+      aircraftPosition.y += Math.sin(pRad) * speedWU * dt;
 
       /* ── Cyclic reset: when too far, teleport world back ── */
       const LIMIT = 2000;
@@ -98,8 +103,12 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       const speedWU = cas * 0.5144 / 40;
       const dt = Math.min(delta, 0.1);
       const hRad = -headingDeg * DEG;
-      aircraftPosition.x += -Math.sin(hRad) * speedWU * dt;
-      aircraftPosition.z += -Math.cos(hRad) * speedWU * dt;
+      const pRad = pitchDeg * DEG;
+      const forwardHoriz = Math.cos(pRad);
+      aircraftPosition.x += -Math.sin(hRad) * speedWU * forwardHoriz * dt;
+      aircraftPosition.z += -Math.cos(hRad) * speedWU * forwardHoriz * dt;
+      // Vertical: sin(pitch) — positive pitch = climb
+      aircraftPosition.y += Math.sin(pRad) * speedWU * dt;
 
       const LIMIT = 2000;
       if (Math.abs(aircraftPosition.x) > LIMIT || Math.abs(aircraftPosition.z) > LIMIT) {
