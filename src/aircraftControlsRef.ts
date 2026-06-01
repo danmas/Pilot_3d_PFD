@@ -18,8 +18,10 @@ export interface AircraftOverride {
   throttle: number; // 0..1, engine throttle
   /** Actual Euler Y rotation of the model group (rad) — published every frame after lerp */
   modelYaw: number;
+  /** Internal: was active last frame? Used for smooth takeover */
+  _wasActive: boolean;
 }
 
 export const aircraftControlsRef: { current: AircraftOverride } = {
-  current: { active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0, modelYaw: 0 },
+  current: { active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0, modelYaw: 0, _wasActive: false },
 };

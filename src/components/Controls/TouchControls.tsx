@@ -34,25 +34,25 @@ const TouchControls: React.FC = memo(() => {
 
   const writeOverride = useCallback(
     (pitch: number, roll: number, yaw: number, throttleVal: number) => {
-      aircraftControlsRef.current = {
-        active: true,
-        pitch,
-        roll,
-        yaw,
-        throttle: throttleVal,
-      };
+      const ref = aircraftControlsRef.current;
+      ref.active = true;
+      ref.pitch = pitch;
+      ref.roll = roll;
+      ref.yaw = yaw;
+      ref.throttle = throttleVal;
+      // Don't touch modelYaw or _wasActive — they're managed by AircraftModel
     },
     [],
   );
 
   const clearOverride = useCallback(() => {
-    aircraftControlsRef.current = {
-      active: false,
-      pitch: 0,
-      roll: 0,
-      yaw: 0,
-      throttle: 0,
-    };
+    const ref = aircraftControlsRef.current;
+    ref.active = false;
+    ref.pitch = 0;
+    ref.roll = 0;
+    ref.yaw = 0;
+    ref.throttle = 0;
+    // Don't touch modelYaw or _wasActive — they're managed by AircraftModel
   }, []);
 
   useEffect(() => {

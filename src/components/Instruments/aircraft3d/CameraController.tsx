@@ -68,6 +68,8 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const projectionRef = useRef<ProjectionType>('perspective');
+  /** Сглаженный yaw для плавного следования камеры за моделью */
+  const smoothYaw = useRef({ value: 0, target: 0 });
 
   useImperativeHandle(ref, () => ({
     setPreset(name: string) {
@@ -168,12 +170,17 @@ const CameraController = forwardRef<CameraControls>((_props, ref) => {
       }
     }
 
-    // Get model's actual yaw (Euler Y, rad) — already matches the visual rotation
-    const modelYaw = aircraftControlsRef.current.modelYaw || 0;
+    // Get model's actual yaw (Euler Y, rad) — from the model's lerp-smoothed rotation
+    const rawYaw = aircraftControlsRef.current.modelYaw || 0;
 
-    // Rotate the baseOffset by model yaw to stay behind the aircraft
+    // Smooth yaw with ~8-frame lag (same as aircraft lerp = 0.12)
+    const sy = smoothYaw.current;
+    sy.target = rawYaw;
+    sy.value += (sy.target - sy.value) * 0.12;
+
+    // Rotate the baseOffset by smoothed yaw to stay behind the aircraft
     const rotatedOffset = baseOffset.current.clone();
-    rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), modelYaw);
+    rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), sy.value);
 
     // Instant snap to target — no lerp, so mouse drag and zoom work immediately
     camera.position.copy(rotatedOffset);

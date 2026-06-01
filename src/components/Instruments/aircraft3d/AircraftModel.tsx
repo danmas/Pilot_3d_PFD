@@ -49,12 +49,23 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     const override = aircraftControlsRef.current;
     if (override.active) {
       // Manual control via joystick/rudder
+
+      // On the first frame of override activation, sync headingAccumRef
+      // from the model's actual rotation (after lerp) for smooth takeover
+      if (!override._wasActive) {
+        const currentHeadingDeg = -g.rotation.y / DEG;
+        headingAccumRef.current = currentHeadingDeg;
+        headingDeg = currentHeadingDeg;
+        override._wasActive = true;
+      } else {
+        // Yaw is rotation rate (deg/s): integrate into accumulated heading
+        const dt = Math.min(delta, 0.1);
+        headingAccumRef.current += override.yaw * dt;
+        headingDeg = headingAccumRef.current;
+      }
+
       pitchDeg   = override.pitch;
       rollDeg    = override.roll;
-      // Yaw is rotation rate (deg/s): integrate into accumulated heading
-      const dt = Math.min(delta, 0.1);
-      headingAccumRef.current += override.yaw * dt;
-      headingDeg = headingAccumRef.current;
     } else {
       f = telemetryRef.current;
       if (!f) return;
@@ -63,6 +74,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       headingDeg = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
       // Sync accumulator so manual takeover is smooth
       headingAccumRef.current = headingDeg;
+      override._wasActive = false;
     }
 
     const pitchRad   = pitchDeg * DEG;
