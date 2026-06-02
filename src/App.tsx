@@ -108,6 +108,21 @@ export default function App() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const pressedKeys = useRef<Set<string>>(new Set());
 
+  // ── Telemetry callback from AircraftModel (must be before any conditional return) ──
+  const telemetryCallbackRef = useRef(setFrame);
+  telemetryCallbackRef.current = setFrame;
+  useEffect(() => {
+    console.log('[App] wiring onTelemetryUpdate');
+    (window as any).__appControlsRef = aircraftControlsRef;
+    aircraftControlsRef.current.onTelemetryUpdate = (f: Record<string, unknown>) => {
+      telemetryCallbackRef.current(f as TelemetryFrame);
+    };
+    return () => {
+      console.log('[App] cleanup onTelemetryUpdate');
+      aircraftControlsRef.current.onTelemetryUpdate = null;
+    };
+  }, []);
+
   // ---- Sample animation ----
   useEffect(() => {
     if (dataMode !== 'sample') return;
