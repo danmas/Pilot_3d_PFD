@@ -32,15 +32,24 @@ const TouchControls: React.FC = memo(() => {
   // Throttle — фиксированное положение 0..1, меняем только дельтой
   const [throttle, setThrottle] = useState(0.5); // стартуем с 50%
 
+  const [manualMsg, setManualMsg] = useState(false);
+  const firstTouchDone = useRef(false);
+
   const writeOverride = useCallback(
     (pitch: number, roll: number, yaw: number, throttleVal: number) => {
       const ref = aircraftControlsRef.current;
+      // First touch: lock telemetry and show message
+      if (!firstTouchDone.current && !ref.telemetryLocked) {
+        ref.telemetryLocked = true;
+        setManualMsg(true);
+        firstTouchDone.current = true;
+        setTimeout(() => setManualMsg(false), 3000);
+      }
       ref.active = true;
       ref.pitch = pitch;
       ref.roll = roll;
       ref.yaw = yaw;
       ref.throttle = throttleVal;
-      // Don't touch modelYaw or _wasActive — they're managed by AircraftModel
     },
     [],
   );
@@ -52,8 +61,10 @@ const TouchControls: React.FC = memo(() => {
     ref.roll = 0;
     ref.yaw = 0;
     ref.throttle = 0;
-    // Reset _wasActive so next activation syncs headingAccumRef properly
     ref._wasActive = false;
+    // Unlock telemetry so sample/live resumes
+    ref.telemetryLocked = false;
+    firstTouchDone.current = false;
   }, []);
 
   useEffect(() => {
@@ -160,6 +171,26 @@ const TouchControls: React.FC = memo(() => {
           </div>
         </div>
       </div>
+
+      {/* Manual flight notification banner */}
+      {manualMsg && (
+        <div
+          className="fixed top-20 left-1/2 -translate-x-1/2 pointer-events-none select-none z-[100]"
+          style={{
+            background: 'rgba(239, 68, 68, 0.9)',
+            color: '#fff',
+            padding: '8px 20px',
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            fontFamily: 'monospace',
+            letterSpacing: '0.5px',
+            boxShadow: '0 4px 20px rgba(239, 68, 68, 0.4)',
+          }}
+        >
+          ✈ MANUAL FLIGHT — joysticks active
+        </div>
+      )}
 
       {/* Right area: Joystick (roll + pitch) */}
       <div className="absolute right-4 bottom-20 pointer-events-auto">

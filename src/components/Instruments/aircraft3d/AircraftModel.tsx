@@ -18,7 +18,6 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ModelEntry } from './modelConfig';
-import { telemetryRef } from '../../../telemetryRef';
 import { aircraftPosition } from './aircraftPosition';
 import { aircraftControlsRef } from '../../../aircraftControlsRef';
 
@@ -44,7 +43,6 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     if (!g) return;
 
     let pitchDeg = 0, rollDeg = 0, headingDeg = 0;
-    let f: typeof telemetryRef.current = null;
 
     const override = aircraftControlsRef.current;
     if (override.active) {
@@ -67,14 +65,13 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       pitchDeg   = override.pitch;
       rollDeg    = override.roll;
     } else {
-      f = telemetryRef.current;
-      if (!f) return;
-      pitchDeg   = typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0;
-      rollDeg    = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
-      headingDeg = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
-      // Sync accumulator so manual takeover is smooth
+      // Joystick released: hold current heading, zero pitch/roll
+      pitchDeg   = 0;
+      rollDeg    = 0;
+      headingDeg = -g.rotation.y / DEG;
       headingAccumRef.current = headingDeg;
       override._wasActive = false;
+      // Don't touch telemetryRef — just keep flying straight
     }
 
     const pitchRad   = pitchDeg * DEG;
@@ -91,30 +88,9 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     override.modelYaw = g.rotation.y;
 
     /* ── Integrate forward position from CAS + heading ── */
-    if (f) {
-      const cas = typeof f.CAS === 'number' && Number.isFinite(f.CAS) ? f.CAS : 0;
-      // 1 knot = 0.5144 m/s; scene scale ~1/40 → world-units/s
-      const speedWU = cas * 0.5144 / 40;
-      const dt = Math.min(delta, 0.1);
-      const heading = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : 0;
-      const hRad = heading * DEG;
-      const pRad = pitchDeg * DEG;
-      // Horizontal: forward component projected by pitch
-      const forwardHoriz = Math.cos(pRad);
-      aircraftPosition.x += -Math.sin(hRad) * speedWU * forwardHoriz * dt;
-      aircraftPosition.z += -Math.cos(hRad) * speedWU * forwardHoriz * dt;
-      // Vertical: sin(pitch) — positive pitch = climb
-      aircraftPosition.y += Math.sin(pRad) * speedWU * dt;
-
-      /* ── Cyclic reset: when too far, teleport world back ── */
-      const LIMIT = 2000;
-      if (Math.abs(aircraftPosition.x) > LIMIT || Math.abs(aircraftPosition.z) > LIMIT) {
-        aircraftPosition.x = 0;
-        aircraftPosition.z = 0;
-      }
-    } else if (override.active) {
-      // Manual control: still move forward at last known heading
-      const cas = 250; // assume ~250 kt cruise when manually controlling
+    if (override.active) {
+      // Manual control: move forward at constant cruise speed
+      const cas = 250; // ~250 kt cruise in manual
       const speedWU = cas * 0.5144 / 40;
       const dt = Math.min(delta, 0.1);
       const hRad = -headingDeg * DEG;

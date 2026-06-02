@@ -13,6 +13,7 @@ import { PanelDisplay } from './components/PanelBuilder/PanelDisplay';
 import { TelemetryProvider } from './context/TelemetryContext';
 import { UI_SETTINGS } from './ui-settings';
 import { telemetryRef } from './telemetryRef';
+import { aircraftControlsRef } from './aircraftControlsRef';
 
 const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
 
@@ -119,7 +120,10 @@ export default function App() {
         frameRef.current = (frameRef.current + 1) % sampleFrames.length;
         setFrameIndex(frameRef.current);
         const f = sampleFrames[frameRef.current];
-        telemetryRef.current = f;
+        // Don't overwrite telemetry when joystick has locked it
+        if (!aircraftControlsRef.current.telemetryLocked) {
+          telemetryRef.current = f;
+        }
         setFrame(f);
         lastTime = time;
       }

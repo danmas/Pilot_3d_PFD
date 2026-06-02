@@ -20,8 +20,10 @@ export interface AircraftOverride {
   modelYaw: number;
   /** Internal: was active last frame? Used for smooth takeover */
   _wasActive: boolean;
+  /** Lock telemetry updates — set when joystick takes control, cleared on release */
+  telemetryLocked: boolean;
 }
 
 export const aircraftControlsRef: { current: AircraftOverride } = {
-  current: { active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0, modelYaw: 0, _wasActive: false },
+  current: { active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0, modelYaw: 0, _wasActive: false, telemetryLocked: false },
 };
