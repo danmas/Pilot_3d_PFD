@@ -83,7 +83,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => {
     </WorldGroup>
 
     {/* Aircraft (static in world coords, rotates via useFrame) */}
-    <AircraftModel />
+    <AircraftModel model={model} />
     </>
   );
 };
