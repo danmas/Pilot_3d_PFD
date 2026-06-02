@@ -18,6 +18,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ModelEntry } from './modelConfig';
+import { telemetryRef } from '../../../telemetryRef';
 import { aircraftPosition } from './aircraftPosition';
 import { aircraftControlsRef } from '../../../aircraftControlsRef';
 
@@ -64,14 +65,23 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
 
       pitchDeg   = override.pitch;
       rollDeg    = override.roll;
+    } else if (!override.telemetryLocked) {
+      // Auto mode (sample/live): read from telemetryRef
+      const f = telemetryRef.current;
+      if (!f) return; // no telemetry data yet
+      pitchDeg   = typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0;
+      rollDeg    = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
+      headingDeg = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : (-g.rotation.y / DEG);
+      // Sync accumulator so manual takeover is smooth
+      headingAccumRef.current = headingDeg;
+      override._wasActive = false;
     } else {
-      // Joystick released: hold current heading, zero pitch/roll
+      // Manual idle (joystick released): hold heading, zero pitch/roll
       pitchDeg   = 0;
       rollDeg    = 0;
       headingDeg = -g.rotation.y / DEG;
       headingAccumRef.current = headingDeg;
       override._wasActive = false;
-      // Don't touch telemetryRef — just keep flying straight
     }
 
     const pitchRad   = pitchDeg * DEG;
@@ -87,8 +97,28 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     // Publish actual model yaw (after lerp) for CameraController
     override.modelYaw = g.rotation.y;
 
+    /* ── Sync telemetryRef for other instruments ── */
+    // When in manual mode (active or released), write current state to telemetryRef
+    // so PFD, PanelBuilder and other instruments see the same values as 3D.
+    // In auto mode telemetryRef is already written by sample/live source.
+    if (override.telemetryLocked) {
+      const last = telemetryRef.current;
+      telemetryRef.current = {
+        ...(last || {}),
+        schema: 'telemetry-frame.v1',
+        seq: (last?.seq ?? 0) + 1,
+        timeMs: (last?.timeMs ?? 0) + (delta * 1000),
+        source: last?.source ?? 'manual',
+        receivedAt: new Date().toISOString(),
+        PitchAngle: pitchDeg,
+        RollAngle: rollDeg,
+        Heading1: headingDeg,
+        MagneticHeading: headingDeg,
+        CAS: 250,
+      };
+    }
+
     /* ── Always move forward (cruise speed 250 kt) ── */
-    // Whether joystick is active or released, aircraft keeps flying
     const cas = 250;
     const speedWU = cas * 0.5144 / 40;
     const dt = Math.min(delta, 0.1);
@@ -97,7 +127,6 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     const forwardHoriz = Math.cos(pRad);
     aircraftPosition.x += -Math.sin(hRad) * speedWU * forwardHoriz * dt;
     aircraftPosition.z += -Math.cos(hRad) * speedWU * forwardHoriz * dt;
-    // Vertical: sin(pitch) — positive pitch = climb
     aircraftPosition.y += Math.sin(pRad) * speedWU * dt;
 
     const LIMIT = 2000;
