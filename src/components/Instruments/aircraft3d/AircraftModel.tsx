@@ -87,25 +87,23 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     // Publish actual model yaw (after lerp) for CameraController
     override.modelYaw = g.rotation.y;
 
-    /* ── Integrate forward position from CAS + heading ── */
-    if (override.active) {
-      // Manual control: move forward at constant cruise speed
-      const cas = 250; // ~250 kt cruise in manual
-      const speedWU = cas * 0.5144 / 40;
-      const dt = Math.min(delta, 0.1);
-      const hRad = -headingDeg * DEG;
-      const pRad = pitchDeg * DEG;
-      const forwardHoriz = Math.cos(pRad);
-      aircraftPosition.x += -Math.sin(hRad) * speedWU * forwardHoriz * dt;
-      aircraftPosition.z += -Math.cos(hRad) * speedWU * forwardHoriz * dt;
-      // Vertical: sin(pitch) — positive pitch = climb
-      aircraftPosition.y += Math.sin(pRad) * speedWU * dt;
+    /* ── Always move forward (cruise speed 250 kt) ── */
+    // Whether joystick is active or released, aircraft keeps flying
+    const cas = 250;
+    const speedWU = cas * 0.5144 / 40;
+    const dt = Math.min(delta, 0.1);
+    const hRad = -headingDeg * DEG;
+    const pRad = pitchDeg * DEG;
+    const forwardHoriz = Math.cos(pRad);
+    aircraftPosition.x += -Math.sin(hRad) * speedWU * forwardHoriz * dt;
+    aircraftPosition.z += -Math.cos(hRad) * speedWU * forwardHoriz * dt;
+    // Vertical: sin(pitch) — positive pitch = climb
+    aircraftPosition.y += Math.sin(pRad) * speedWU * dt;
 
-      const LIMIT = 2000;
-      if (Math.abs(aircraftPosition.x) > LIMIT || Math.abs(aircraftPosition.z) > LIMIT) {
-        aircraftPosition.x = 0;
-        aircraftPosition.z = 0;
-      }
+    const LIMIT = 2000;
+    if (Math.abs(aircraftPosition.x) > LIMIT || Math.abs(aircraftPosition.z) > LIMIT) {
+      aircraftPosition.x = 0;
+      aircraftPosition.z = 0;
     }
   });
 
