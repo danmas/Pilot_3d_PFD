@@ -71,7 +71,9 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       if (!f) return; // no telemetry data yet
       pitchDeg   = typeof f.PitchAngle === 'number' && Number.isFinite(f.PitchAngle) ? f.PitchAngle : 0;
       rollDeg    = typeof f.RollAngle === 'number' && Number.isFinite(f.RollAngle) ? f.RollAngle : 0;
-      headingDeg = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 : (-g.rotation.y / DEG);
+      headingDeg = typeof f.Heading1 === 'number' && Number.isFinite(f.Heading1) ? f.Heading1 :
+                    typeof f.MagneticHeading === 'number' && Number.isFinite(f.MagneticHeading) ? f.MagneticHeading :
+                    (-g.rotation.y / DEG);
       // Sync accumulator so manual takeover is smooth
       headingAccumRef.current = headingDeg;
       override._wasActive = false;
