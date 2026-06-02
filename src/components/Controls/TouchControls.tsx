@@ -33,16 +33,16 @@ const TouchControls: React.FC = memo(() => {
   const [throttle, setThrottle] = useState(0.5); // стартуем с 50%
 
   const [manualMsg, setManualMsg] = useState(false);
-  const firstTouchDone = useRef(false);
+  const manualActivated = useRef(false);
 
   const writeOverride = useCallback(
     (pitch: number, roll: number, yaw: number, throttleVal: number) => {
       const ref = aircraftControlsRef.current;
-      // First touch: lock telemetry and show message
-      if (!firstTouchDone.current && !ref.telemetryLocked) {
+      // First touch ever: lock telemetry permanently and show message once
+      if (!manualActivated.current) {
         ref.telemetryLocked = true;
+        manualActivated.current = true;
         setManualMsg(true);
-        firstTouchDone.current = true;
         setTimeout(() => setManualMsg(false), 3000);
       }
       ref.active = true;
@@ -62,9 +62,7 @@ const TouchControls: React.FC = memo(() => {
     ref.yaw = 0;
     ref.throttle = 0;
     ref._wasActive = false;
-    // Unlock telemetry so sample/live resumes
-    ref.telemetryLocked = false;
-    firstTouchDone.current = false;
+    // Don't unlock telemetry — once manual, always manual
   }, []);
 
   useEffect(() => {
