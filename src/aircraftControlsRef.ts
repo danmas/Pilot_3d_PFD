@@ -22,8 +22,10 @@ export interface AircraftOverride {
   _wasActive: boolean;
   /** Lock telemetry updates — set when joystick takes control, cleared on release */
   telemetryLocked: boolean;
+  /** Callback: AircraftModel pushes telemetry frame to React state so PFD instruments update */
+  onTelemetryUpdate: ((frame: Record<string, unknown>) => void) | null;
 }
 
 export const aircraftControlsRef: { current: AircraftOverride } = {
-  current: { active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0, modelYaw: 0, _wasActive: false, telemetryLocked: false },
+  current: { active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0, modelYaw: 0, _wasActive: false, telemetryLocked: false, onTelemetryUpdate: null },
 };

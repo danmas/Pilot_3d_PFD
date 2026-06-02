@@ -118,6 +118,8 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
         MagneticHeading: headingDeg,
         CAS: 250,
       };
+      // Push to React state so PFD instruments see the update
+      override.onTelemetryUpdate?.(telemetryRef.current);
     }
 
     /* ── Always move forward (cruise speed 250 kt) ── */

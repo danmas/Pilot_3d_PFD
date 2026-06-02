@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Radio, WifiOff, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Copy, Monitor } from 'lucide-react';
+import { Radio, WifiOff, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Copy, Monitor, Plug } from 'lucide-react';
 import { FIELD_CATALOG } from '@/field-catalog';
 
 type ConnStatus = 'idle' | 'connecting' | 'receiving' | 'waiting' | 'error';
@@ -31,6 +31,7 @@ interface RawStatus {
 }
 
 const RAW_SSE_URL = '/events/raw';
+const AVAILABLE_PORTS = [14442, 14443, 14444, 14445];
 
 // Build comment map from field-catalog (once, at module load)
 const COMMENT_MAP: Record<string, string> = {};
@@ -52,6 +53,8 @@ export default function RawMonitor({ onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showHex, setShowHex] = useState(false);
   const [showAllKeys, setShowAllKeys] = useState(false);
+  const [watchPort, setWatchPort] = useState<number>(14442);
+  const [portPending, setPortPending] = useState(false);
 
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -82,6 +85,10 @@ export default function RawMonitor({ onBack }: Props) {
         const s: RawStatus = JSON.parse(event.data);
         console.log('[RAW-MONITOR-UI] status received:', JSON.stringify(s));
         setStatus(s);
+        if (s.source?.udpPort) {
+          setWatchPort(s.source.udpPort);
+          setPortPending(false);
+        }
         if (s.active) {
           const fresh = s.lastPacketAgeMs !== null && s.lastPacketAgeMs < 3000;
           setConnStatus(fresh ? 'receiving' : 'waiting');
@@ -101,6 +108,27 @@ export default function RawMonitor({ onBack }: Props) {
       eventSourceRef.current = null;
     }
     setConnStatus('idle');
+  }, []);
+
+  // ── change monitor port ──
+  const changePort = useCallback(async (port: number) => {
+    setPortPending(true);
+    setWatchPort(port);
+    try {
+      const res = await fetch('/api/raw/port', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port }),
+      });
+      if (!res.ok) {
+        setPortPending(false);
+        setError(`Failed to switch port: ${res.status}`);
+      }
+      // Status will sync via SSE
+    } catch (e) {
+      setPortPending(false);
+      setError(`Port switch failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }, []);
 
   // ── cleanup ──
@@ -191,8 +219,35 @@ export default function RawMonitor({ onBack }: Props) {
           <div className="text-sm text-white/60">
             Current Decoder Output
           </div>
-          <div className="text-xs text-white/40 font-mono">
-            {status?.source ? `udp://${status.source.udpHost}:${status.source.udpPort}` : 'udp://...'}
+
+          {/* Port selector */}
+          <div className="flex items-center gap-2">
+            <Plug className="w-4 h-4 text-white/40" />
+            <select
+              value={watchPort}
+              onChange={(e) => changePort(Number(e.target.value))}
+              disabled={portPending}
+              className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm text-white font-mono
+                         focus:outline-none focus:border-emerald-400/50 disabled:opacity-50
+                         appearance-none cursor-pointer hover:bg-white/15 transition"
+            >
+              {AVAILABLE_PORTS.map((p) => (
+                <option key={p} value={p} className="bg-[#1a1a2e] text-white">
+                  UDP :{p}
+                </option>
+              ))}
+            </select>
+            {portPending && (
+              <span className="text-yellow-400 text-xs animate-pulse">switching...</span>
+            )}
+          </div>
+
+          {/* Port status */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className={`w-1.5 h-1.5 rounded-full ${status?.active ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-white/40">
+              {status?.active ? `${status.receivedPackets} pkts` : 'no data'}
+            </span>
           </div>
 
           {error && (

@@ -134,7 +134,7 @@ let receivedFrames = 0;
 let receivedPackets = 0;
 let lastPacketAtMs: number | undefined;
 let lastError: string | undefined;
-let captureEnabled = true;
+let captureEnabled = false;
 let captureStream: fs.WriteStream | undefined;
 let capturePath: string | undefined;
 let captureFrames = 0;
@@ -215,6 +215,9 @@ const SIMULATOR_INITIAL_PRESETS: SimulatorInitialPreset[] = [
 ];
 
 // ── raw monitor state ──────────────────────────────────────────────
+let rawUdpPort = 14442;
+let rawUdpSocket: dgram.Socket | undefined;
+let rawUdpActive = false;
 let rawLastDecoded: Record<string, number> | null = null;
 let rawLastHex: string | null = null;
 let rawReceivedPackets = 0;
@@ -263,7 +266,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
   bridgeUdpHost = opts.udpHost ?? "0.0.0.0";
   bridgeUdpPort = opts.udpPort ?? 14443;
   const captureDir = opts.captureDir ?? DEFAULT_CAPTURE_DIR;
-  captureEnabled = !opts.noCapture;
+  captureEnabled = opts.noCapture ? false : false;
   simulator.reset(readSimulatorConfig());
 
   let udpServer: dgram.Socket | undefined;
@@ -318,7 +321,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
 
         if (!currentFrame) {
           const decoded = decodePayload(message, schema);
-          feedRawData(decoded, message, now);
+          if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, message, now);
           publishDecodedFrame(decoded, now, captureDir);
           return;
         }
@@ -331,7 +334,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
         currentFrame = null;
         const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
         const decoded = decodePayload(payload, schema);
-        feedRawData(decoded, payload, now);
+        if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, payload, now);
         publishDecodedFrame(decoded, now, captureDir, frame.counter);
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
@@ -364,17 +367,76 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
     firstReceiveTime = undefined;
     receivedPackets = 0;
     receivedFrames = 0;
-    rawReceivedPackets = 0;
-    rawReceivedFrames = 0;
-    rawLastDecoded = null;
-    rawLastHex = null;
-    rawLastPacketAtMs = undefined;
-    currentTelemetryFrame = null;
-    currentPfdFrame = null;
     lastPacketAtMs = undefined;
     lastError = undefined;
-    rawLastError = undefined;
+    currentTelemetryFrame = null;
+    currentPfdFrame = null;
     startUdpServer();
+  };
+
+  // ── raw monitor: independent UDP listener ─────────────────────────
+  const closeRawUdpServer = () => {
+    if (!rawUdpSocket) return;
+    try { rawUdpSocket.close(); } catch { /* ignore */ }
+    rawUdpSocket = undefined;
+    rawUdpActive = false;
+  };
+
+  const startRawUdpServer = () => {
+    closeRawUdpServer();
+    rawLastDecoded = null;
+    rawLastHex = null;
+    rawReceivedPackets = 0;
+    rawReceivedFrames = 0;
+    rawLastPacketAtMs = undefined;
+    rawLastError = undefined;
+
+    const schema = ensureDecodeSchema();
+
+    const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
+    rawUdpSocket = socket;
+
+    socket.on("message", (message) => {
+      const now = Date.now();
+      rawReceivedPackets += 1;
+      rawLastPacketAtMs = now;
+
+      try {
+        const decoded = decodePayload(message, schema);
+        feedRawData(decoded, message, now);
+      } catch (error) {
+        rawLastError = error instanceof Error ? error.message : String(error);
+        console.error(`[RAW-UDP ERROR] ${rawLastError}`);
+      }
+    });
+
+    socket.on("error", (error) => {
+      rawLastError = error.message;
+      rawUdpActive = false;
+      console.error(`[RAW-UDP ERROR] ${error.message}`);
+    });
+
+    socket.bind(rawUdpPort, "0.0.0.0", () => {
+      rawUdpActive = true;
+      console.log(`[RAW-MONITOR] UDP udp://0.0.0.0:${rawUdpPort}`);
+    });
+  };
+
+  const reconfigureRawSource = (port: number) => {
+    rawUdpPort = port;
+    rawReceivedPackets = 0;
+    rawReceivedFrames = 0;
+    rawLastPacketAtMs = undefined;
+    rawLastDecoded = null;
+    rawLastHex = null;
+    rawLastError = undefined;
+    // If same port as main bridge, piggyback on its stream
+    if (port === bridgeUdpPort) {
+      closeRawUdpServer();
+      rawUdpActive = bridgeUdpActive;
+      return;
+    }
+    startRawUdpServer();
   };
 
   return {
@@ -382,6 +444,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
 
     configureServer(vite: ViteDevServer) {
       startUdpServer();
+      startRawUdpServer();
 
       statusInterval = setInterval(() => {
         publishStatusUpdates();
@@ -589,6 +652,15 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           if (req.method === "POST" && url.pathname === "/api/raw/stop") {
             sendJson(res, getRawMonitorState()); return;
           }
+          if (req.method === "POST" && url.pathname === "/api/raw/port") {
+            const body = await readRequestBody(req);
+            const nextPort = Number(body?.port);
+            if (!Number.isFinite(nextPort) || nextPort < 1 || nextPort > 65535) {
+              sendJson(res, { error: "Invalid port" }, 400); return;
+            }
+            reconfigureRawSource(nextPort);
+            sendJson(res, getRawMonitorState()); return;
+          }
 
           // API: recordings list
           if (req.method === "GET" && url.pathname === "/api/recordings") {
@@ -782,11 +854,11 @@ function getSourceStatus() {
 function getRawStatus() {
   return {
     source: {
-      udpHost: bridgeUdpHost,
-      udpPort: bridgeUdpPort,
+      udpHost: "0.0.0.0",
+      udpPort: rawUdpPort,
     },
     mode: "decoder-stream" as const,
-    active: bridgeUdpActive,
+    active: rawUdpActive,
     receivedPackets: rawReceivedPackets,
     receivedFrames: rawReceivedFrames,
     lastPacketAgeMs: rawLastPacketAtMs ? Date.now() - rawLastPacketAtMs : null,
@@ -870,10 +942,10 @@ function feedRawData(decoded: Record<string, number | null>, rawMessage: Buffer,
 function getRawMonitorState(): RawMonitorState {
   return {
     source: {
-      udpHost: bridgeUdpHost,
-      udpPort: bridgeUdpPort,
+      udpHost: "0.0.0.0",
+      udpPort: rawUdpPort,
     },
-    active: bridgeUdpActive,
+    active: rawUdpActive,
     mode: "decoder-stream",
     receivedPackets: rawReceivedPackets,
     receivedFrames: rawReceivedFrames,
