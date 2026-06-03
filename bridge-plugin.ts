@@ -128,6 +128,7 @@ let currentFrame: CurrentFrame | null = null;
 let currentTelemetryFrame: TelemetryFrame | null = null;
 let currentPfdFrame: TelemetryFrame | null = null;
 let firstReceiveTime: number | undefined;
+let latencyFrameId = 0; // монотонный счётчик для latency measurement
 let bridgeUdpHost = "0.0.0.0";
 let bridgeUdpPort = 14443;
 let bridgeUdpActive = false;
@@ -887,9 +888,11 @@ function publishDecodedFrame(
   counter?: number,
 ): TelemetryFrame {
   receivedFrames += 1;
+  latencyFrameId += 1;
 
   // Добавляем расчётные поля (dec_*)
   const enriched = applyDecFormulas(decoded);
+  const tDecodedMs = Date.now();
 
   if (firstReceiveTime === undefined) firstReceiveTime = receivedAtMs;
   const timeMs = firstReceiveTime === undefined ? 0 : receivedAtMs - firstReceiveTime;
@@ -902,6 +905,9 @@ function publishDecodedFrame(
     replayTimeMs: null,
     receivedAt: new Date(receivedAtMs).toISOString(),
     source,
+    _t0_ms: receivedAtMs,
+    _t_decode_ms: tDecodedMs,
+    _frame_id: latencyFrameId,
     ...enriched,
   };
 

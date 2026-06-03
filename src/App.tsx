@@ -29,6 +29,7 @@ import {
 import type { PanelProfile } from './stores/profileStore';
 
 const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
+import { LatencyOverlay, addSample } from './components/LatencyMonitor';
 
 type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
@@ -176,9 +177,26 @@ export default function App() {
     es.addEventListener('pfd-frame', (event) => {
       try {
         const data: TelemetryFrame = JSON.parse(event.data);
+        const browserRecvMs = performance.timeOrigin + performance.now();
         telemetryRef.current = data;
         setFrame(data); setLiveSeq(data.seq ?? null);
         setConnStatus('receiving'); setError(null);
+
+        // Latency measurement: schedule rAF for T₁ (paint time)
+        const t0 = typeof data._t0_ms === 'number' ? data._t0_ms : 0;
+        const tDecode = typeof data._t_decode_ms === 'number' ? data._t_decode_ms : 0;
+        const frameId = typeof data._frame_id === 'number' ? data._frame_id : 0;
+        requestAnimationFrame(() => {
+          const tPaintMs = performance.timeOrigin + performance.now();
+          addSample({
+            frame_id: frameId,
+            t_recv_ms: t0,
+            t_decoded_ms: tDecode,
+            t_paint_ms: tPaintMs,
+            processing_ms: tDecode - t0,
+            display_ms: tPaintMs - t0,
+          });
+        });
       } catch { setError('Failed to parse pfd-frame'); }
     });
     es.addEventListener('status', (event) => {
@@ -1407,6 +1425,7 @@ export default function App() {
             </div>
           )}
         </div>
+        <LatencyOverlay />
       </div>
     </div>
   );
