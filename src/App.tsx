@@ -27,9 +27,9 @@ import {
   saveProfile as saveServerProfile,
 } from './stores/profileStore';
 import type { PanelProfile } from './stores/profileStore';
+import { LatencyOverlay, addSample } from './components/LatencyMonitor';
 
 const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
-import { LatencyOverlay, addSample } from './components/LatencyMonitor';
 
 type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
