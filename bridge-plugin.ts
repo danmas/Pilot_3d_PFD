@@ -114,9 +114,8 @@ const SIMULATOR_CONFIG_PATH = path.join(PROJECT_ROOT, "simulator-config.json");
 const PANEL_MENU_PATH = path.join(__dirname, "panel-menu.json");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
 const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
-const MODELS_JSON_PATH = path.join(__dirname, "public", "data", "aircraft3d", "models", "models.json");
 
-// Sync marker: 0x544e = "TN" (tnparserrt marker packet)
+// Sync marker
 const SYNC_MARKER = 0x544e;
 
 // ── bridge state ───────────────────────────────────────────────────
@@ -780,18 +779,6 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           }
           if (req.method === "GET" && url.pathname === "/api/pfd/current") {
             sendJson(res, currentPfdFrame); return;
-          }
-
-          // API: aircraft3d models manifest
-          if (req.method === "PUT" && url.pathname === "/api/aircraft3d/models") {
-            const body = await readRequestBody(req);
-            const models = (body as { models?: unknown }).models;
-            if (!Array.isArray(models)) {
-              sendJson(res, { error: "invalid models array" }, 400); return;
-            }
-            fs.mkdirSync(path.dirname(MODELS_JSON_PATH), { recursive: true });
-            fs.writeFileSync(MODELS_JSON_PATH, JSON.stringify({ models }, null, 2) + "\n", "utf8");
-            sendJson(res, { ok: true, count: models.length }); return;
           }
 
           // API: raw monitor
