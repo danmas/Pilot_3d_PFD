@@ -894,6 +894,11 @@ function publishDecodedFrame(
   const enriched = applyDecFormulas(decoded);
   const tDecodedMs = Date.now();
 
+  // DIAG: latency fields
+  if (latencyFrameId === 1 || latencyFrameId % 1000 === 0) {
+    console.log(`[LATENCY] frame ${latencyFrameId} _t0_ms=${receivedAtMs} _t_decode_ms=${tDecodedMs}`);
+  }
+
   if (firstReceiveTime === undefined) firstReceiveTime = receivedAtMs;
   const timeMs = firstReceiveTime === undefined ? 0 : receivedAtMs - firstReceiveTime;
   const source = `tnparser-udp-${bridgeUdpPort}`;

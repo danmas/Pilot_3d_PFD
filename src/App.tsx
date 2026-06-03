@@ -183,6 +183,8 @@ export default function App() {
         setConnStatus('receiving'); setError(null);
 
         // Latency measurement: schedule rAF for T₁ (paint time)
+        // Skip if tab is in background — rAF is throttled/frozen there
+        if (document.visibilityState === 'hidden') return;
         const t0 = typeof data._t0_ms === 'number' ? data._t0_ms : 0;
         const tDecode = typeof data._t_decode_ms === 'number' ? data._t_decode_ms : 0;
         const frameId = typeof data._frame_id === 'number' ? data._frame_id : 0;
