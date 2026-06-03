@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Download, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Upload, Save, Copy, Trash2 } from 'lucide-react';
 import { UdpSourceDialog } from './UdpSourceDialog';
 import { AviationWidget } from './AviationWidget';
 import {
@@ -29,6 +29,17 @@ import { useTelemetry } from '../../context/TelemetryContext';
 // Importing the Instruments barrel triggers self-registration of all
 // instrument components into the registry.
 import '../Instruments';
+import {
+  getProfiles,
+  saveProfile,
+  loadProfile,
+  saveCurrentProfile,
+  deleteProfile,
+  CURRENT_PROFILE_ID,
+  type PanelProfile,
+} from '../../stores/panelStore';
+
+const PANELS_API = '/api/panels';
 
 interface PanelBuilderProps {
   onBack: () => void;
@@ -46,72 +57,156 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
   const hasHydrated = useRef(false);
   const lastSavedJson = useRef<string | null>(null);
 
-  const saveCurrentConfig = useCallback(async (node: PanelKitNode): Promise<boolean> => {
-    const json = JSON.stringify(toLegacyPanelNode(node), null, 2);
-    setConfigStatus(`Saving ${CURRENT_CONFIG_FILE_NAME}...`);
+  // ---- Profile management ----
+  const [profiles, setProfiles] = useState<PanelProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState(CURRENT_PROFILE_ID);
+  const [profilesLoading, setProfilesLoading] = useState(true);
 
+  const currentTreeJson = useCallback(() => {
+    return JSON.stringify(toLegacyPanelNode(rootNode), null, 2);
+  }, [rootNode]);
+
+  // ---- Load profile list from server ----
+  const refreshProfiles = useCallback(async () => {
     try {
-      const response = await fetch(CURRENT_CONFIG_API, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: json,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      lastSavedJson.current = json;
-      setConfigStatus(`Saved to ${CURRENT_CONFIG_FILE_NAME}`);
-      return true;
-    } catch (error) {
-      console.warn('Failed to save current panel config', error);
-      setConfigStatus(`Autosave unavailable: ${CURRENT_CONFIG_FILE_NAME}`);
-      return false;
+      const list = await getProfiles();
+      setProfiles(list);
+      return list;
+    } catch {
+      return [] as PanelProfile[];
     }
   }, []);
 
-  // ---- Auto-load from panel-config-current.json on mount ----
+  // ---- Save current to a named profile on server ----
+  const saveToProfile = useCallback(async (profileId: string) => {
+    const json = currentTreeJson();
+    const name = profileId === CURRENT_PROFILE_ID
+      ? 'Current'
+      : profileId;
+    const ok = profileId === CURRENT_PROFILE_ID
+      ? await saveCurrentProfile(json)
+      : await saveProfile(profileId, json);
+    if (ok) {
+      lastSavedJson.current = json;
+      setConfigStatus(`Saved to "${name}"`);
+    } else {
+      setConfigStatus(`Failed to save "${name}"`);
+    }
+  }, [currentTreeJson]);
+
+  // ---- Load profile from server ----
+  const loadFromProfile = useCallback(async (profileId: string) => {
+    const json = await loadProfile(profileId);
+    if (!json) {
+      setConfigStatus(`Failed to load profile`);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(json);
+      const normalized = normalizePanelNode(parsed);
+      if (normalized) {
+        lastSavedJson.current = json;
+        setRootNode(normalized);
+        setSelectedProfileId(profileId);
+        const name = profileId === CURRENT_PROFILE_ID ? 'Current' : profileId;
+        setConfigStatus(`Loaded "${name}"`);
+      } else {
+        setConfigStatus(`Invalid profile data`);
+      }
+    } catch {
+      setConfigStatus(`Failed to parse profile`);
+    }
+  }, []);
+
+  // ---- Save as new profile ----
+  const handleSaveAs = useCallback(async () => {
+    const name = prompt('Profile name:');
+    if (!name || !name.trim()) return;
+    const ok = await saveProfile(name.trim(), currentTreeJson());
+    if (ok) {
+      await refreshProfiles();
+      setSelectedProfileId(name.trim());
+      setConfigStatus(`Saved as "${name.trim()}"`);
+    } else {
+      setConfigStatus(`Failed to save "${name.trim()}"`);
+    }
+  }, [currentTreeJson, refreshProfiles]);
+
+  // ---- Delete profile ----
+  const handleDeleteProfile = useCallback(async () => {
+    if (selectedProfileId === CURRENT_PROFILE_ID) return;
+    const name = selectedProfileId;
+    if (!confirm(`Delete profile "${name}"?`)) return;
+    const ok = await deleteProfile(name);
+    if (ok) {
+      await refreshProfiles();
+      setSelectedProfileId(CURRENT_PROFILE_ID);
+      await loadFromProfile(CURRENT_PROFILE_ID);
+      setConfigStatus(`Deleted "${name}", switched to Current`);
+    } else {
+      setConfigStatus(`Failed to delete "${name}"`);
+    }
+  }, [selectedProfileId, refreshProfiles, loadFromProfile]);
+
+  // ---- Auto-load from server on mount ----
   useEffect(() => {
     let cancelled = false;
 
-    const loadCurrentConfig = async () => {
-      try {
-        const response = await fetch(CURRENT_CONFIG_API, { cache: 'no-store' });
-        if (cancelled) return;
+    const init = async () => {
+      await refreshProfiles();
+      if (cancelled) return;
 
-        if (response.status === 404) {
-          setConfigStatus(`No ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
-          return;
-        }
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const parsed = await response.json();
-        const normalized = normalizePanelNode(parsed);
+      // Check if a profile switch triggered a pending panel load
+      const pending = (window as any).__pendingPanelLoad;
+      if (pending) {
+        (window as any).__pendingPanelLoad = null;
+        const normalized = normalizePanelNode(pending);
         if (normalized) {
           lastSavedJson.current = JSON.stringify(toLegacyPanelNode(normalized), null, 2);
           setRootNode(normalized);
-          setConfigStatus(`Loaded from ${CURRENT_CONFIG_FILE_NAME}`);
+          setConfigStatus(`Loaded from profile`);
         } else {
-          setConfigStatus(`Invalid ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
+          setConfigStatus(`Invalid profile panel config`);
         }
-      } catch (error) {
         if (!cancelled) {
-          console.warn('Failed to load current panel config', error);
+          hasHydrated.current = true;
+          setProfilesLoading(false);
+        }
+        return;
+      }
+
+      // Load current config
+      try {
+        const res = await fetch(CURRENT_CONFIG_API, { cache: 'no-store' });
+        if (cancelled) return;
+        if (res.ok) {
+          const parsed = await res.json();
+          const normalized = normalizePanelNode(parsed);
+          if (normalized) {
+            lastSavedJson.current = JSON.stringify(toLegacyPanelNode(normalized), null, 2);
+            setRootNode(normalized);
+            setConfigStatus(`Loaded from ${CURRENT_CONFIG_FILE_NAME}`);
+          } else {
+            setConfigStatus(`Invalid ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
+          }
+        } else if (res.status === 404) {
+          setConfigStatus(`No ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
+        } else {
           setConfigStatus(`Cannot read ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
         }
+      } catch {
+        if (!cancelled) setConfigStatus(`Cannot read ${CURRENT_CONFIG_FILE_NAME}; empty panel`);
       } finally {
-        if (!cancelled) hasHydrated.current = true;
+        if (!cancelled) {
+          hasHydrated.current = true;
+          setProfilesLoading(false);
+        }
       }
     };
 
-    void loadCurrentConfig();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void init();
+    return () => { cancelled = true; };
+  }, [CURRENT_CONFIG_API, refreshProfiles]);
 
   // ---- Load panel-menu.json ----
   useEffect(() => {
@@ -126,35 +221,56 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
         if (isPanelKitMenuConfig(parsed)) {
           setPanelMenu(parsed);
         }
-      } catch (error) {
-        console.warn('Failed to load panel menu', error);
+      } catch {
+        // ignore
       }
     };
 
     void loadPanelMenu();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // ---- Auto-save to panel-config-current.json on change (after initial hydration) ----
+  // ---- Auto-save to panel-config-current.json on change ----
   useEffect(() => {
     if (!hasHydrated.current) return;
-    const json = JSON.stringify(toLegacyPanelNode(rootNode), null, 2);
+    const json = currentTreeJson();
     if (json === lastSavedJson.current) return;
 
+    // Expose rootNode for profile switch in App
+    (window as any).__panelBuilderRootNode = toLegacyPanelNode(rootNode);
+
     const timeoutId = window.setTimeout(() => {
-      void saveCurrentConfig(rootNode);
-    }, 250);
+      lastSavedJson.current = json;
+      void saveCurrentProfile(json);
+    }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [rootNode, saveCurrentConfig]);
+  }, [rootNode, currentTreeJson]);
 
-  // ---- File save / load ----
+  // ---- File save / load (unchanged) ----
+  const saveCurrentConfig = useCallback(async (node: PanelKitNode): Promise<boolean> => {
+    const json = JSON.stringify(toLegacyPanelNode(node), null, 2);
+    setConfigStatus(`Saving ${CURRENT_CONFIG_FILE_NAME}...`);
+    try {
+      const response = await fetch(CURRENT_CONFIG_API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: json,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      lastSavedJson.current = json;
+      setConfigStatus(`Saved to ${CURRENT_CONFIG_FILE_NAME}`);
+      return true;
+    } catch (error) {
+      console.warn('Failed to save current panel config', error);
+      setConfigStatus(`Autosave unavailable: ${CURRENT_CONFIG_FILE_NAME}`);
+      return false;
+    }
+  }, []);
+
   const handleSaveFile = async () => {
     const json = JSON.stringify(toLegacyPanelNode(rootNode), null, 2);
 
-    // Prefer File System Access API so the user can choose name & location
     const fsWindow = window as Window & {
       showSaveFilePicker?: (options?: {
         suggestedName?: string;
@@ -169,12 +285,7 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
       try {
         const handle = await fsWindow.showSaveFilePicker({
           suggestedName: CURRENT_CONFIG_FILE_NAME,
-          types: [
-            {
-              description: 'JSON Files',
-              accept: { 'application/json': ['.json'] },
-            },
-          ],
+          types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
         });
         const writable = await handle.createWritable();
         await writable.write(json);
@@ -183,16 +294,12 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
         setConfigStatus(`Exported to ${handle.name}; current updated`);
         return;
       } catch (err: unknown) {
-        if (
-          err instanceof DOMException &&
-          (err.name === 'AbortError' || err.name === 'SecurityError')
-        ) {
-          return; // user cancelled the picker
+        if (err instanceof DOMException && (err.name === 'AbortError' || err.name === 'SecurityError')) {
+          return;
         }
       }
     }
 
-    // Fallback: browser download (works everywhere)
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -280,8 +387,52 @@ export const PanelBuilder: React.FC<PanelBuilderProps> = ({ onBack }) => {
             </span>
           </div>
           <div className="h-4 w-[1px] bg-[#2d2e30]" />
-          <div className="text-[10px] font-mono text-gray-500 uppercase">
-            Project: Default Instrument Panel
+          {/* ── Profile switcher ── */}
+          <div className="flex items-center gap-1">
+            <select
+              className="bg-[#252628] border border-[#2d2e30] text-[11px] text-white rounded px-2 py-1 max-w-[160px] cursor-pointer outline-none focus:border-blue-500"
+              value={selectedProfileId}
+              onChange={async (e) => {
+                const newId = e.target.value;
+                if (newId !== selectedProfileId) {
+                  await saveToProfile(selectedProfileId);
+                  await loadFromProfile(newId);
+                }
+              }}
+              disabled={profilesLoading}
+            >
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.id === CURRENT_PROFILE_ID ? `⚡ ${p.name}` : p.name}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => void saveToProfile(selectedProfileId)}
+              className="p-1 hover:bg-[#252628] rounded text-gray-400 hover:text-emerald-400 transition-colors"
+              title="Save to profile"
+            >
+              <Save className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => void handleSaveAs()}
+              className="p-1 hover:bg-[#252628] rounded text-gray-400 hover:text-blue-400 transition-colors"
+              title="Save as new profile"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+
+            {selectedProfileId !== CURRENT_PROFILE_ID && (
+              <button
+                onClick={() => void handleDeleteProfile()}
+                className="p-1 hover:bg-[#252628] rounded text-gray-400 hover:text-red-400 transition-colors"
+                title="Delete profile"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 

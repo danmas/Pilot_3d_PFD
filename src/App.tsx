@@ -14,6 +14,19 @@ import { TelemetryProvider } from './context/TelemetryContext';
 import { UI_SETTINGS } from './ui-settings';
 import { telemetryRef } from './telemetryRef';
 import { aircraftControlsRef } from './aircraftControlsRef';
+import {
+  getProfiles as getPanelProfiles,
+  saveProfile as savePanelProfile,
+  loadProfile as loadPanelProfile,
+  saveCurrentProfile as saveCurrentPanelProfile,
+  CURRENT_PROFILE_ID,
+} from './stores/panelStore';
+import {
+  getProfiles as getServerProfiles,
+  loadProfile as loadServerProfile,
+  saveProfile as saveServerProfile,
+} from './stores/profileStore';
+import type { PanelProfile } from './stores/profileStore';
 
 const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
 
@@ -103,6 +116,11 @@ export default function App() {
   const [profileRunBusy, setProfileRunBusy] = useState(false);
   const [profileRunResult, setProfileRunResult] = useState<SimulatorProfileRunResult | null>(null);
   const [activeProfileReplay, setActiveProfileReplay] = useState<ActiveProfileReplay | null>(null);
+
+  // ── Profile state ──
+  const [profiles, setProfiles] = useState<PanelProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('default');
+  const [profilesLoading, setProfilesLoading] = useState(true);
 
   const frameRef = useRef(frameIndex);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -262,6 +280,51 @@ export default function App() {
       void loadSimulatorConfig();
     }
   }, [currentView, loadSimulatorConfig]);
+
+  // ── Load profiles on mount ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await getServerProfiles();
+        if (cancelled) return;
+        setProfiles(list);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setProfilesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Switch profile ──
+  const handleProfileChange = useCallback(async (profileId: string) => {
+    if (profileId === selectedProfileId) return;
+    // 1. Save current panel config to current
+    try {
+      const rootNode = (window as any).__panelBuilderRootNode;
+      if (rootNode) {
+        const json = JSON.stringify(rootNode, null, 2);
+        await saveCurrentPanelProfile(json);
+      }
+    } catch { /* ignore */ }
+
+    // 2. Load new profile
+    const profile = await loadServerProfile(profileId);
+    if (!profile) return;
+
+    // 3. If profile has a panel config linked, load it
+    if (profile.panelConfigName) {
+      const panelJson = await loadPanelProfile(profile.panelConfigName);
+      if (panelJson) {
+        // Trigger panel reload in PanelBuilder on next open
+        (window as any).__pendingPanelLoad = JSON.parse(panelJson);
+      }
+    }
+
+    setSelectedProfileId(profileId);
+  }, [selectedProfileId]);
 
   // ---- Flight Simulator & Recordings Poll ----
   const loadRecordings = useCallback(async () => {
@@ -948,6 +1011,29 @@ export default function App() {
             <div>
               <h1 className="text-white font-medium text-lg tracking-tight">Flight Display</h1>
               <p className="text-white/50 text-sm">saved PanelBuilder layout &middot; telemetry-frame.v1</p>
+            </div>
+
+            {/* ── Profile selector ── */}
+            <div className="h-4 w-[1px] bg-white/10" />
+            <div className="flex items-center gap-1">
+              <select
+                className="bg-white/10 border border-white/10 text-xs text-white rounded px-2 py-1.5 max-w-[160px] cursor-pointer outline-none focus:border-blue-500"
+                value={selectedProfileId}
+                onChange={(e) => void handleProfileChange(e.target.value)}
+                disabled={profilesLoading}
+              >
+                {profilesLoading ? (
+                  <option value="">Loading...</option>
+                ) : profiles.length === 0 ? (
+                  <option value="">No profiles</option>
+                ) : (
+                  profiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.panelConfigName ? ` (${p.panelConfigName})` : ''}
+                    </option>
+                  ))
+                )}
+              </select>
             </div>
           </div>
 

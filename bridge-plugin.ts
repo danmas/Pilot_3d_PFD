@@ -108,7 +108,8 @@ type RawMonitorState = {
 // ── constants ──────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const PANEL_CONFIG_CURRENT_PATH = path.join(PROJECT_ROOT, "panel-config-current.json");
+const PANEL_CONFIG_CURRENT_PATH = path.join(__dirname, "data", "panels", "panel-config-current.json");
+const PANELS_DIR = path.join(__dirname, "data", "panels");
 const SIMULATOR_CONFIG_PATH = path.join(PROJECT_ROOT, "simulator-config.json");
 const PANEL_MENU_PATH = path.join(__dirname, "panel-menu.json");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
@@ -510,6 +511,159 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             const menu = readPanelMenu();
             if (!menu) { sendJson(res, { error: "panel menu not found" }, 404); return; }
             sendJson(res, menu); return;
+          }
+
+          // API: Panel profiles (data/panels/)
+          const PANELS_PREFIX = "/api/panels/";
+          if (url.pathname?.startsWith(PANELS_PREFIX)) {
+            console.log("[api] panels request:", req.method, url.pathname);
+            const profileName = decodeURIComponent(url.pathname.slice(PANELS_PREFIX.length));
+
+            // GET /api/panels/ — list all profiles
+            if (req.method === "GET" && !profileName) {
+              try {
+                fs.mkdirSync(PANELS_DIR, { recursive: true });
+                const files = fs.readdirSync(PANELS_DIR).filter(f => f.endsWith(".json"));
+                console.log("[api] panels files:", files, "dir:", PANELS_DIR);
+                const profiles = files.map(f => ({
+                  name: f.replace(/\.json$/, ""),
+                  path: f,
+                  updatedAt: fs.statSync(path.join(PANELS_DIR, f)).mtime.toISOString(),
+                }));
+                console.log("[api] panels result:", JSON.stringify(profiles));
+                sendJson(res, profiles); return;
+              } catch {
+                sendJson(res, { error: "cannot list panels" }, 500); return;
+              }
+            }
+
+            // GET /api/panels/:name — load profile
+            if (req.method === "GET" && profileName) {
+              const filePath = path.join(PANELS_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "panel not found" }, 404); return;
+                }
+                const raw = fs.readFileSync(filePath, "utf8");
+                const parsed = JSON.parse(raw);
+                sendJson(res, { name: profileName, data: parsed }); return;
+              } catch {
+                sendJson(res, { error: "cannot read panel" }, 500); return;
+              }
+            }
+
+            // PUT /api/panels/:name — save profile
+            if (req.method === "PUT" && profileName) {
+              const body = await readRequestBody(req);
+              const data = body?.data;
+              if (!data || !isPanelConfigNode(data)) {
+                sendJson(res, { error: "invalid panel config" }, 400); return;
+              }
+              try {
+                fs.mkdirSync(PANELS_DIR, { recursive: true });
+                fs.writeFileSync(path.join(PANELS_DIR, profileName + ".json"), JSON.stringify(data, null, 2) + "\n", "utf8");
+                sendJson(res, { ok: true, name: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot write panel" }, 500); return;
+              }
+            }
+
+            // DELETE /api/panels/:name — delete profile
+            if (req.method === "DELETE" && profileName) {
+              const filePath = path.join(PANELS_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "panel not found" }, 404); return;
+                }
+                fs.unlinkSync(filePath);
+                sendJson(res, { ok: true, name: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot delete panel" }, 500); return;
+              }
+            }
+
+            sendJson(res, { error: "method not allowed" }, 405); return;
+          }
+
+          // API: Profiles (data/profiles/)
+          const PROFILES_DIR = path.join(__dirname, "data", "profiles");
+          const PROFILES_PREFIX = "/api/profiles/";
+          if (url.pathname?.startsWith(PROFILES_PREFIX)) {
+            console.log("[api] profiles request:", req.method, url.pathname);
+            const profileName = decodeURIComponent(url.pathname.slice(PROFILES_PREFIX.length));
+
+            // GET /api/profiles/ — list all profiles
+            if (req.method === "GET" && !profileName) {
+              try {
+                fs.mkdirSync(PROFILES_DIR, { recursive: true });
+                const files = fs.readdirSync(PROFILES_DIR).filter(f => f.endsWith(".json"));
+                const profiles = files.map(f => {
+                  const raw = fs.readFileSync(path.join(PROFILES_DIR, f), "utf8");
+                  try {
+                    const parsed = JSON.parse(raw);
+                    return {
+                      id: f.replace(/\.json$/, ""),
+                      name: parsed.name || f.replace(/\.json$/, ""),
+                      panelConfigName: parsed.panelConfigName || null,
+                      updatedAt: fs.statSync(path.join(PROFILES_DIR, f)).mtime.toISOString(),
+                    };
+                  } catch {
+                    return null;
+                  }
+                }).filter(Boolean);
+                sendJson(res, profiles); return;
+              } catch {
+                sendJson(res, { error: "cannot list profiles" }, 500); return;
+              }
+            }
+
+            // GET /api/profiles/:name — load profile
+            if (req.method === "GET" && profileName) {
+              const filePath = path.join(PROFILES_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "profile not found" }, 404); return;
+                }
+                const raw = fs.readFileSync(filePath, "utf8");
+                const parsed = JSON.parse(raw);
+                // Add current config status
+                const panelConfigName = parsed.panelConfigName || null;
+                sendJson(res, { id: profileName, name: parsed.name || profileName, panelConfigName, updatedAt: fs.statSync(filePath).mtime.toISOString() }); return;
+              } catch {
+                sendJson(res, { error: "cannot read profile" }, 500); return;
+              }
+            }
+
+            // PUT /api/profiles/:name — save profile
+            if (req.method === "PUT" && profileName) {
+              const body = await readRequestBody(req);
+              const name = typeof body?.name === "string" ? body.name : profileName;
+              const panelConfigName = typeof body?.panelConfigName === "string" ? body.panelConfigName : null;
+              try {
+                fs.mkdirSync(PROFILES_DIR, { recursive: true });
+                fs.writeFileSync(path.join(PROFILES_DIR, profileName + ".json"),
+                  JSON.stringify({ name, panelConfigName }, null, 2) + "\n", "utf8");
+                sendJson(res, { ok: true, id: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot write profile" }, 500); return;
+              }
+            }
+
+            // DELETE /api/profiles/:name — delete profile
+            if (req.method === "DELETE" && profileName) {
+              const filePath = path.join(PROFILES_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "profile not found" }, 404); return;
+                }
+                fs.unlinkSync(filePath);
+                sendJson(res, { ok: true, id: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot delete profile" }, 500); return;
+              }
+            }
+
+            sendJson(res, { error: "method not allowed" }, 405); return;
           }
 
           // API: capture
