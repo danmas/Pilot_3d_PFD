@@ -1,18 +1,3 @@
-/// <reference types="@react-three/fiber" />
-/**
- * AircraftModel.tsx — модель самолёта в 3D-сцене.
- *
- * Поддерживает два режима:
- *   1. Процедурные примитивы Three.js (дефолт)
- *   2. Загрузка .glb модели через useGLTF (@react-three/drei)
- *
- * Ориентация:
- *   rollDeg  → ось Z (крен)
- *   pitchDeg → ось X (тангаж)
- *   headingDeg → ось Y (рыскание / курс)
- *
- * Порядок вращения: Y → X → Z (yaw → pitch → roll).
- */
 import React, { useMemo, useRef, useEffect, Suspense, memo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
@@ -42,6 +27,9 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
   useFrame((_state, delta) => {
     const g = groupRef.current;
     if (!g) return;
+
+    // Fix: sync group rotation order with target Euler (YXZ = yaw→pitch→roll)
+    g.rotation.order = 'YXZ';
 
     let pitchDeg = 0, rollDeg = 0, headingDeg = 0;
 
