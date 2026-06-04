@@ -25,9 +25,13 @@ describe('ChartDecimator', () => {
   });
 
   it('filters by time window', () => {
-    const samples = makeSamples([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0);
-    const result = toDisplayPoints(samples, 0.1, 0.3, 10);
-    // Only points with timeSec between 0.1 and 0.3
+    // Filtering is now the caller's responsibility (samplesInWindow).
+    // toDisplayPoints accepts pre-filtered samples as-is.
+    // This test verifies that pre-filtered data passes through correctly.
+    const allSamples = makeSamples([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0);
+    // Pre-filter: only points with timeSec between 0.1 and 0.3
+    const filtered = allSamples.filter(s => s.timeSec >= 0.1 && s.timeSec <= 0.3);
+    const result = toDisplayPoints(filtered, 0.1, 0.3, 10);
     expect(result.length).toBeGreaterThanOrEqual(2);
     for (const p of result) {
       expect(p.x).toBeGreaterThanOrEqual(0.1);

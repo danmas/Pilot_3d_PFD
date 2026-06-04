@@ -6,6 +6,9 @@ import type { SamplePoint } from './types.js';
 
 export const RING_CAPACITY = 3000;
 
+/** Small epsilon for float time comparisons */
+const EPS = 1e-9;
+
 export class RingBuffer {
   private readonly buf: SamplePoint[];
   private head: number = 0;
@@ -38,8 +41,8 @@ export class RingBuffer {
       const pt = this.buf[idx];
       if (!pt) continue;
       if (!pt.valid) continue;
-      if (pt.timeSec > tMax) continue;
-      if (pt.timeSec < tMin) break; // stopped — earlier points are even older
+      if (pt.timeSec > tMax + EPS) continue;
+      if (pt.timeSec < tMin - EPS) break; // stopped — earlier points are even older
       result.push(pt);
     }
 

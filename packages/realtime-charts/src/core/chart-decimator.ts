@@ -1,33 +1,31 @@
 // ─── Chart Decimator ───
-// Pure functions: filters samples and decimates for display.
+// Pure functions: decimates samples for display.
 // Preserves peaks and valleys using minMaxBuckets strategy.
+//
+// NOTE: Caller (DataHub.samplesInWindow) already filters by valid + [tMin, tMax].
+// We accept samples as-is — no redundant re-filtering.
 
 import type { SamplePoint, DisplayPoint } from './types.js';
 
-/** Filter valid samples within [tMin, tMax] */
-function filterSamples(samples: SamplePoint[], tMin: number, tMax: number): SamplePoint[] {
-  return samples.filter(s => s.valid && s.timeSec >= tMin && s.timeSec <= tMax);
-}
-
 /** Uniform stride — pick evenly-spaced points when we have few samples */
-function uniformStride(filtered: SamplePoint[], maxPoints: number): DisplayPoint[] {
+function uniformStride(samples: SamplePoint[], maxPoints: number): DisplayPoint[] {
   const cap = Math.max(2, maxPoints);
-  const len = filtered.length;
+  const len = samples.length;
   if (len <= cap) {
-    return filtered.map(s => ({ x: s.timeSec, y: s.value }));
+    return samples.map(s => ({ x: s.timeSec, y: s.value }));
   }
   const step = len / cap;
   const result: DisplayPoint[] = [];
   for (let i = 0; i < cap; i++) {
     const idx = Math.min(len - 1, Math.floor(i * step));
-    result.push({ x: filtered[idx].timeSec, y: filtered[idx].value });
+    result.push({ x: samples[idx].timeSec, y: samples[idx].value });
   }
   return result;
 }
 
 /** MinMax buckets — preserves peaks/valleys when many points */
-function minMaxBuckets(filtered: SamplePoint[], maxPoints: number): DisplayPoint[] {
-  const len = filtered.length;
+function minMaxBuckets(samples: SamplePoint[], maxPoints: number): DisplayPoint[] {
+  const len = samples.length;
   const bucketCount = Math.max(1, Math.floor(maxPoints / 2));
   const bucketSize = Math.ceil(len / bucketCount);
   const result: DisplayPoint[] = [];
@@ -41,17 +39,17 @@ function minMaxBuckets(filtered: SamplePoint[], maxPoints: number): DisplayPoint
     let maxIdx = start;
 
     for (let i = start + 1; i < end; i++) {
-      if (filtered[i].value < filtered[minIdx].value) minIdx = i;
-      if (filtered[i].value > filtered[maxIdx].value) maxIdx = i;
+      if (samples[i].value < samples[minIdx].value) minIdx = i;
+      if (samples[i].value > samples[maxIdx].value) maxIdx = i;
     }
 
     // Emit in time order: min first, then max (if different)
     const first = Math.min(minIdx, maxIdx);
     const second = Math.max(minIdx, maxIdx);
 
-    result.push({ x: filtered[first].timeSec, y: filtered[first].value });
+    result.push({ x: samples[first].timeSec, y: samples[first].value });
     if (first !== second) {
-      result.push({ x: filtered[second].timeSec, y: filtered[second].value });
+      result.push({ x: samples[second].timeSec, y: samples[second].value });
     }
   }
 
@@ -69,15 +67,14 @@ function minMaxBuckets(filtered: SamplePoint[], maxPoints: number): DisplayPoint
  */
 export function toDisplayPoints(
   samples: SamplePoint[],
-  tMin: number,
-  tMax: number,
+  _tMin: number,
+  _tMax: number,
   maxPoints: number,
 ): DisplayPoint[] {
-  const filtered = filterSamples(samples, tMin, tMax);
   const cap = Math.max(2, maxPoints);
 
-  if (filtered.length <= cap) {
-    return uniformStride(filtered, cap);
+  if (samples.length <= cap) {
+    return uniformStride(samples, cap);
   }
-  return minMaxBuckets(filtered, cap);
+  return minMaxBuckets(samples, cap);
 }

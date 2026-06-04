@@ -117,6 +117,18 @@ function drawStrip(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText(label, x + 6, y + 2);
+
+  // Y-scale values (right side, only if strip is tall enough)
+  if (h >= 30) {
+    ctx.fillStyle = THEME.textDim;
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    const maxLabel = yMax.toFixed(yRange < 10 ? 1 : 0);
+    const minLabel = yMin.toFixed(yRange < 10 ? 1 : 0);
+    ctx.fillText(maxLabel, x + w - 4, y + 8);
+    ctx.fillText(minLabel, x + w - 4, y + h - 8);
+  }
 }
 
 /**

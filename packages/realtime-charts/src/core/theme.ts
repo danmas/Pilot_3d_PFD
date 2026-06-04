@@ -43,3 +43,11 @@ export const OVERLAY_LAYOUT = {
   legendLineHeight: 16,
   maxSeries: 24,
 } as const;
+
+/** Get plot margins for cursor time calculation */
+export function getPlotMargins(mode: 'stacked' | 'overlay'): { left: number; right: number } {
+  if (mode === 'stacked') {
+    return { left: STACKED_LAYOUT.leftMargin, right: STACKED_LAYOUT.rightMargin };
+  }
+  return { left: OVERLAY_LAYOUT.plotLeft, right: OVERLAY_LAYOUT.plotRight };
+}

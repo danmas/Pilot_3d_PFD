@@ -3,7 +3,7 @@
 // Pass 1: decimate + compute global Y range
 // Pass 2: convert to pixel coordinates with shared Y scale
 
-import type { ChartStripSnapshot, ChartViewState, DisplayPoint, ChartViewState } from '../core/types.js';
+import type { ChartStripSnapshot, DisplayPoint } from '../core/types.js';
 import { OVERLAY_LAYOUT, paletteColor, THEME } from '../core/theme.js';
 import { toDisplayPoints } from '../core/chart-decimator.js';
 import { xFromTime } from '../core/time-window.js';
@@ -152,6 +152,29 @@ export function renderOverlay(
   const { seriesList, yMin, yMax } = computeOverlaySeries(
     snapshots, paramKeys, viewStartSec, viewEndSec, plotWidth,
   );
+
+  // ── Y-axis ticks ──
+  if (seriesList.length > 0) {
+    const yRange = yMax - yMin || 1;
+    const tickCount = 4;
+    ctx.fillStyle = THEME.textDim;
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i <= tickCount; i++) {
+      const val = yMin + (yRange * i) / tickCount;
+      const tickY = plotBottom - ((val - yMin) / yRange) * (plotHeight - 4) - 2;
+      ctx.fillText(val.toFixed(yRange < 10 ? 1 : 0), plotLeft - 6, tickY);
+      // Grid line
+      ctx.strokeStyle = THEME.border;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.moveTo(plotLeft + 1, tickY);
+      ctx.lineTo(plotLeft + plotWidth, tickY);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
 
   if (seriesList.length === 0) {
     // No data message

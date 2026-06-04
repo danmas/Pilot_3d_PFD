@@ -8,6 +8,7 @@ import type { ChartViewState, ChartStripSnapshot, ChartDataSource } from '../cor
 import { createViewState, updateViewRange, applyZoom, timeFromX } from '../core/time-window.js';
 import { computeStripLayout, renderStackedStatic, renderStackedCursor } from '../renderers/stacked-renderer.js';
 import { computeOverlaySeries, computeOverlayLayout, renderOverlay, renderOverlayCursor } from '../renderers/overlay-renderer.js';
+import { getPlotMargins } from '../core/theme.js';
 
 export type ChartMode = 'stacked' | 'overlay';
 
@@ -33,9 +34,9 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
   const backBufferRef = useRef<HTMLCanvasElement | null>(null);
   const viewStateRef = useRef<ChartViewState>(createViewState());
   const lastRevisionRef = useRef<number>(-1);
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cursorXRef = useRef<number | null>(null);
+  const cursorDirtyRef = useRef<boolean>(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [cursorX, setCursorX] = useState<number | null>(null);
 
   // ─── Auto-size via ResizeObserver ───
   useEffect(() => {
@@ -69,15 +70,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
     lastRevisionRef.current = -1; // force re-render on resize
   }, [size]);
 
-  // ─── Update view range when session time changes ───
-  useEffect(() => {
-    const interval = setInterval(() => {
-      updateViewRange(viewStateRef.current, dataSource.getSessionTimeSec());
-    }, 100);
-    return () => clearInterval(interval);
-  }, [dataSource]);
-
-  // ─── Main render loop ───
+  // ─── Main rAF render loop (replaces setInterval + separate view-range timer) ───
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || size.width === 0) return;
@@ -85,80 +78,113 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Scale for HiDPI
     const w = size.width;
     const h = size.height;
-
     const state = viewStateRef.current;
-    const curRevision = dataSource.getRevision();
 
-    if (curRevision !== lastRevisionRef.current) {
+    // Update sliding window every frame
+    updateViewRange(state, dataSource.getSessionTimeSec());
+
+    const curRevision = dataSource.getRevision();
+    const dataChanged = curRevision !== lastRevisionRef.current;
+    const cursorDirty = cursorDirtyRef.current;
+    const cx = cursorXRef.current;
+
+    // ── Draw data (revision-gated) ──
+    if (dataChanged) {
       lastRevisionRef.current = curRevision;
 
       if (mode === 'stacked') {
-        // Debounce for stacked (50ms)
-        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = setTimeout(() => {
-          const strips = computeStripLayout(paramKeys, w, h);
-          const snapshots = dataSource.chartSnapshots(
-            paramKeys.slice(0, 20),
-            state.viewStartSec,
-            state.viewEndSec,
-          );
+        const strips = computeStripLayout(paramKeys, w, h);
+        const snapshots = dataSource.chartSnapshots(
+          paramKeys.slice(0, 20),
+          state.viewStartSec,
+          state.viewEndSec,
+        );
 
-          // Use back-buffer for static content
-          if (!backBufferRef.current) {
-            backBufferRef.current = document.createElement('canvas');
-          }
-          const bb = backBufferRef.current;
-          bb.width = w;
-          bb.height = h;
-          const bbCtx = bb.getContext('2d');
-          if (bbCtx) {
-            renderStackedStatic(bbCtx, strips, snapshots, state.viewStartSec, state.viewEndSec);
-          }
-
-          // Blit back-buffer to main canvas
-          ctx.clearRect(0, 0, w, h);
-          ctx.drawImage(bb, 0, 0);
-
-          // Draw cursor on top
-          if (cursorX !== null) {
-            renderStackedCursor(ctx, cursorX, w, h);
-          }
-        }, 50);
+        if (!backBufferRef.current) {
+          backBufferRef.current = document.createElement('canvas');
+        }
+        const bb = backBufferRef.current;
+        bb.width = w;
+        bb.height = h;
+        const bbCtx = bb.getContext('2d');
+        if (bbCtx) {
+          renderStackedStatic(bbCtx, strips, snapshots, state.viewStartSec, state.viewEndSec);
+        }
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(bb, 0, 0);
       } else {
-        // Overlay — immediate
         const snapshots = dataSource.chartSnapshots(
           paramKeys.slice(0, 24),
           state.viewStartSec,
           state.viewEndSec,
         );
         renderOverlay(ctx, paramKeys, snapshots, state.viewStartSec, state.viewEndSec, w, h);
-
-        if (cursorX !== null) {
-          const layout = computeOverlayLayout(Math.min(paramKeys.length, 24), w, h);
-          renderOverlayCursor(ctx, cursorX, layout.plotLeft, layout.plotWidth, layout.plotTop, layout.plotHeight);
-        }
       }
     }
-  }, [dataSource, paramKeys, mode, cursorX, size]);
 
-  // ─── Render on revision change ───
+    // ── Draw cursor (every frame when active or dirty) ──
+    if (cx !== null && (dataChanged || cursorDirty)) {
+      if (mode === 'stacked') {
+        // Blit back-buffer to erase old cursor, then draw new one
+        if (!dataChanged && backBufferRef.current) {
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(backBufferRef.current, 0, 0);
+        }
+        renderStackedCursor(ctx, cx, w, h);
+      } else {
+        // Overlay: redraw (covers old cursor line)
+        if (!dataChanged) {
+          const snapshots = dataSource.chartSnapshots(
+            paramKeys.slice(0, 24),
+            state.viewStartSec,
+            state.viewEndSec,
+          );
+          renderOverlay(ctx, paramKeys, snapshots, state.viewStartSec, state.viewEndSec, w, h);
+        }
+        const layout = computeOverlayLayout(Math.min(paramKeys.length, 24), w, h);
+        renderOverlayCursor(ctx, cx, layout.plotLeft, layout.plotWidth, layout.plotTop, layout.plotHeight);
+      }
+      cursorDirtyRef.current = false;
+    }
+  }, [dataSource, paramKeys, mode, size]);
+
+  // ─── rAF loop + visibility guard ───
   useEffect(() => {
-    const interval = setInterval(render, 50);
-    return () => clearInterval(interval);
+    let rafId: number;
+    let wasHidden = false;
+
+    const loop = () => {
+      if (document.visibilityState === 'hidden') {
+        wasHidden = true;
+        rafId = requestAnimationFrame(loop);
+        return;
+      }
+      // Force one full frame after returning from hidden tab
+      if (wasHidden) {
+        lastRevisionRef.current = -1;
+        wasHidden = false;
+      }
+      render();
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
   }, [render]);
 
   // ─── Mouse handlers ───
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (mode === 'overlay') {
       const px = e.nativeEvent.offsetX * devicePixelRatio;
-      setCursorX(px);
+      cursorXRef.current = px;
+      cursorDirtyRef.current = true;
       if (onCursorChange) {
         const dt = Math.max(0.001, viewStateRef.current.viewEndSec - viewStateRef.current.viewStartSec);
         const viewW = size.width;
-        const ratio = (px - 56) / (viewW - 56 - 12);
+        const m = getPlotMargins('overlay');
+        const ratio = (px - m.left) / (viewW - m.left - m.right);
         const timeSec = viewStateRef.current.viewStartSec + ratio * dt;
         onCursorChange(timeSec);
       }
@@ -168,16 +194,25 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (mode === 'stacked') {
       const px = e.nativeEvent.offsetX * devicePixelRatio;
-      setCursorX(px);
-      if (onCursorChange) {
+      // Toggle: clicking same spot hides cursor
+      if (cursorXRef.current !== null && Math.abs(cursorXRef.current - px) < 5) {
+        cursorXRef.current = null;
+      } else {
+        cursorXRef.current = px;
+      }
+      cursorDirtyRef.current = true;
+      if (cursorTimeSecRef && cursorXRef.current !== null && onCursorChange) {
         const dt = Math.max(0.001, viewStateRef.current.viewEndSec - viewStateRef.current.viewStartSec);
         const viewW = size.width;
-        const ratio = (px - 50) / (viewW - 50 - 10);
+        const m = getPlotMargins('stacked');
+        const ratio = (px - m.left) / (viewW - m.left - m.right);
         const timeSec = viewStateRef.current.viewStartSec + ratio * dt;
         onCursorChange(timeSec);
+      } else if (cursorTimeSecRef && cursorXRef.current === null && onCursorChange) {
+        onCursorChange(-1);
       }
     }
-  }, [mode, onCursorChange, size]);
+  }, [mode, onCursorChange, size, cursorTimeSecRef]);
 
   const handleMouseUp = useCallback(() => {
     // Keep cursor visible after drag end

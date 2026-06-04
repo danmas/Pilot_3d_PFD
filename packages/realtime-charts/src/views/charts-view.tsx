@@ -6,24 +6,15 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ChartsPanel, type ChartMode } from '../components/charts-panel.jsx';
 import { PFDTelemetryHub, paramsFromCatalog, frameToValuesFromCatalog } from '../core/pfd-adapter.js';
 
-// These are injected by the host app at mount time
-let catalog: Array<{ key: string; comment: string }> | null = null;
-
-/**
- * Initialize the charts view with FIELD_CATALOG.
- * Call this once from the host app (e.g., App.tsx module level).
- */
-export function initCharts(fieldCatalog: Array<{ key: string; comment: string }>): void {
-  catalog = fieldCatalog;
-}
-
 export interface ChartsViewProps {
   frame: Record<string, unknown>;
   epochMs: number;
   initialMode?: ChartMode;
+  /** FIELD_CATALOG from host app — passed as prop, not global singleton */
+  catalog: Array<{ key: string; comment: string }>;
 }
 
-export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, initialMode = 'stacked' }) => {
+export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, catalog, initialMode = 'stacked' }) => {
   const hubRef = useRef<PFDTelemetryHub | null>(null);
   const [keys, setKeys] = useState<string[]>([]);
   const [mode, setMode] = useState<ChartMode>(initialMode);
@@ -32,18 +23,15 @@ export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, initialM
   const cursorTimeSecRef = useRef<number>(-1);
   const [cursorTimeLabel, setCursorTimeLabel] = useState<string | null>(null);
 
-  // Initialize hub once
+  // Initialize hub when catalog is provided
   useEffect(() => {
-    if (!catalog) {
-      console.warn('[ChartsView] FIELD_CATALOG not initialized. Call initCharts() first.');
-      return;
-    }
     const params = paramsFromCatalog(catalog);
-    const converter = (f: Record<string, unknown>) => frameToValuesFromCatalog(catalog!, f);
+    const converter = (f: Record<string, unknown>) => frameToValuesFromCatalog(catalog, f);
     const hub = new PFDTelemetryHub(params, converter);
     hubRef.current = hub;
     setKeys(hub.getActiveKeys());
-  }, []);
+    return () => { hub.destroy(); };
+  }, [catalog]);
 
   // Ingest each new frame
   useEffect(() => {

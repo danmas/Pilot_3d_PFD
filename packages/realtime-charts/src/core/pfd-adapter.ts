@@ -41,6 +41,7 @@ export class PFDTelemetryHub {
   chartSnapshots(keys: string[], tMin: number, tMax: number): ChartStripSnapshot[] {
     return this.hub.chartSnapshots(keys, tMin, tMax);
   }
+  destroy(): void { this.hub.destroy(); }
 }
 
 /**

@@ -12,5 +12,5 @@ export { createRawSlotHub, ingestRawFrame } from './core/raw-slot-adapter.js';
 // React components
 export { ChartsPanel } from './components/charts-panel.jsx';
 export type { ChartMode, ChartsPanelProps } from './components/charts-panel.jsx';
-export { ChartsView, initCharts } from './views/charts-view.jsx';
+export { ChartsView } from './views/charts-view.jsx';
 export type { ChartsViewProps } from './views/charts-view.jsx';

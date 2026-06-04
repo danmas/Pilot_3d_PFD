@@ -28,7 +28,7 @@ import {
 } from './stores/profileStore';
 import type { PanelProfile } from './stores/profileStore';
 import { LatencyOverlay, addSample } from './components/LatencyMonitor';
-import { ChartsView, initCharts } from '../packages/realtime-charts/src/views/charts-view.jsx';
+import { ChartsView } from '../packages/realtime-charts/src/views/charts-view.jsx';
 import { FIELD_CATALOG } from '../field-catalog';
 
 const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
@@ -288,9 +288,6 @@ export default function App() {
     const id = window.setInterval(loadSourceStatus, 1500);
     return () => window.clearInterval(id);
   }, [loadSourceStatus, loadSimulatorConfig, loadSimulatorProfiles, loadSimulatorInitialPresets]);
-
-  // Init charts with FIELD_CATALOG
-  initCharts(FIELD_CATALOG);
 
   useEffect(() => {
     if (!sourceStatus) return;
@@ -929,6 +926,7 @@ export default function App() {
           <ChartsView
             frame={frame}
             epochMs={epochMs}
+            catalog={FIELD_CATALOG}
           />
         </div>
       </div>

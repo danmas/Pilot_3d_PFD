@@ -92,4 +92,16 @@ export class DataHub {
   getSessionStartMs(): number {
     return this.sessionStartMs;
   }
+
+  /** Release all buffers and reset state */
+  destroy(): void {
+    this.buffers.clear();
+    this.paramIndex.clear();
+    this.paramDisplayName.clear();
+    this.activeKeys = [];
+    this.revision = 0;
+    this.sessionTimeSec = 0;
+    this.sessionStartMs = 0;
+    this.initialized = false;
+  }
 }
