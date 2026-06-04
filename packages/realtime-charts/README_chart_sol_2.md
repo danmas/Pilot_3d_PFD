@@ -165,7 +165,8 @@ useEffect(() => {
    curl -s http://localhost:3410/api/pfd/current | grep "_t0_ms"
    ```
 2. Если `_t0_ms` нет — bridge не перезапущен после добавления полей. Перезапустить `npm run dev`.
-3. Если `_t0_ms` есть, но индикатор не показывает значения — проверить консоль браузера на ошибки импорта `chart-latency.js`.
+3. Если `_t0_ms` есть, но индикатор не показывает значения — проверить консоль браузера на ошибки импорта `chart-late
+ncy.js`.
 
 ---
 
@@ -198,13 +199,15 @@ Latency-метрика показывает отличные цифры (P50 ~16
 Идея: дорогую фазу (snapshots + decimation + Y-range) делать только при новых данных. Дешёвую (pixel mapping + draw) — каждый кадр.
 
 **Stacked:**
-- `dataChanged` → отрисовать back-buffer (дорого)
-- Каждый кадр → **blit back-buffer на canvas** (дёшево: drawImage)
-- Точки «скользят» вместе с окном, т.к. back-buffer статичен, а blit каждый кадр
+- `dataChanged` → `dataSource.chartSnapshots()` + `toDisplayPoints()` (дорого), сохранить `cachedDisplayPoints[][]` и `cachedStrips`
+- Каждый кадр → **пересчитать пиксельные координаты** из кэшированных `DisplayPoint[]` с текущим окном + отрисовать (`renderStackedCached`)
+- Без запросов к DataHub и повторной децимации
+
+**Почему back-buffer не работает:** back-buffer «запекает» пиксели линий на момент отрисовки. При скольжении окна пиксели в буфере не двигаются — залипание до следующего кадра данных. Нужен именно пересчёт пиксельных координат каждый кадр.
 
 **Overlay:**
 - `dataChanged` → `computeOverlaySeries()` (snapshots + decimation + Y-range), сохранить `cachedSeriesList` и `cachedYMin/YMax`
-- Каждый кадр → **пересчитать пиксельные координаты** из кэшированных `DisplayPoint[]` с текущим окном + отрисовать
+- Каждый кадр → **пересчитать пиксельные координаты** из кэшированных `DisplayPoint[]` с текущим окном + отрисовать (`renderOverlayCached`)
 - Без дорогих запросов к DataHub и повторной децимации
 
 ### Результат
@@ -215,6 +218,10 @@ Latency-метрика показывает отличные цифры (P50 ~16
 
 ### Реализация
 
-**Stacked** (`charts-panel.tsx`): вынести `ctx.clearRect + ctx.drawImage(bb)` за пределы `if (dataChanged)`.
+**Stacked** (`charts-panel.tsx`): кэш `cachedStackedRef` (`{strips, displayPoints: DisplayPoint[][]}`). При `dataChanged` — запрос snapshots, децимация, сохранение в кэш. Без `dataChanged` — `renderStackedCached()` с пересчётом пикселей под текущее окно. Back-buffer удалён.
 
-**Overlay** (`charts-panel.tsx`): добавить `cachedOverlayRef` (`{seriesList, yMin, yMax, viewStartSec, viewEndSec}`). При `dataChanged` — обновить кэш + отрисовать. Без `dataChanged` — пересчитать пиксели из кэша и отрисовать.
+**Stacked** (`stacked-renderer.ts`): новая функция `renderStackedCached()` — принимает pre-decimated `DisplayPoint[][]`, для каждой полосы вызывает `drawStrip()` с текущим окном (pixel mapping внутри `drawStrip` — строка 104: `const px = x + ((points[i].x - viewStartSec) / dt) * w`).
+
+**Overlay** (`charts-panel.tsx`): кэш `cachedOverlayRef` (`{seriesList, yMin, yMax}`). При `dataChanged` — `computeOverlaySeries()` + кэш. Без `dataChanged` — `renderOverlayCached()`.
+
+**Overlay** (`overlay-renderer.ts`): новая функция `renderOverlayCached()` — пропускает Pass 1 (snapshots + decimation + Y-range), только pixel mapping (строка 293: `const px = plotLeft + ((entry.path[i].x - viewStartSec) / dt) * plotWidth`) + отрисовка.

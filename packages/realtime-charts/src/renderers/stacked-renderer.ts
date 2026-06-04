@@ -153,6 +153,25 @@ export function renderStackedStatic(
 }
 
 /**
+ * Render all strips from cached (pre-decimated) display points.
+ * Re-maps pixel coords with current view window — for smooth sliding.
+ */
+export function renderStackedCached(
+  ctx: CanvasRenderingContext2D,
+  strips: StripRegion[],
+  cachedPoints: DisplayPoint[][],
+  keys: string[],
+  viewStartSec: number,
+  viewEndSec: number,
+): void {
+  for (let i = 0; i < strips.length; i++) {
+    const strip = strips[i];
+    const points = cachedPoints[i] ?? [];
+    drawStrip(ctx, strip, points, keys[i] ?? strip.key, i, viewStartSec, viewEndSec);
+  }
+}
+
+/**
  * Render cursor line for stacked mode (full height, dashed).
  */
 export function renderStackedCursor(

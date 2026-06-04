@@ -4,12 +4,13 @@
 // Self-sizing via ResizeObserver — no width/height props needed.
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import type { ChartViewState, ChartStripSnapshot, ChartDataSource } from '../core/types.js';
+import type { ChartViewState, ChartStripSnapshot, ChartDataSource, DisplayPoint } from '../core/types.js';
 import { createViewState, updateViewRange, applyZoom, timeFromX } from '../core/time-window.js';
-import { computeStripLayout, renderStackedStatic, renderStackedCursor } from '../renderers/stacked-renderer.js';
+import { computeStripLayout, renderStackedStatic, renderStackedCached, renderStackedCursor } from '../renderers/stacked-renderer.js';
 import { computeOverlaySeries, computeOverlayLayout, renderOverlay, renderOverlayCached, renderOverlayCursor } from '../renderers/overlay-renderer.js';
 import type { OverlaySeries } from '../renderers/overlay-renderer.js';
 import { getPlotMargins } from '../core/theme.js';
+import { toDisplayPoints } from '../core/chart-decimator.js';
 import { addChartSample } from '../core/chart-latency.js';
 
 export type ChartMode = 'stacked' | 'overlay';
@@ -42,6 +43,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
   const cursorXRef = useRef<number | null>(null);
   const cursorDirtyRef = useRef<boolean>(false);
   const cachedOverlayRef = useRef<{ seriesList: OverlaySeries[]; yMin: number; yMax: number } | null>(null);
+  const cachedStackedRef = useRef<{ strips: ReturnType<typeof computeStripLayout>; displayPoints: DisplayPoint[][] } | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   // ─── Auto-size via ResizeObserver ───
@@ -75,6 +77,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
     }
     lastRevisionRef.current = -1; // force re-render on resize
     cachedOverlayRef.current = null; // invalidate overlay cache on resize
+    cachedStackedRef.current = null; // invalidate stacked cache on resize
   }, [size]);
 
   // ─── Main rAF render loop (replaces setInterval + separate view-range timer) ───
@@ -102,23 +105,22 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
       lastRevisionRef.current = curRevision;
 
       if (mode === 'stacked') {
+        // Compute + cache display points per strip
         const strips = computeStripLayout(paramKeys, w, h);
         const snapshots = dataSource.chartSnapshots(
           paramKeys.slice(0, 20),
           state.viewStartSec,
           state.viewEndSec,
         );
-
-        if (!backBufferRef.current) {
-          backBufferRef.current = document.createElement('canvas');
-        }
-        const bb = backBufferRef.current;
-        bb.width = w;
-        bb.height = h;
-        const bbCtx = bb.getContext('2d');
-        if (bbCtx) {
-          renderStackedStatic(bbCtx, strips, snapshots, state.viewStartSec, state.viewEndSec);
-        }
+        const snapshotMap = new Map(snapshots.map(s => [s.key, s.samples]));
+        const displayPoints: DisplayPoint[][] = strips.map(strip => {
+          const samples = snapshotMap.get(strip.key) ?? [];
+          return toDisplayPoints(samples, state.viewStartSec, state.viewEndSec, Math.max(32, strip.w));
+        });
+        cachedStackedRef.current = { strips, displayPoints };
+        // Clear back-buffer (no longer needed, but keep ref for cleanup)
+        if (backBufferRef.current) backBufferRef.current = null;
+        renderStackedCached(ctx, strips, displayPoints, paramKeys, state.viewStartSec, state.viewEndSec);
       } else {
         // Overlay: compute + cache on data change
         const snapshots = dataSource.chartSnapshots(
@@ -135,6 +137,10 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
         const tPaint = performance.timeOrigin + performance.now();
         addChartSample(tPaint - lastT0MsRef.current);
       }
+    } else if (mode === 'stacked' && cachedStackedRef.current) {
+      // ── Stacked: use cached display points, remap pixels with current window ──
+      const cs = cachedStackedRef.current;
+      renderStackedCached(ctx, cs.strips, cs.displayPoints, paramKeys, state.viewStartSec, state.viewEndSec);
     } else if (mode === 'overlay' && cachedOverlayRef.current) {
       // ── Overlay: use cached data, remap pixels with current window ──
       const c = cachedOverlayRef.current;
@@ -142,16 +148,14 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
         state.viewStartSec, state.viewEndSec, w, h);
     }
 
-    // ── Stacked: blit back-buffer every frame for smooth window sliding ──
-    if (mode === 'stacked' && backBufferRef.current) {
-      ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(backBufferRef.current, 0, 0);
-    }
-
     // ── Draw cursor (every frame when active or dirty) ──
     if (cx !== null && (dataChanged || cursorDirty)) {
       if (mode === 'stacked') {
-        // Back-buffer already blitted above, just draw cursor
+        // Redraw from cache to erase old cursor, then draw new one
+        if (!dataChanged && cachedStackedRef.current) {
+          const cs = cachedStackedRef.current;
+          renderStackedCached(ctx, cs.strips, cs.displayPoints, paramKeys, state.viewStartSec, state.viewEndSec);
+        }
         renderStackedCursor(ctx, cx, w, h);
       } else {
         // Overlay: use cached data to redraw (covers old cursor line)
