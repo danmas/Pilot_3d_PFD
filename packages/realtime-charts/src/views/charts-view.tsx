@@ -5,6 +5,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ChartsPanel, type ChartMode } from '../components/charts-panel.jsx';
 import { PFDTelemetryHub, paramsFromCatalog, frameToValuesFromCatalog } from '../core/pfd-adapter.js';
+import { getChartStats, resetChartLatency } from '../core/chart-latency.js';
 
 export interface ChartsViewProps {
   frame: Record<string, unknown>;
@@ -16,12 +17,16 @@ export interface ChartsViewProps {
 
 export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, catalog, initialMode = 'stacked' }) => {
   const hubRef = useRef<PFDTelemetryHub | null>(null);
+  const lastT0MsRef = useRef<number>(0);
   const [keys, setKeys] = useState<string[]>([]);
   const [mode, setMode] = useState<ChartMode>(initialMode);
 
   // Shared cursor time ref — synchronized between stacked and overlay
   const cursorTimeSecRef = useRef<number>(-1);
   const [cursorTimeLabel, setCursorTimeLabel] = useState<string | null>(null);
+
+  // Latency gauge state (updated every 500ms, non-blocking)
+  const [latStats, setLatStats] = useState(() => getChartStats());
 
   // Initialize hub when catalog is provided
   useEffect(() => {
@@ -33,11 +38,22 @@ export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, catalog,
     return () => { hub.destroy(); };
   }, [catalog]);
 
-  // Ingest each new frame
+  // Ingest each new frame + capture _t0_ms for latency
   useEffect(() => {
     if (!hubRef.current) return;
     hubRef.current.ingest(frame, epochMs);
+    // Extract bridge timestamp
+    const t0 = frame._t0_ms;
+    if (typeof t0 === 'number' && t0 > 0) {
+      lastT0MsRef.current = t0;
+    }
   }, [frame, epochMs]);
+
+  // Latency stats poller
+  useEffect(() => {
+    const t = setInterval(() => setLatStats(getChartStats()), 500);
+    return () => clearInterval(t);
+  }, []);
 
   // Cursor sync handler — called from ChartsPanel on mouse move/down
   const handleCursorChange = useCallback((timeSec: number) => {
@@ -48,6 +64,8 @@ export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, catalog,
       setCursorTimeLabel(null);
     }
   }, []);
+
+  const fmt = (v: number) => v.toFixed(1);
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0B0F14]">
@@ -70,6 +88,25 @@ export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, catalog,
           Overlay
         </button>
 
+        {/* Latency gauge */}
+        {latStats.count > 0 && (
+          <span className="text-[10px] font-mono text-white/50 ml-2 flex items-center gap-1.5">
+            <span className="text-white/30">⏱</span>
+            <span>P50:</span><span className="text-[#48bb78]">{fmt(latStats.p50)}</span>
+            <span>P95:</span><span className="text-[#ecc94b]">{fmt(latStats.p95)}</span>
+            <span>P99:</span><span className="text-[#fc8181]">{fmt(latStats.p99)}</span>
+            <span>MAX:</span><span className="text-[#f56565]">{fmt(latStats.max)}</span>
+            <span className="text-white/20">ms</span>
+            <button
+              onClick={() => { resetChartLatency(); setLatStats(getChartStats()); }}
+              className="text-white/20 hover:text-white/50 text-[9px] ml-1"
+              title="Reset"
+            >
+              ↺
+            </button>
+          </span>
+        )}
+
         {/* Cursor time label */}
         {cursorTimeLabel && (
           <span className="ml-auto text-[#00DCFF] text-xs font-mono">
@@ -87,6 +124,7 @@ export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, catalog,
             mode={mode}
             cursorTimeSecRef={cursorTimeSecRef}
             onCursorChange={handleCursorChange}
+            lastT0MsRef={lastT0MsRef}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-white/30 text-sm">

@@ -9,7 +9,8 @@ export {
   timeFromX,
   xFromTime,
 } from './time-window.js';
-export { THEME, PALETTE, paletteColor, STACKED_LAYOUT, OVERLAY_LAYOUT } from './theme.js';
+export { THEME, PALETTE, paletteColor, STACKED_LAYOUT, OVERLAY_LAYOUT, getPlotMargins } from './theme.js';
+export { addChartSample, getChartStats, resetChartLatency } from './chart-latency.js';
 export type {
   SamplePoint,
   ChartStripSnapshot,

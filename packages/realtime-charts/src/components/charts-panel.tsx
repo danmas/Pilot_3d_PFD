@@ -9,6 +9,7 @@ import { createViewState, updateViewRange, applyZoom, timeFromX } from '../core/
 import { computeStripLayout, renderStackedStatic, renderStackedCursor } from '../renderers/stacked-renderer.js';
 import { computeOverlaySeries, computeOverlayLayout, renderOverlay, renderOverlayCursor } from '../renderers/overlay-renderer.js';
 import { getPlotMargins } from '../core/theme.js';
+import { addChartSample } from '../core/chart-latency.js';
 
 export type ChartMode = 'stacked' | 'overlay';
 
@@ -20,6 +21,8 @@ export interface ChartsPanelProps {
   cursorTimeSecRef?: React.MutableRefObject<number>;
   /** Called when cursor time changes (for sync). */
   onCursorChange?: (timeSec: number) => void;
+  /** Mutable ref with _t0_ms of the latest ingested frame (for latency measurement). */
+  lastT0MsRef?: React.MutableRefObject<number>;
 }
 
 export const ChartsPanel: React.FC<ChartsPanelProps> = ({
@@ -28,6 +31,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
   mode = 'stacked',
   cursorTimeSecRef,
   onCursorChange,
+  lastT0MsRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -121,6 +125,11 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
           state.viewEndSec,
         );
         renderOverlay(ctx, paramKeys, snapshots, state.viewStartSec, state.viewEndSec, w, h);
+      }
+      // ── Record chart display latency ──
+      if (lastT0MsRef && lastT0MsRef.current > 0) {
+        const tPaint = performance.timeOrigin + performance.now();
+        addChartSample(tPaint - lastT0MsRef.current);
       }
     }
 
