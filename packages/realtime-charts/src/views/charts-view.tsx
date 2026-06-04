@@ -8,29 +8,29 @@ import { PFDTelemetryHub, paramsFromCatalog, frameToValuesFromCatalog } from '..
 
 // These are injected by the host app at mount time
 let catalog: Array<{ key: string; comment: string }> | null = null;
-let fieldCatalogReady: Promise<void> | null = null;
 
 /**
  * Initialize the charts view with FIELD_CATALOG.
- * Call this once from the host app (e.g., App.tsx useEffect).
+ * Call this once from the host app (e.g., App.tsx module level).
  */
 export function initCharts(fieldCatalog: Array<{ key: string; comment: string }>): void {
   catalog = fieldCatalog;
-  fieldCatalogReady = Promise.resolve();
 }
 
 export interface ChartsViewProps {
   frame: Record<string, unknown>;
   epochMs: number;
-  width: number;
-  height: number;
   initialMode?: ChartMode;
 }
 
-export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, width, height, initialMode = 'stacked' }) => {
+export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, initialMode = 'stacked' }) => {
   const hubRef = useRef<PFDTelemetryHub | null>(null);
   const [keys, setKeys] = useState<string[]>([]);
   const [mode, setMode] = useState<ChartMode>(initialMode);
+
+  // Shared cursor time ref — synchronized between stacked and overlay
+  const cursorTimeSecRef = useRef<number>(-1);
+  const [cursorTimeLabel, setCursorTimeLabel] = useState<string | null>(null);
 
   // Initialize hub once
   useEffect(() => {
@@ -50,6 +50,16 @@ export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, width, h
     if (!hubRef.current) return;
     hubRef.current.ingest(frame, epochMs);
   }, [frame, epochMs]);
+
+  // Cursor sync handler — called from ChartsPanel on mouse move/down
+  const handleCursorChange = useCallback((timeSec: number) => {
+    cursorTimeSecRef.current = timeSec;
+    if (timeSec >= 0) {
+      setCursorTimeLabel(timeSec.toFixed(1) + 's');
+    } else {
+      setCursorTimeLabel(null);
+    }
+  }, []);
 
   return (
     <div className="w-full h-full flex flex-col bg-[#0B0F14]">
@@ -71,17 +81,24 @@ export const ChartsView: React.FC<ChartsViewProps> = ({ frame, epochMs, width, h
         >
           Overlay
         </button>
+
+        {/* Cursor time label */}
+        {cursorTimeLabel && (
+          <span className="ml-auto text-[#00DCFF] text-xs font-mono">
+            cursor: {cursorTimeLabel}
+          </span>
+        )}
       </div>
 
-      {/* Chart canvas */}
+      {/* Chart canvas — fills remaining space, auto-sized by ChartsPanel */}
       <div className="flex-1 min-h-0">
         {hubRef.current ? (
           <ChartsPanel
             dataSource={hubRef.current}
             paramKeys={keys}
-            width={width}
-            height={height}
             mode={mode}
+            cursorTimeSecRef={cursorTimeSecRef}
+            onCursorChange={handleCursorChange}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-white/30 text-sm">
