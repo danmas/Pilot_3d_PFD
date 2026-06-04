@@ -905,9 +905,9 @@ export default function App() {
 
   // ═══════════════════════════════════════════════ CHARTS VIEW
   if (currentView === 'charts') {
-    const epochMs = typeof frame.receivedAt === 'string'
-      ? new Date(frame.receivedAt).getTime()
-      : performance.timeOrigin + performance.now();
+    // Use monotonic performance.now() as epoch source for chart time.
+    // No frame.timeMs offset — sample loop would cause time to jump backward.
+    const epochMs = performance.timeOrigin + performance.now();
     return (
       <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col">
         {/* Minimal header */}
