@@ -94,6 +94,14 @@ export interface ChartTheme {
   palette: RgbColor[];
 }
 
+/** Minimal interface that ChartsPanel uses to read data.
+ *  Implemented by DataHub and PFDTelemetryHub. */
+export interface ChartDataSource {
+  getRevision(): number;
+  getSessionTimeSec(): number;
+  chartSnapshots(keys: string[], tMin: number, tMax: number): ChartStripSnapshot[];
+}
+
 /** Data adapter interface — implement for post-decode or raw-slot sources */
 export interface DataAdapter {
   /** Get the list of parameters to track */

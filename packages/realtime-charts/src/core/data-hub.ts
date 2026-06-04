@@ -1,7 +1,7 @@
 // ─── DataHub ───
 // Ingests frames, manages ring buffers per key, provides snapshots.
 
-import type { ParamInfo, ChartStripSnapshot, SamplePoint } from './types.js';
+import type { ParamInfo, ChartStripSnapshot, SamplePoint, ChartDataSource } from './types.js';
 import { RingBuffer, RING_CAPACITY } from './ring-buffer.js';
 
 export class DataHub {

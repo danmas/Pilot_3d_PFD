@@ -4,7 +4,7 @@
 
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import type { ChartViewState, ChartStripSnapshot } from '../core/types.js';
-import { DataHub } from '../core/data-hub.js';
+import type { ChartDataSource } from '../core/types.js';
 import { createViewState, updateViewRange, applyZoom, timeFromX } from '../core/time-window.js';
 import { computeStripLayout, renderStackedStatic, renderStackedCursor } from '../renderers/stacked-renderer.js';
 import { computeOverlaySeries, computeOverlayLayout, renderOverlay, renderOverlayCursor } from '../renderers/overlay-renderer.js';
@@ -12,7 +12,7 @@ import { computeOverlaySeries, computeOverlayLayout, renderOverlay, renderOverla
 export type ChartMode = 'stacked' | 'overlay';
 
 export interface ChartsPanelProps {
-  dataHub: DataHub;
+  dataSource: ChartDataSource;
   paramKeys: string[];
   width: number;
   height: number;
@@ -20,7 +20,7 @@ export interface ChartsPanelProps {
 }
 
 export const ChartsPanel: React.FC<ChartsPanelProps> = ({
-  dataHub,
+  dataSource,
   paramKeys,
   width,
   height,
@@ -36,10 +36,10 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
   // ─── Update view range when session time changes ───
   useEffect(() => {
     const interval = setInterval(() => {
-      updateViewRange(viewStateRef.current, dataHub.getSessionTimeSec());
+      updateViewRange(viewStateRef.current, dataSource.getSessionTimeSec());
     }, 100);
     return () => clearInterval(interval);
-  }, [dataHub]);
+  }, [dataSource]);
 
   // ─── Main render loop ───
   const render = useCallback(() => {
@@ -50,7 +50,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
     if (!ctx) return;
 
     const state = viewStateRef.current;
-    const curRevision = dataHub.getRevision();
+    const curRevision = dataSource.getRevision();
 
     if (curRevision !== lastRevisionRef.current) {
       lastRevisionRef.current = curRevision;
@@ -60,7 +60,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(() => {
           const strips = computeStripLayout(paramKeys, width, height);
-          const snapshots = dataHub.chartSnapshots(
+          const snapshots = dataSource.chartSnapshots(
             paramKeys.slice(0, 20),
             state.viewStartSec,
             state.viewEndSec,
@@ -89,7 +89,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
         }, 50);
       } else {
         // Overlay — immediate
-        const snapshots = dataHub.chartSnapshots(
+        const snapshots = dataSource.chartSnapshots(
           paramKeys.slice(0, 24),
           state.viewStartSec,
           state.viewEndSec,
@@ -102,7 +102,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
         }
       }
     }
-  }, [dataHub, paramKeys, width, height, mode, cursorX]);
+  }, [dataSource, paramKeys, width, height, mode, cursorX]);
 
   // ─── Render on revision change ───
   useEffect(() => {
@@ -132,10 +132,10 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 0.9 : 1.1;
-    applyZoom(viewStateRef.current, dataHub.getSessionTimeSec(), factor);
+    applyZoom(viewStateRef.current, dataSource.getSessionTimeSec(), factor);
     lastRevisionRef.current = -1; // force re-render
     render();
-  }, [dataHub, render]);
+  }, [dataSource, render]);
 
   return (
     <canvas
