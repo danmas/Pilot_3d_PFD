@@ -238,6 +238,105 @@ export function renderOverlay(
 }
 
 /**
+ * Render overlay from pre-computed series data (cached from previous frame).
+ * Skips expensive snapshots + decimation + Y-range — only pixel mapping + draw.
+ */
+export function renderOverlayCached(
+  ctx: CanvasRenderingContext2D,
+  paramKeys: string[],
+  cachedSeries: OverlaySeries[],
+  cachedYMin: number,
+  cachedYMax: number,
+  viewStartSec: number,
+  viewEndSec: number,
+  viewWidth: number,
+  viewHeight: number,
+): void {
+  const layout = computeOverlayLayout(paramKeys.length, viewWidth, viewHeight);
+  const { plotLeft, plotTop, plotWidth, plotHeight } = layout;
+  const plotBottom = plotTop + plotHeight;
+
+  // Background
+  ctx.fillStyle = THEME.widgetBg;
+  ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+  // Plot area background
+  ctx.fillStyle = THEME.plotBg;
+  ctx.beginPath();
+  const r = 4;
+  ctx.roundRect(plotLeft, plotTop, plotWidth, plotHeight, r);
+  ctx.fill();
+  ctx.strokeStyle = THEME.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(plotLeft, plotTop, plotWidth, plotHeight, r);
+  ctx.stroke();
+
+  // Y-axis ticks
+  const yRange = cachedYMax - cachedYMin || 1;
+  const tickCount = 4;
+  ctx.fillStyle = THEME.textDim;
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= tickCount; i++) {
+    const val = cachedYMin + (yRange * i) / tickCount;
+    const tickY = plotBottom - ((val - cachedYMin) / yRange) * (plotHeight - 4) - 2;
+    ctx.fillText(val.toFixed(yRange < 10 ? 1 : 0), plotLeft - 6, tickY);
+    ctx.strokeStyle = THEME.border;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.moveTo(plotLeft + 1, tickY);
+    ctx.lineTo(plotLeft + plotWidth, tickY);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Pass 2: remap pixel coords with current window
+  const dt = Math.max(0.001, viewEndSec - viewStartSec);
+  const yr = Math.max(0.001, cachedYMax - cachedYMin);
+  const innerH = plotHeight - 4;
+
+  for (const entry of cachedSeries) {
+    ctx.beginPath();
+    ctx.strokeStyle = entry.color;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < entry.path.length; i++) {
+      const px = plotLeft + ((entry.path[i].x - viewStartSec) / dt) * plotWidth;
+      const py = plotBottom - ((entry.path[i].y - cachedYMin) / yr) * innerH - 2;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // Time labels
+  const labelY = plotBottom + 14;
+  ctx.fillStyle = THEME.textDim;
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(viewStartSec.toFixed(1) + 's', plotLeft, labelY);
+  ctx.textAlign = 'right';
+  ctx.fillText(viewEndSec.toFixed(1) + 's', plotLeft + plotWidth, labelY);
+
+  // Legend
+  const legendY = plotBottom + OVERLAY_LAYOUT.plotBottom;
+  for (let i = 0; i < cachedSeries.length; i++) {
+    const entry = cachedSeries[i];
+    const ly = legendY + i * OVERLAY_LAYOUT.legendLineHeight;
+    ctx.fillStyle = entry.color;
+    ctx.fillRect(plotLeft + 4, ly + 6, 14, 3);
+    const label = entry.key.length > 28 ? entry.key.substring(0, 25) + '…' : entry.key;
+    ctx.fillStyle = THEME.text;
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(label, plotLeft + 22, ly + 2);
+  }
+}
+
+/**
  * Render cursor for overlay (only inside plot area)
  */
 export function renderOverlayCursor(

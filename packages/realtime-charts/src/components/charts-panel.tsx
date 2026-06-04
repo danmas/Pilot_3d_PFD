@@ -7,7 +7,8 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import type { ChartViewState, ChartStripSnapshot, ChartDataSource } from '../core/types.js';
 import { createViewState, updateViewRange, applyZoom, timeFromX } from '../core/time-window.js';
 import { computeStripLayout, renderStackedStatic, renderStackedCursor } from '../renderers/stacked-renderer.js';
-import { computeOverlaySeries, computeOverlayLayout, renderOverlay, renderOverlayCursor } from '../renderers/overlay-renderer.js';
+import { computeOverlaySeries, computeOverlayLayout, renderOverlay, renderOverlayCached, renderOverlayCursor } from '../renderers/overlay-renderer.js';
+import type { OverlaySeries } from '../renderers/overlay-renderer.js';
 import { getPlotMargins } from '../core/theme.js';
 import { addChartSample } from '../core/chart-latency.js';
 
@@ -40,6 +41,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
   const lastRevisionRef = useRef<number>(-1);
   const cursorXRef = useRef<number | null>(null);
   const cursorDirtyRef = useRef<boolean>(false);
+  const cachedOverlayRef = useRef<{ seriesList: OverlaySeries[]; yMin: number; yMax: number } | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
   // ─── Auto-size via ResizeObserver ───
@@ -72,6 +74,7 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
       backBufferRef.current.height = size.height;
     }
     lastRevisionRef.current = -1; // force re-render on resize
+    cachedOverlayRef.current = null; // invalidate overlay cache on resize
   }, [size]);
 
   // ─── Main rAF render loop (replaces setInterval + separate view-range timer) ───
@@ -116,14 +119,15 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
         if (bbCtx) {
           renderStackedStatic(bbCtx, strips, snapshots, state.viewStartSec, state.viewEndSec);
         }
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(bb, 0, 0);
       } else {
+        // Overlay: compute + cache on data change
         const snapshots = dataSource.chartSnapshots(
           paramKeys.slice(0, 24),
           state.viewStartSec,
           state.viewEndSec,
         );
+        const result = computeOverlaySeries(snapshots, paramKeys, state.viewStartSec, state.viewEndSec, w);
+        cachedOverlayRef.current = { seriesList: result.seriesList, yMin: result.yMin, yMax: result.yMax };
         renderOverlay(ctx, paramKeys, snapshots, state.viewStartSec, state.viewEndSec, w, h);
       }
       // ── Record chart display latency ──
@@ -131,26 +135,30 @@ export const ChartsPanel: React.FC<ChartsPanelProps> = ({
         const tPaint = performance.timeOrigin + performance.now();
         addChartSample(tPaint - lastT0MsRef.current);
       }
+    } else if (mode === 'overlay' && cachedOverlayRef.current) {
+      // ── Overlay: use cached data, remap pixels with current window ──
+      const c = cachedOverlayRef.current;
+      renderOverlayCached(ctx, paramKeys, c.seriesList, c.yMin, c.yMax,
+        state.viewStartSec, state.viewEndSec, w, h);
+    }
+
+    // ── Stacked: blit back-buffer every frame for smooth window sliding ──
+    if (mode === 'stacked' && backBufferRef.current) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(backBufferRef.current, 0, 0);
     }
 
     // ── Draw cursor (every frame when active or dirty) ──
     if (cx !== null && (dataChanged || cursorDirty)) {
       if (mode === 'stacked') {
-        // Blit back-buffer to erase old cursor, then draw new one
-        if (!dataChanged && backBufferRef.current) {
-          ctx.clearRect(0, 0, w, h);
-          ctx.drawImage(backBufferRef.current, 0, 0);
-        }
+        // Back-buffer already blitted above, just draw cursor
         renderStackedCursor(ctx, cx, w, h);
       } else {
-        // Overlay: redraw (covers old cursor line)
-        if (!dataChanged) {
-          const snapshots = dataSource.chartSnapshots(
-            paramKeys.slice(0, 24),
-            state.viewStartSec,
-            state.viewEndSec,
-          );
-          renderOverlay(ctx, paramKeys, snapshots, state.viewStartSec, state.viewEndSec, w, h);
+        // Overlay: use cached data to redraw (covers old cursor line)
+        if (!dataChanged && cachedOverlayRef.current) {
+          const c = cachedOverlayRef.current;
+          renderOverlayCached(ctx, paramKeys, c.seriesList, c.yMin, c.yMax,
+            state.viewStartSec, state.viewEndSec, w, h);
         }
         const layout = computeOverlayLayout(Math.min(paramKeys.length, 24), w, h);
         renderOverlayCursor(ctx, cx, layout.plotLeft, layout.plotWidth, layout.plotTop, layout.plotHeight);
