@@ -566,7 +566,12 @@ export default function App() {
 
   const handleStartCapture = async () => {
     try {
-      const res = await fetch('/api/capture/start', { method: 'POST' });
+      const source = sourceStatus?.source || 'unknown';
+      const res = await fetch('/api/capture/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, duration: 'capture' }),
+      });
       if (res.ok) {
         const data = await res.json();
         setIsRecording(data.active);

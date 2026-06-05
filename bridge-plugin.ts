@@ -672,7 +672,10 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             sendJson(res, getCaptureStatus(captureDir)); return;
           }
           if (req.method === "POST" && url.pathname === "/api/capture/start") {
-            sendJson(res, startCapture(captureDir)); return;
+            const body = await readRequestBody(req);
+            const source = body?.source || "unknown";
+            const duration = body?.duration || "capture";
+            sendJson(res, startCapture(captureDir, source, duration)); return;
           }
           if (req.method === "POST" && url.pathname === "/api/capture/stop") {
             sendJson(res, stopCapture()); return;
@@ -1144,10 +1147,10 @@ function getBlackboxStatus(_dir: string): object {
   };
 }
 
-function startCapture(captureDir: string): object {
+function startCapture(captureDir: string, source = "unknown", duration = "capture"): object {
   if (captureStream) return getCaptureStatus(captureDir);
   fs.mkdirSync(captureDir, { recursive: true });
-  capturePath = createCapturePath(captureDir);
+  capturePath = createCapturePath(captureDir, source, duration);
   captureFrames = 0;
   captureStream = fs.createWriteStream(capturePath, { flags: "wx", encoding: "utf8" });
   captureEnabled = true;
@@ -1233,24 +1236,24 @@ function writeCaptureFrame(frame: TelemetryFrame, captureDir: string): void {
   captureFrames += 1;
 }
 
-function createCapturePath(dir: string, tag = "live"): string {
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  return createUniqueJsonlPath(dir, ts, tag);
+function createCapturePath(dir: string, source = "unknown", duration = "capture"): string {
+  const safeSource = source.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const safeDuration = duration.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return createUniquePfdrecPath(dir, `${safeSource}_${safeDuration}`);
 }
 
 function createBlackboxPath(dir: string): string {
   if (capturePath) {
-    const base = path.basename(capturePath, ".jsonl").replace(/_live(\_\d{3})?$/, "");
-    return createUniqueJsonlPath(dir, base, "sim_blackbox");
+    const base = path.basename(capturePath, ".pfdrec");
+    return createUniquePfdrecPath(dir, `${base}_sim_blackbox`);
   }
-  return createCapturePath(dir, "sim_blackbox");
+  return createCapturePath(dir, "unknown", "sim_blackbox");
 }
 
-function createUniqueJsonlPath(dir: string, base: string, tag: string): string {
-  const safeTag = tag.replace(/[^a-zA-Z0-9_-]/g, "_");
+function createUniquePfdrecPath(dir: string, base: string): string {
   for (let i = 0; i < 1000; i++) {
     const suffix = i === 0 ? "" : `_${String(i).padStart(3, "0")}`;
-    const p = path.join(dir, `${base}_${safeTag}${suffix}.jsonl`);
+    const p = path.join(dir, `${base}${suffix}.pfdrec`);
     if (!fs.existsSync(p)) return p;
   }
   throw new Error("Cannot allocate unique capture file name");
@@ -1270,8 +1273,8 @@ function runSimulatorProfile(
 
   fs.mkdirSync(captureDir, { recursive: true });
   const presetTag = preset?.id ?? "custom_initial";
-  const telemetryPath = createCapturePath(captureDir, `profile_${profile.id}_${presetTag}_telemetry`);
-  const blackboxOutputPath = createCapturePath(captureDir, `profile_${profile.id}_${presetTag}_blackbox`);
+  const telemetryPath = createCapturePath(captureDir, `profile_${profile.id}`, `${presetTag}_telemetry`);
+  const blackboxOutputPath = createCapturePath(captureDir, `profile_${profile.id}`, `${presetTag}_blackbox`);
   const telemetryLines: string[] = [];
   const blackboxLines: string[] = [];
 
@@ -1319,8 +1322,8 @@ function runSimulatorProfile(
     preset,
     initialConfig,
     frames: steps,
-    telemetryRecordingId: path.basename(telemetryPath, ".jsonl"),
-    blackboxRecordingId: path.basename(blackboxOutputPath, ".jsonl"),
+    telemetryRecordingId: path.basename(telemetryPath, ".pfdrec"),
+    blackboxRecordingId: path.basename(blackboxOutputPath, ".pfdrec"),
     telemetryPath,
     blackboxPath: blackboxOutputPath,
     schema: {
@@ -1360,8 +1363,8 @@ function controlsForProfile(profileId: string, t: number, currentThrottle: numbe
 function listRecordings(dir: string): Recording[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
-    .filter(f => f.endsWith(".jsonl") && !f.includes("_blackbox"))
-    .map(f => { const fp = path.join(dir, f); const s = fs.statSync(fp); return { id: f.replace(/\.jsonl$/i, ""), fileName: f, path: fp, bytes: s.size, modifiedAt: s.mtime.toISOString() }; })
+    .filter(f => f.endsWith(".pfdrec") && !f.includes("_blackbox"))
+    .map(f => { const fp = path.join(dir, f); const s = fs.statSync(fp); return { id: f.replace(/\.pfdrec$/i, ""), fileName: f, path: fp, bytes: s.size, modifiedAt: s.mtime.toISOString() }; })
     .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
 }
 
