@@ -706,7 +706,7 @@ export default function App() {
   };
 
   const connStatusColor = { disconnected: 'bg-red-500', connecting: 'bg-yellow-500', waiting: 'bg-yellow-500', receiving: 'bg-green-500' }[connStatus];
-  const connStatusLabel = { disconnected: 'disconnected', connecting: 'connecting...', waiting: 'waiting UDP', receiving: 'receiving UDP' }[connStatus];
+  const connStatusLabel = { disconnected: 'disconnected', connecting: 'connecting...', waiting: `waiting UDP (${sourceStatus?.udpPort ?? '?'})`, receiving: `UDP (${sourceStatus?.udpPort ?? '?'})` }[connStatus];
 
   // ═══════════════════════════════════════════════ HUB VIEW
   if (currentView === 'hub') {
@@ -862,7 +862,7 @@ export default function App() {
           {/* Bottom info */}
           <div className="flex items-center justify-center gap-6 text-white/30 text-xs">
             <span className="flex items-center gap-1.5">
-              <Gauge className="w-3.5 h-3.5" /> source: udp://{sourceStatus?.udpHost ?? '...'}:{sourceStatus?.udpPort ?? '...'}
+              <Gauge className="w-3.5 h-3.5" /> UDP ({sourceStatus?.udpPort ?? '...'})
             </span>
             <span>{sourceStatus?.schema ?? 'telemetry-frame.v1'}</span>
             <span>{sourceStatus?.active ? 'active' : 'inactive'}</span>

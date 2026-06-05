@@ -475,6 +475,17 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           if (req.method === "GET" && url.pathname === "/api/source/status") {
             sendJson(res, getSourceStatus()); return;
           }
+          if (req.method === "GET" && url.pathname === "/api/source/config") {
+            try {
+              const configPath = path.join(__dirname, "config.json");
+              if (fs.existsSync(configPath)) {
+                const raw = fs.readFileSync(configPath, "utf-8");
+                const config = JSON.parse(raw);
+                sendJson(res, config); return;
+              }
+            } catch { /* fallthrough */ }
+            sendJson(res, { udp: { host: bridgeUdpHost, port: bridgeUdpPort } }); return;
+          }
           if (req.method === "POST" && url.pathname === "/api/source/config") {
             const body = await readRequestBody(req);
             const nextHost = typeof body?.host === "string" && body.host.trim().length > 0
@@ -486,6 +497,11 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             if (!Number.isFinite(nextPort) || nextPort < 1 || nextPort > 65535) {
               sendJson(res, { error: "Invalid port" }, 400); return;
             }
+            // Сохраняем в config.json — сработает и для dev, и для build
+            try {
+              const configPath = path.join(__dirname, "config.json");
+              fs.writeFileSync(configPath, JSON.stringify({ udp: { host: nextHost, port: nextPort } }, null, 2) + "\n", "utf-8");
+            } catch { /* non-critical */ }
             reconfigureSource(nextHost, nextPort);
             sendJson(res, getSourceStatus()); return;
           }
