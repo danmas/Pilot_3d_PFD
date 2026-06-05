@@ -12,6 +12,7 @@
 import React, { Suspense, memo, lazy } from 'react';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
+import { APP_VERSION } from '../../version';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -78,6 +79,7 @@ const Aircraft3DStub: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }) => 
         ))}
       </div>
       <span className="absolute bottom-4 right-4 px-2 py-0.5 text-[11px] rounded bg-white/[0.03] text-white/15 z-10 font-mono">✈ Primitive</span>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] font-mono text-white/12 z-10">v{APP_VERSION}</div>
     </div>
   );
 }, (prev, next) => {

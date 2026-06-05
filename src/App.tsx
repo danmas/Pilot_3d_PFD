@@ -30,6 +30,7 @@ import type { PanelProfile } from './stores/profileStore';
 import { LatencyOverlay, addSample } from './components/LatencyMonitor';
 import { ChartsView } from '../packages/realtime-charts/src/views/charts-view.jsx';
 import { FIELD_CATALOG } from '../field-catalog';
+import { APP_VERSION } from './version';
 
 const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
 
@@ -865,6 +866,7 @@ export default function App() {
             </span>
             <span>{sourceStatus?.schema ?? 'telemetry-frame.v1'}</span>
             <span>{sourceStatus?.active ? 'active' : 'inactive'}</span>
+            <span className="text-white/25">v{APP_VERSION}</span>
           </div>
         </div>
       </div>

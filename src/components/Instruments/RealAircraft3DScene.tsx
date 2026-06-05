@@ -27,6 +27,7 @@ import {
 import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/modelConfig';
 import { ModelDialog } from './aircraft3d/ModelDialog';
 import TouchControls from '../Controls/TouchControls';
+import { APP_VERSION } from '../../version';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -263,6 +264,11 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         >
           ↺
         </button>
+      </div>
+
+      {/* Version */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[9px] font-mono text-white/10 pointer-events-none">
+        v{APP_VERSION}
       </div>
     </div>
   );

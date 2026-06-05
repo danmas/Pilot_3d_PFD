@@ -109,7 +109,7 @@
 
     <div id="boot-screen">
       <div class="logo">Pilot 3D PFD</div>
-      <div class="version">v2.5.2</div>
+      <div class="version" id="boot-version">v—</div>
       <div class="spinner"></div>
       <div class="status" id="boot-status">Initializing...</div>
       <div class="steps" id="boot-steps">
@@ -202,6 +202,11 @@
       window.__bootBridgeReady = function() {
         window.__bootStatus('bridge', 'done', 'Ready');
       };
+    </script>
+
+    <script type="module">
+      import { APP_VERSION } from '/src/version.ts';
+      document.getElementById('boot-version').textContent = 'v' + APP_VERSION;
     </script>
 
     <script type="module" src="/src/main.tsx"></script>
