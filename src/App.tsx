@@ -754,8 +754,8 @@ export default function App() {
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">3D Aircraft</h2>
               <p className="text-white/50 text-sm leading-relaxed">
-                Full-screen 3D aircraft instrument:<br />
-                GLB models, projection modes, orbit camera.
+                Flight visualization:<br />
+                pitch, roll, heading, speed, altitude.
               </p>
               <div className="flex items-center gap-2 mt-4 text-sky-400 text-sm font-medium">
                 <Zap className="w-4 h-4" /> Open 3D &rarr;
