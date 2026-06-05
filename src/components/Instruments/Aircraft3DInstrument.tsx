@@ -1,12 +1,15 @@
 /**
- * Aircraft3DInstrument.tsx — ЗАГЛУШКА.
+ * Aircraft3DInstrument.tsx — точка входа 3D Aircraft.
  *
- * Полноценный 3D-движок (Three.js, физика полёта) отключён для демонстрации.
- * Компонент показывает стилизованный placeholder с HUD-данными телеметрии.
+ * При VITE_ENABLE_AIRCRAFT_3D=false (по умолчанию):
+ *   показывает стилизованную заглушку с HUD-данными (без Three.js).
+ *
+ * При VITE_ENABLE_AIRCRAFT_3D=true:
+ *   динамически загружает RealAircraft3DScene с полноценным 3D-движком.
  *
  * Регистрируется через registerPanelKitWidget и доступен в PanelBuilder.
  */
-import React, { memo } from 'react';
+import React, { Suspense, memo, lazy } from 'react';
 import type { TelemetryFrame } from '../../types';
 import { registerPanelKitWidget } from '../PanelKit';
 
@@ -16,8 +19,22 @@ const finite = (v: unknown): number =>
 const fmt = (v: unknown, d = 1): string =>
   typeof v === 'number' && Number.isFinite(v) ? v.toFixed(d) : '—';
 
-/* ─── Stub component ─── */
-const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }) => {
+/* ─── Loading fallback ─── */
+const LoadingFallback: React.FC = () => (
+  <div className="w-full h-full bg-[#0a0a14] flex items-center justify-center select-none">
+    <div className="text-white/20 text-sm font-mono">Loading 3D engine…</div>
+  </div>
+);
+
+/* ─── Реальная 3D-сцена (ленивая загрузка, только при env=true) ─── */
+// Vite dead-code-eliminates весь блок при VITE_ENABLE_AIRCRAFT_3D !== 'true'
+let RealScene: React.LazyExoticComponent<React.FC<{ frame: TelemetryFrame }>> | null = null;
+if (import.meta.env.VITE_ENABLE_AIRCRAFT_3D === 'true') {
+  RealScene = lazy(() => import('./RealAircraft3DScene').then(m => ({ default: m.RealAircraft3DScene })));
+}
+
+/* ─── Stub ─── */
+const Aircraft3DStub: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }) => {
   const pitch   = finite(frame?.PitchAngle);
   const roll    = finite(frame?.RollAngle);
   const heading = finite(frame?.Heading1);
@@ -27,7 +44,6 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame 
 
   return (
     <div className="w-full h-full relative bg-[#0a0a14] overflow-hidden select-none flex flex-col items-center justify-center">
-      {/* Декоративная HUD-сетка */}
       <div className="absolute inset-0 opacity-[0.025]"
         style={{
           backgroundImage: `
@@ -37,53 +53,31 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame 
           backgroundSize: '40px 40px',
         }}
       />
-
-      {/* Силуэт самолёта */}
       <div className="relative z-10 mb-6">
         <svg width="100" height="64" viewBox="0 0 100 64" className="text-cyan-500/30" fill="currentColor">
           <path d="M50 4 L57 32 L90 34 L94 30 L90 34 L94 38 L90 34 L57 36 L50 60 L43 36 L10 34 L6 30 L10 34 L6 38 L10 34 L43 32 Z" />
         </svg>
       </div>
-
-      {/* Заголовок */}
-      <div className="text-white/15 text-xl font-mono tracking-[0.3em] uppercase mb-4 z-10">
-        3D Aircraft
-      </div>
-      <div className="text-white/8 text-xs font-mono tracking-wider mb-10 z-10">
-        Flight Visualization · Coming Soon
-      </div>
-
-      {/* HUD-данные: верхний левый */}
+      <div className="text-white/15 text-xl font-mono tracking-[0.3em] uppercase mb-4 z-10">3D Aircraft</div>
+      <div className="text-white/8 text-xs font-mono tracking-wider mb-10 z-10">Flight Visualization · Coming Soon</div>
       <div className="absolute top-4 left-4 text-[11px] font-mono text-white/40 leading-tight z-10">
         <div>PITCH <span className="text-cyan-400/50">{fmt(pitch)}°</span></div>
         <div>ROLL{'  '}<span className="text-cyan-400/50">{fmt(roll)}°</span></div>
       </div>
-
-      {/* HUD-данные: верхний правый */}
       <div className="absolute top-4 right-4 text-[11px] font-mono text-white/40 leading-tight text-right z-10">
         <div>HDG <span className="text-cyan-400/50">{Math.round(heading).toString().padStart(3, '0')}°</span></div>
         <div>ALT <span className="text-orange-400/50">{fmt(alt, 0)} м</span></div>
       </div>
-
-      {/* HUD-данные: нижний левый */}
       <div className="absolute bottom-4 left-4 text-[11px] font-mono text-white/40 leading-tight z-10">
         <div>CAS <span className="text-green-400/50">{fmt(cas, 0)}</span></div>
         <div>Vy{'  '}<span className="text-green-400/50">{fmt(vy)}</span></div>
       </div>
-
-      {/* Неактивные пресеты камеры */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1 z-10">
         {['🔵', '🟢', '🟡', '🔴'].map((icon, i) => (
-          <span key={i} className="px-2 py-0.5 text-[13px] rounded bg-white/[0.03] text-white/15 leading-none">
-            {icon}
-          </span>
+          <span key={i} className="px-2 py-0.5 text-[13px] rounded bg-white/[0.03] text-white/15 leading-none">{icon}</span>
         ))}
       </div>
-
-      {/* Неактивная кнопка модели */}
-      <span className="absolute bottom-4 right-4 px-2 py-0.5 text-[11px] rounded bg-white/[0.03] text-white/15 z-10 font-mono">
-        ✈ Primitive
-      </span>
+      <span className="absolute bottom-4 right-4 px-2 py-0.5 text-[11px] rounded bg-white/[0.03] text-white/15 z-10 font-mono">✈ Primitive</span>
     </div>
   );
 }, (prev, next) => {
@@ -98,6 +92,20 @@ const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame 
     pf.Vy === nf.Vy &&
     pf.RAltitude === nf.RAltitude
   );
+});
+
+/* ─── Main component ─── */
+const Aircraft3DInstrument: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }) => {
+  // Vite dead-code-eliminates неактивную ветку на этапе сборки
+  if (RealScene) {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <RealScene frame={frame} />
+      </Suspense>
+    );
+  }
+
+  return <Aircraft3DStub frame={frame} />;
 });
 
 /* ─── PanelKit Registration ─── */

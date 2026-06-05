@@ -1,0 +1,17 @@
+{
+  "apps": [
+    {
+      "name": "pilot-3d-pfd",
+      "script": "./node_modules/.bin/vite.cmd",
+      "cwd": "C:/ERV/CARLINK/CARL_AVI/WORK/Pilot/Pilot_3d_PFD",
+      "interpreter": "cmd",
+      "interpreter_args": "/c",
+      "args": "",
+      "env": {
+        "PORT": "3410"
+      },
+      "autorestart": true,
+      "watch": false
+    }
+  ]
+}
