@@ -28,10 +28,14 @@ import {
 } from './stores/profileStore';
 import type { PanelProfile } from './stores/profileStore';
 import { LatencyOverlay, addSample } from './components/LatencyMonitor';
+import { ChartsView } from '../packages/realtime-charts/src/views/charts-view.jsx';
+import { FIELD_CATALOG } from '../field-catalog';
+
+const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
 
 type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
-type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings';
+type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings' | 'aircraft3d' | 'charts';
 
 type SourceStatus = {
   udpHost: string;
@@ -562,7 +566,12 @@ export default function App() {
 
   const handleStartCapture = async () => {
     try {
-      const res = await fetch('/api/capture/start', { method: 'POST' });
+      const source = sourceStatus?.source || 'unknown';
+      const res = await fetch('/api/capture/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, duration: 'capture' }),
+      });
       if (res.ok) {
         const data = await res.json();
         setIsRecording(data.active);
@@ -734,6 +743,25 @@ export default function App() {
               </div>
             </button>
 
+            {/* 3D Aircraft Card */}
+            <button
+              onClick={() => setCurrentView('aircraft3d')}
+              className="group relative bg-gradient-to-br from-sky-900/40 to-indigo-900/40 border border-sky-500/20 rounded-2xl p-8 text-left hover:border-sky-400/50 hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-sky-500/10"
+            >
+              <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-sky-400 group-hover:animate-pulse" />
+              <div className="p-3 bg-sky-500/20 rounded-xl w-fit mb-5">
+                <Plane className="w-8 h-8 text-sky-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">3D Aircraft</h2>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Full-screen 3D aircraft instrument:<br />
+                GLB models, projection modes, orbit camera.
+              </p>
+              <div className="flex items-center gap-2 mt-4 text-sky-400 text-sm font-medium">
+                <Zap className="w-4 h-4" /> Open 3D &rarr;
+              </div>
+            </button>
+
             {/* Raw Data Monitor Card */}
             <button
               onClick={() => setCurrentView('rawMonitor')}
@@ -809,6 +837,25 @@ export default function App() {
                 <Zap className="w-4 h-4" /> Open Settings &rarr;
               </div>
             </button>
+
+            {/* Charts Card */}
+            <button
+              onClick={() => setCurrentView('charts')}
+              className="group relative bg-gradient-to-br from-teal-900/40 to-cyan-900/40 border border-teal-500/20 rounded-2xl p-8 text-left hover:border-teal-400/50 hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-teal-500/10"
+            >
+              <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-teal-400 group-hover:animate-pulse" />
+              <div className="p-3 bg-teal-500/20 rounded-xl w-fit mb-5">
+                <Activity className="w-8 h-8 text-teal-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Realtime Charts</h2>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Stacked &amp; Overlay telemetry plots,<br />
+                realtime decimated line charts.
+              </p>
+              <div className="flex items-center gap-2 mt-4 text-teal-400 text-sm font-medium">
+                <Zap className="w-4 h-4" /> Open Charts &rarr;
+              </div>
+            </button>
           </div>
 
           {/* Bottom info */}
@@ -824,9 +871,71 @@ export default function App() {
     );
   }
 
+  // ═══════════════════════════════════════════════ 3D AIRCRAFT VIEW
+  if (currentView === 'aircraft3d') {
+    return (
+      <div className="h-screen w-screen bg-[#121212] flex flex-col overflow-hidden">
+        {/* Minimal header with back button */}
+        <div className="shrink-0 flex items-center gap-3 bg-black/60 px-4 py-2 border-b border-white/10">
+          <button
+            onClick={() => setCurrentView('hub')}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+            title="Back to Hub"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="p-1.5 bg-sky-500/20 text-sky-400 rounded-lg">
+            <Plane className="w-5 h-5" />
+          </div>
+          <h1 className="text-white font-medium text-base tracking-tight">3D Aircraft</h1>
+          <span className="text-white/30 text-xs ml-auto">Pitch / Roll / Heading &middot; telemetry-frame.v1</span>
+        </div>
+        {/* Full-page instrument */}
+        <div className="flex-1 min-h-0">
+          <Suspense fallback={<div className="flex items-center justify-center h-full text-white/30">Loading 3D...</div>}>
+            <Aircraft3DInstrument frame={frame} />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
   // ═══════════════════════════════════════════════ RAW MONITOR VIEW
   if (currentView === 'rawMonitor') {
     return <RawMonitor onBack={() => setCurrentView('hub')} />;
+  }
+
+  // ═══════════════════════════════════════════════ CHARTS VIEW
+  if (currentView === 'charts') {
+    // Use monotonic performance.now() as epoch source for chart time.
+    // No frame.timeMs offset — sample loop would cause time to jump backward.
+    const epochMs = performance.timeOrigin + performance.now();
+    return (
+      <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col">
+        {/* Minimal header */}
+        <div className="shrink-0 flex items-center gap-3 bg-black/60 px-4 py-2 border-b border-white/10">
+          <button
+            onClick={() => setCurrentView('hub')}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+            title="Back to Hub"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="p-1.5 bg-teal-500/20 text-teal-400 rounded-lg">
+            <Activity className="w-5 h-5" />
+          </div>
+          <h1 className="text-white font-medium text-base tracking-tight">Realtime Charts</h1>
+          <span className="text-white/30 text-xs ml-auto">stacked / overlay &middot; telemetry-frame.v1</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          <ChartsView
+            frame={frame}
+            epochMs={epochMs}
+            catalog={FIELD_CATALOG}
+          />
+        </div>
+      </div>
+    );
   }
 
   // ═══════════════════════════════════════════════ PANEL BUILDER VIEW

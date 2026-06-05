@@ -10,6 +10,8 @@ import './AuxPanelInstrument';
 import './EngineDisplayInstrument';
 import './ConfigDisplayInstrument';
 import './PFD2Instrument';
+import './Aircraft3DInstrument';
+import './GraphInstrument';
 
 // Re-export registry helpers for convenience
 export {

@@ -29,8 +29,8 @@ bridge-plugin.ts simulator loop, 25 Hz
   -> publishDecodedFrame()
   -> applyDecFormulas()
   -> SSE /events + /events/pfd
-  -> telemetry capture *_live.jsonl
-  -> sim blackbox *_sim_blackbox.jsonl
+  -> telemetry capture *.pfdrec
+  -> sim blackbox *_sim_blackbox.pfdrec
   -> PFD / Raw Monitor / replay consumers
 ```
 
@@ -508,7 +508,7 @@ Body:
 Возвращает состояние blackbox recorder:
 
 - `active`: открыт ли stream;
-- `path`: путь к текущему `*_sim_blackbox.jsonl`;
+- `path`: путь к текущему `*_sim_blackbox.pfdrec`;
 - `frames`: сколько blackbox-кадров записано;
 - `schema`: `sim-blackbox.v1`.
 
@@ -561,8 +561,8 @@ Body:
     "throttle": 0.6,
     "pitchDeg": 3
   },
-  "telemetryPath": "captures/..._profile_pitch_step_up_telemetry.jsonl",
-  "blackboxPath": "captures/..._profile_pitch_step_up_blackbox.jsonl"
+  "telemetryPath": "captures/..._profile_pitch_step_up_telemetry.pfdrec",
+  "blackboxPath": "captures/..._profile_pitch_step_up_blackbox.pfdrec"
 }
 ```
 
@@ -579,12 +579,12 @@ Invoke-RestMethod -Method Post `
 
 ## Blackbox-запись для аналитиков
 
-При live-полёте в режиме `Simulator` обычный capture продолжает писать `telemetry-frame.v1`. Параллельно bridge создаёт второй файл `*_sim_blackbox.jsonl` со схемой `sim-blackbox.v1`.
+При live-полёте в режиме `Simulator` обычный capture продолжает писать `telemetry-frame.v1`. Параллельно bridge создаёт второй файл `*_sim_blackbox.pfdrec` со схемой `sim-blackbox.v1`.
 
 Что отдавать аналитикам:
 
-- Для ручного полёта: пару файлов `*_live.jsonl` + `*_sim_blackbox.jsonl` из одной сессии.
-- Для воспроизводимого теста: пару файлов `*_profile_<id>_telemetry.jsonl` + `*_profile_<id>_blackbox.jsonl`.
+- Для ручного полёта: пару файлов `*.pfdrec` + `*_sim_blackbox.pfdrec` из одной сессии.
+- Для воспроизводимого теста: пару файлов `*_profile_<id>_telemetry.pfdrec` + `*_profile_<id>_blackbox.pfdrec`.
 - Основной файл для анализа причинно-следственной связи — blackbox. Telemetry нужен для сверки с тем, что реально видел PFD/replay.
 
 Один blackbox JSONL record соответствует одному physics tick (`25 Hz`, `dt=0.04`):
@@ -737,7 +737,7 @@ Invoke-RestMethod -Method Post `
 
 Минимальный набор проверок без изменения кода:
 
-Эти проверки можно делать вручную через UI, но предпочтительный путь для аналитиков — запускать соответствующий профиль через `POST /api/simulator/profile/run` и строить графики по `*_blackbox.jsonl`.
+Эти проверки можно делать вручную через UI, но предпочтительный путь для аналитиков — запускать соответствующий профиль через `POST /api/simulator/profile/run` и строить графики по `*_blackbox.pfdrec`.
 
 1. Trim hold 60 секунд.
 

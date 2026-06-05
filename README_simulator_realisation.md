@@ -12,11 +12,11 @@
 └─────────────┘     │        ▲         │
                     │   ┌────┴─────┐   │
 ┌─────────────┐     │   │ Capture  │   │
-│ FlightSim   │────▶│   │ .jsonl   │   │
+│ FlightSim   │────▶│   │ .pfdrec  │   │
 │ .step(dt)   │     │   │          │   │
 └─────────────┘     └───┴──────────┴───┘
        │
-       └──▶ sim-blackbox.v1 (*.jsonl)
+       └──▶ sim-blackbox.v1 (*.pfdrec)
 ```
 
 И реальные UDP-пакеты, и кадры симулятора проходят через **один и тот же** конвейер `publishDecodedFrame()` / `applyDecFormulas()` / SSE-вещание. Это означает, что все потребители (PFD, Diagnostic Viewer, Capture) работают одинаково в обоих режимах. Для симулятора дополнительно пишется `sim-blackbox.v1`: raw-действия пилота, сглаженные controls, состояние FDM и промежуточная физика (`Cl`, `Cd`, `lift`, `drag`, `thrust`, ускорения, rate-команды).
@@ -54,7 +54,7 @@
 4. **Индикатор РУД** — прогресс-бар из `Engine_N1_Target_Left`
 5. **Управление записью** — Старт/Стоп захвата, список последних записей, воспроизведение
 6. **Scripted Profiles** — offline-прогоны профилей с выбором initial conditions
-7. **Таймлайн воспроизведения** — ползунок для пролистывания `.jsonl` прямо со страницы PFD
+7. **Таймлайн воспроизведения** — ползунок для пролистывания `.pfdrec` прямо со страницы PFD
 
 ---
 
@@ -62,8 +62,8 @@
 
 Для ручного полёта симулятор пишет пару файлов:
 
-- `*_live.jsonl` — обычный `telemetry-frame.v1`, то, что видит PFD/replay.
-- `*_sim_blackbox.jsonl` — `sim-blackbox.v1`, причинная запись "пилот → controls → physics → state".
+- `*.pfdrec` — обычный `telemetry-frame.v1`, то, что видит PFD/replay.
+- `*_sim_blackbox.pfdrec` — `sim-blackbox.v1`
 
 Для воспроизводимых проверок добавлен запуск scripted profiles из UI (`Live` → `Scripted Profiles`) и через API. При запуске из UI созданный telemetry-файл сразу открывается как Replay: приборы сбрасываются на первый кадр профиля и проигрывают весь сценарий от выбранных initial conditions.
 

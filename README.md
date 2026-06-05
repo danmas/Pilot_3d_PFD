@@ -24,7 +24,7 @@ FlightSimulator.step(0.04), 25 Hz ──────────────┤
   → SSE /events (telemetry-frame.v1)
   → SSE /events/pfd (PFD subset)
   → SSE /events/raw (raw-frame — сырые данные)
-  → capture *_live.jsonl + simulator *_sim_blackbox.jsonl
+  → capture *.pfdrec + simulator *_sim_blackbox.pfdrec
   → HTTP API /api/*
   → React PFD app (port 3410)
   → diagnostic viewer /viewer/
@@ -123,7 +123,7 @@ npm run dev
 
 Симулятор реализован на сервере в `simulator.ts` и запускается из `bridge-plugin.ts` с фиксированным шагом `0.04 s` (`25 Hz`). Кадры симулятора проходят через тот же `publishDecodedFrame()` / `applyDecFormulas()` / SSE / capture pipeline, что и реальные UDP-данные.
 
-Для анализа модели есть отдельный blackbox-формат `sim-blackbox.v1`: действия пилота, сглаженные controls, internal state FDM, силы/коэффициенты (`Cl`, `Cd`, `lift`, `drag`, `thrust`) и ускорения. При ручной симуляции рядом с обычным `*_live.jsonl` создаётся `*_sim_blackbox.jsonl`.
+Для анализа модели есть отдельный blackbox-формат `sim-blackbox.v1`: действия пилота, сглаженные controls, internal state FDM, силы/коэффициенты (`Cl`, `Cd`, `lift`, `drag`, `thrust`) и ускорения. При ручной симуляции рядом с обычным `*.pfdrec` создаётся `*_sim_blackbox.pfdrec`.
 
 Scripted profiles запускаются из UI (`Live` → `Scripted Profiles`) или через API. Они выполняются offline на отдельном экземпляре `FlightSimulator` и не трогают текущий live-полёт. В UI после запуска созданный telemetry-файл сразу открывается как Replay: приборы переходят на начальный кадр профиля и проигрывают весь сценарий.
 
