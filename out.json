@@ -1,0 +1,1070 @@
+﻿[
+{
+        "state": "on",
+        "host": "127.0.0.1",
+        "port": "14442",
+        "tickcount": "40",
+		"slots": [
+		
+//	АВИОНИКА	
+// Радиовысота
+            { "name": "Радиовысота", "block": "9", "slot": "4", "channel": "5", "mode": "real", "param": "0164", "msb": "29", "lsb": "13", "price": "0.125", "sdi": "no", "sign": "yes" },
+
+// Дальность DME
+            { "block": "9", "slot": "3", "channel": "20", "mode": "real", "param": "0202", "msb": "29", "lsb": "13", "price": "0.00781250", "sdi": "no", "sign": "yes" },
+
+// Магнитный курс
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0320", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол крена
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0325", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол тангажа
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0324", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Ny
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0333", "msb": "29", "lsb": "11", "price": "0.000015259", "sdi": "no", "sign": "yes" },
+
+// ДВИГАТЕЛИ
+// Обороты левого МСУ
+            { "block": "9", "slot": "3", "channel": "2", "mode": "real", "param": "0346", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Целевые обороты левого МСУ
+            { "block": "9", "slot": "3", "channel": "2", "mode": "real", "param": "0341", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Обороты правого МСУ
+            { "block": "9", "slot": "3", "channel": "6", "mode": "real", "param": "0346", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Целевые обороты правого МСУ
+            { "block": "9", "slot": "3", "channel": "6", "mode": "real", "param": "0341", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+// ТОПЛИВО
+// Общее количество топлива
+            { "block": "9", "slot": "2", "channel": "3", "mode": "real", "param": "0247", "msb": "28", "lsb": "14", "price": "4", "sdi": "no", "sign": "no" },
+// Шасси
+// ЛООШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "17", "lsb": "17", "price": "1", "sdi": "no", "sign": "no" },
+
+// ЛООШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "18", "lsb": "18", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПООШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0271", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПООШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0271", "msb": "29", "lsb": "29", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПОШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "23", "lsb": "23", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПОШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "24", "lsb": "24", "price": "1", "sdi": "no", "sign": "no" },
+// ВСУ
+// Обороты ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "005", "msb": "28", "lsb": "19", "price": "0.25", "sdi": "no", "sign": "no" },
+
+// Температура масла ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "0157", "msb": "29", "lsb": "19", "price": "0.5", "sdi": "no", "sign": "yes" },
+
+// Температура газа за турбиной ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "024", "msb": "29", "lsb": "17", "price": "0.5", "sdi": "no", "sign": "yes" },
+
+// Давление масла за фильтром ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "007", "msb": "29", "lsb": "18", "price": "0.0625", "sdi": "no", "sign": "yes" },
+// КСКВ
+// Целевая температура подачи 1
+            { "block": "9", "slot": "2", "channel": "14", "mode": "real", "param": "012", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+
+// Целевая температура подачи 2
+            { "block": "9", "slot": "2", "channel": "16", "mode": "real", "param": "012", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+
+// Целевая температура подачи 4
+            { "block": "9", "slot": "2", "channel": "16", "mode": "real", "param": "013", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+// БРУ 
+// Левая БРУ по крену
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "010", "msb": "29", "lsb": "14", "price": "0.00061035", "sdi": "no", "sign": "yes" },
+
+// Левая БРУ по тангажу
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "006", "msb": "29", "lsb": "14", "price": "-0.00061035", "sdi": "no", "sign": "yes" },
+
+// Правая БРУ по крену
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "011", "msb": "29", "lsb": "14", "price": "0.00061035", "sdi": "no", "sign": "yes" },
+
+// Правая БРУ по тангажу
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "007", "msb": "29", "lsb": "14", "price": "-0.00061035", "sdi": "no", "sign": "yes" },
+// АВИОНИКА
+// Стандартная высота
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0203", "msb": "29", "lsb": "12", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Барометрическая высота
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0204", "msb": "29", "lsb": "12", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Вычисленная воздушная скорость
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0206", "msb": "28", "lsb": "15", "price": "0.0625", "sdi": "no", "sign": "no" },
+
+// Число Маха
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0205", "msb": "28", "lsb": "13", "price": "0.0000625", "sdi": "no", "sign": "no" },
+
+// AoA_#1 - угол атаки
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0241", "msb": "29", "lsb": "17", "price": "0.0439453125", "sdi": "no", "sign": "yes" },
+
+// Индикаторный угол атаки
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0221", "msb": "28", "lsb": "17", "price": "0.04394531", "sdi": "no", "sign": "no" },
+
+// Вертикальная скорость барометрическая
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0212", "msb": "29", "lsb": "14", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Включение автопилот
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0270", "msb": "11", "lsb": "11", "price": "1", "sdi": "no", "sign": "no" },
+
+// Включение пилотажного директора
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0270", "msb": "12", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+
+// Включение режима HDG
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0274", "msb": "12", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+
+// Заданое значение HDG
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0100", "msb": "28", "lsb": "14", "price": "0.01098633", "sdi": "no", "sign": "no" },
+
+// Заданная вертикальная скорость 
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0104", "msb": "29", "lsb": "14", "price": "0.4999", "sdi": "no", "sign": "yes" },
+
+// Заданная скорость
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0103", "msb": "28", "lsb": "14", "price": "0.015625", "sdi": "no", "sign": "no" },
+
+// Положение креновой директорной планки
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0141", "msb": "29", "lsb": "14", "price": "0.003052", "sdi": "no", "sign": "yes" },
+
+// Положение тангажной директорной планки 
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0140", "msb": "29", "lsb": "14", "price": "0.003052", "sdi": "no", "sign": "yes" },
+// КСУ
+// Положение ручки FLAPS
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "012", "msb": "29", "lsb": "14", "price": "0.00183105", "sdi": "no", "sign": "yes" },
+
+// Текущее положение закрылок
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "063", "msb": "28", "lsb": "14", "price": "0.00109863", "sdi": "no", "sign": "no" },
+
+// Текущее положение предкрылков
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "063", "msb": "28", "lsb": "14", "price": "0.00109863", "sdi": "no", "sign": "no" },
+
+// Положение интерцептора левого центрального
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого центрального
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора левого внешнего
+            { "block": "9", "slot": "6", "channel": "17", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора левого внутреннего
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого внутреннего
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого внешнего
+            { "block": "9", "slot": "6", "channel": "17", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Команда на выпуск ТЩ внутренний
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "0154", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+
+// Команда на выпуск ТЩ внешний
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "0154", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+
+// Положение стабилизатора
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "060", "msb": "29", "lsb": "14", "price": "0.00042725", "sdi": "no", "sign": "yes" },
+			
+// Положение направления направления(верх)
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение руля направления(низ)
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение руля направления(середина)
+            { "block": "9", "slot": "6", "channel": "20", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Триммер по курсу
+            { "block": "9", "slot": "6", "channel": "20", "mode": "real", "param": "042", "msb": "29", "lsb": "14", "price": "0.0006103515", "sdi": "no", "sign": "yes" },
+			
+// Положение правого руля высоты внешний 
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый руля высоты внешний 
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый руля высоты внутренний 
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение правый руля высоты внутренний 
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение правого элерона внутренний
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый элерона внутрений
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый элерона внешний
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },	
+			
+// Положение правого элерона внешний
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+
+// Триммер по крену
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "042", "msb": "29", "lsb": "14", "price": "0.0001831", "sdi": "no", "sign": "yes" },
+			
+// Обжатие ПОШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "18", "lsb": "18", "price": "1", "sdi": "no", "sign": "no" },
+			
+// Обжатие ЛООШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "17", "lsb": "17", "price": "1", "sdi": "no", "sign": "no" },
+
+// Обжатие ПООШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "16", "lsb": "16", "price": "1", "sdi": "no", "sign": "no" },
+
+// Обжатие всех опор WOW
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+// STATUS_7
+            { "block": "3", "slot": "9", "line": "1", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_5
+            { "block": "3", "slot": "9", "line": "2", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_6
+            { "block": "3", "slot": "9", "line": "3", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_8
+            { "block": "3", "slot": "9", "line": "4", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_TN_0	
+			{ "block": "0", "slot": "status"},
+// STATUS_TN_1	
+            { "block": "1", "slot": "status"},
+// STATUS_TN_2	
+            { "block": "2", "slot": "status"},
+// STATUS_TN_3	
+            { "block": "3", "slot": "status"},
+// STATUS_TN_4	
+            { "block": "4", "slot": "status"},
+// STATUS_TN_5	
+            { "block": "5", "slot": "status"},
+// STATUS_TN_6	
+            { "block": "6", "slot": "status"},
+// STATUS_TN_7	
+            { "block": "7", "slot": "status"},
+// STATUS_TN_8	
+            { "block": "8", "slot": "status"},
+// STATUS_TN_9	
+            { "block": "9", "slot": "status"},
+// STATUS_TN_10	
+            { "block": "10", "slot": "status"},
+// STATUS_TN_11	
+            { "block": "11", "slot": "status"},
+// STATUS_TN_12	
+            { "block": "12", "slot": "status"},
+// STATUS_TN_13	
+            { "block": "13", "slot": "status"},
+// STATUS_TN_14	
+            { "block": "14", "slot": "status"},
+// STATUS_TN_15	
+            { "block": "15", "slot": "status"},
+// STATUS_TN_16	
+            { "block": "16", "slot": "status"},
+// STATUS_TN_17	
+            { "block": "17", "slot": "status"},
+// STATUS_TN_18	
+            { "block": "18", "slot": "status"},
+// TEMP_TN_0 
+	{ "block": "0", "slot": "ftemp"},
+// TEMP_TN_1 
+	{ "block": "1", "slot": "ftemp"},
+// TEMP_TN_2 
+	{ "block": "2", "slot": "ftemp"},
+// TEMP_TN_3 
+	{ "block": "3", "slot": "ftemp"},
+// TEMP_TN_4  
+	{ "block": "4", "slot": "ftemp"},
+// TEMP_TN_5 
+	{ "block": "5", "slot": "ftemp"},
+// TEMP_TN_6  
+	{ "block": "6", "slot": "ftemp"},
+// TEMP_TN_7 
+	{ "block": "7", "slot": "ftemp"},
+// TEMP_TN_8  
+	{ "block": "8", "slot": "ftemp"},
+// TEMP_TN_9  
+	{ "block": "9", "slot": "ftemp"},
+// TEMP_TN_10 
+	{ "block": "10", "slot": "ftemp"},
+// TEMP_TN_11  
+	{ "block": "11", "slot": "ftemp"},
+// TEMP_TN_12  
+	{ "block": "12", "slot": "ftemp"},
+// TEMP_TN_13  
+	{ "block": "13", "slot": "ftemp"},
+// TEMP_TN_14  
+	{ "block": "14", "slot": "ftemp"},
+// TEMP_TN_15  
+	{ "block": "15", "slot": "ftemp"},
+// TEMP_TN_16  
+	{ "block": "16", "slot": "ftemp"},
+// TEMP_TN_17 
+	{ "block": "17", "slot": "ftemp"},
+// TEMP_TN_18 
+	{ "block": "18", "slot": "ftemp"},
+// Time
+    { "block": "9", "slot": "4", "channel": "1", "mode": "real", "param": "0150", "msb": "28", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY1_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY2_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "26", "lsb": "26", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY3_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY3_close
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "27", "lsb": "27", "price": "1", "sdi": "no", "sign": "no" },
+// IG_K1_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "24", "lsb": "24", "price": "1", "sdi": "no", "sign": "no" },
+// IG_K2_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "26", "lsb": "26", "price": "1", "sdi": "no", "sign": "no" },
+// IG_block_fault
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "13", "lsb": "13", "price": "1", "sdi": "no", "sign": "no" },
+// IG_system_fault
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "14", "lsb": "14", "price": "1", "sdi": "no", "sign": "no" },
+// IG_O2_1
+    { "block": "9", "slot": "8", "channel": "19", "mode": "real", "param": "046", "msb": "24", "lsb": "17", "price": "0.1", "sdi": "no", "sign": "no" },
+// IG_O2_2
+    { "block": "9", "slot": "8", "channel": "20", "mode": "real", "param": "046", "msb": "24", "lsb": "17", "price": "0.1", "sdi": "no", "sign": "no" },
+//IG_T3
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "8"},					
+//IG_T4
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "9"},	
+//IG_T5
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "10"},	
+	
+// Stat_L
+    { "block": "3", "slot": "9", "line": "1", "task": "1", "minor": "7", "offset_bits": "320" },
+// Stat_R
+    { "block": "3", "slot": "9", "line": "4", "task": "1", "minor": "5", "offset_bits": "560" },
+//Stat_Kil
+	{"mode": "raw", "block": "1", "slot": "1", "channel": "10"},
+//Stat_Stab
+	{"mode": "raw", "block": "1", "slot": "1", "channel": "9"}
+	
+        ]
+    },
+
+    // Mirror stream for Node.js listener on UDP 14443
+{
+        "state": "on",
+        "host": "127.0.0.1",
+        "port": "14443",
+        "tickcount": "40",
+		"slots": [
+		
+//	АВИОНИКА	
+// Радиовысота
+            { "name": "Радиовысота", "block": "9", "slot": "4", "channel": "5", "mode": "real", "param": "0164", "msb": "29", "lsb": "13", "price": "0.125", "sdi": "no", "sign": "yes" },
+
+// Дальность DME
+            { "block": "9", "slot": "3", "channel": "20", "mode": "real", "param": "0202", "msb": "29", "lsb": "13", "price": "0.00781250", "sdi": "no", "sign": "yes" },
+
+// Магнитный курс
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0320", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол крена
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0325", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол тангажа
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0324", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Ny
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0333", "msb": "29", "lsb": "11", "price": "0.000015259", "sdi": "no", "sign": "yes" },
+
+// ДВИГАТЕЛИ
+// Обороты левого МСУ
+            { "block": "9", "slot": "3", "channel": "2", "mode": "real", "param": "0346", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Целевые обороты левого МСУ
+            { "block": "9", "slot": "3", "channel": "2", "mode": "real", "param": "0341", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Обороты правого МСУ
+            { "block": "9", "slot": "3", "channel": "6", "mode": "real", "param": "0346", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Целевые обороты правого МСУ
+            { "block": "9", "slot": "3", "channel": "6", "mode": "real", "param": "0341", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+// ТОПЛИВО
+// Общее количество топлива
+            { "block": "9", "slot": "2", "channel": "3", "mode": "real", "param": "0247", "msb": "28", "lsb": "14", "price": "4", "sdi": "no", "sign": "no" },
+// Шасси
+// ЛООШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "17", "lsb": "17", "price": "1", "sdi": "no", "sign": "no" },
+
+// ЛООШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "18", "lsb": "18", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПООШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0271", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПООШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0271", "msb": "29", "lsb": "29", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПОШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "23", "lsb": "23", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПОШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "24", "lsb": "24", "price": "1", "sdi": "no", "sign": "no" },
+// ВСУ
+// Обороты ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "005", "msb": "28", "lsb": "19", "price": "0.25", "sdi": "no", "sign": "no" },
+
+// Температура масла ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "0157", "msb": "29", "lsb": "19", "price": "0.5", "sdi": "no", "sign": "yes" },
+
+// Температура газа за турбиной ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "024", "msb": "29", "lsb": "17", "price": "0.5", "sdi": "no", "sign": "yes" },
+
+// Давление масла за фильтром ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "007", "msb": "29", "lsb": "18", "price": "0.0625", "sdi": "no", "sign": "yes" },
+// КСКВ
+// Целевая температура подачи 1
+            { "block": "9", "slot": "2", "channel": "14", "mode": "real", "param": "012", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+
+// Целевая температура подачи 2
+            { "block": "9", "slot": "2", "channel": "16", "mode": "real", "param": "012", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+
+// Целевая температура подачи 4
+            { "block": "9", "slot": "2", "channel": "16", "mode": "real", "param": "013", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+// БРУ 
+// Левая БРУ по крену
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "010", "msb": "29", "lsb": "14", "price": "0.00061035", "sdi": "no", "sign": "yes" },
+
+// Левая БРУ по тангажу
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "006", "msb": "29", "lsb": "14", "price": "-0.00061035", "sdi": "no", "sign": "yes" },
+
+// Правая БРУ по крену
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "011", "msb": "29", "lsb": "14", "price": "0.00061035", "sdi": "no", "sign": "yes" },
+
+// Правая БРУ по тангажу
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "007", "msb": "29", "lsb": "14", "price": "-0.00061035", "sdi": "no", "sign": "yes" },
+// АВИОНИКА
+// Стандартная высота
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0203", "msb": "29", "lsb": "12", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Барометрическая высота
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0204", "msb": "29", "lsb": "12", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Вычисленная воздушная скорость
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0206", "msb": "28", "lsb": "15", "price": "0.0625", "sdi": "no", "sign": "no" },
+
+// Число Маха
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0205", "msb": "28", "lsb": "13", "price": "0.0000625", "sdi": "no", "sign": "no" },
+
+// AoA_#1 - угол атаки
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0241", "msb": "29", "lsb": "17", "price": "0.0439453125", "sdi": "no", "sign": "yes" },
+
+// Индикаторный угол атаки
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0221", "msb": "28", "lsb": "17", "price": "0.04394531", "sdi": "no", "sign": "no" },
+
+// Вертикальная скорость барометрическая
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0212", "msb": "29", "lsb": "14", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Включение автопилот
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0270", "msb": "11", "lsb": "11", "price": "1", "sdi": "no", "sign": "no" },
+
+// Включение пилотажного директора
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0270", "msb": "12", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+
+// Включение режима HDG
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0274", "msb": "12", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+
+// Заданое значение HDG
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0100", "msb": "28", "lsb": "14", "price": "0.01098633", "sdi": "no", "sign": "no" },
+
+// Заданная вертикальная скорость 
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0104", "msb": "29", "lsb": "14", "price": "0.4999", "sdi": "no", "sign": "yes" },
+
+// Заданная скорость
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0103", "msb": "28", "lsb": "14", "price": "0.015625", "sdi": "no", "sign": "no" },
+
+// Положение креновой директорной планки
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0141", "msb": "29", "lsb": "14", "price": "0.003052", "sdi": "no", "sign": "yes" },
+
+// Положение тангажной директорной планки 
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0140", "msb": "29", "lsb": "14", "price": "0.003052", "sdi": "no", "sign": "yes" },
+// КСУ
+// Положение ручки FLAPS
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "012", "msb": "29", "lsb": "14", "price": "0.00183105", "sdi": "no", "sign": "yes" },
+
+// Текущее положение закрылок
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "063", "msb": "28", "lsb": "14", "price": "0.00109863", "sdi": "no", "sign": "no" },
+
+// Текущее положение предкрылков
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "063", "msb": "28", "lsb": "14", "price": "0.00109863", "sdi": "no", "sign": "no" },
+
+// Положение интерцептора левого центрального
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого центрального
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора левого внешнего
+            { "block": "9", "slot": "6", "channel": "17", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора левого внутреннего
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого внутреннего
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого внешнего
+            { "block": "9", "slot": "6", "channel": "17", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Команда на выпуск ТЩ внутренний
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "0154", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+
+// Команда на выпуск ТЩ внешний
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "0154", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+
+// Положение стабилизатора
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "060", "msb": "29", "lsb": "14", "price": "0.00042725", "sdi": "no", "sign": "yes" },
+			
+// Положение направления направления(верх)
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение руля направления(низ)
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение руля направления(середина)
+            { "block": "9", "slot": "6", "channel": "20", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Триммер по курсу
+            { "block": "9", "slot": "6", "channel": "20", "mode": "real", "param": "042", "msb": "29", "lsb": "14", "price": "0.0006103515", "sdi": "no", "sign": "yes" },
+			
+// Положение правого руля высоты внешний 
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый руля высоты внешний 
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый руля высоты внутренний 
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение правый руля высоты внутренний 
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение правого элерона внутренний
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый элерона внутрений
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый элерона внешний
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },	
+			
+// Положение правого элерона внешний
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+
+// Триммер по крену
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "042", "msb": "29", "lsb": "14", "price": "0.0001831", "sdi": "no", "sign": "yes" },
+			
+// Обжатие ПОШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "18", "lsb": "18", "price": "1", "sdi": "no", "sign": "no" },
+			
+// Обжатие ЛООШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "17", "lsb": "17", "price": "1", "sdi": "no", "sign": "no" },
+
+// Обжатие ПООШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "16", "lsb": "16", "price": "1", "sdi": "no", "sign": "no" },
+
+// Обжатие всех опор WOW
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+// STATUS_7
+            { "block": "3", "slot": "9", "line": "1", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_5
+            { "block": "3", "slot": "9", "line": "2", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_6
+            { "block": "3", "slot": "9", "line": "3", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_8
+            { "block": "3", "slot": "9", "line": "4", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_TN_0	
+			{ "block": "0", "slot": "status"},
+// STATUS_TN_1	
+            { "block": "1", "slot": "status"},
+// STATUS_TN_2	
+            { "block": "2", "slot": "status"},
+// STATUS_TN_3	
+            { "block": "3", "slot": "status"},
+// STATUS_TN_4	
+            { "block": "4", "slot": "status"},
+// STATUS_TN_5	
+            { "block": "5", "slot": "status"},
+// STATUS_TN_6	
+            { "block": "6", "slot": "status"},
+// STATUS_TN_7	
+            { "block": "7", "slot": "status"},
+// STATUS_TN_8	
+            { "block": "8", "slot": "status"},
+// STATUS_TN_9	
+            { "block": "9", "slot": "status"},
+// STATUS_TN_10	
+            { "block": "10", "slot": "status"},
+// STATUS_TN_11	
+            { "block": "11", "slot": "status"},
+// STATUS_TN_12	
+            { "block": "12", "slot": "status"},
+// STATUS_TN_13	
+            { "block": "13", "slot": "status"},
+// STATUS_TN_14	
+            { "block": "14", "slot": "status"},
+// STATUS_TN_15	
+            { "block": "15", "slot": "status"},
+// STATUS_TN_16	
+            { "block": "16", "slot": "status"},
+// STATUS_TN_17	
+            { "block": "17", "slot": "status"},
+// STATUS_TN_18	
+            { "block": "18", "slot": "status"},
+// TEMP_TN_0 
+	{ "block": "0", "slot": "ftemp"},
+// TEMP_TN_1 
+	{ "block": "1", "slot": "ftemp"},
+// TEMP_TN_2 
+	{ "block": "2", "slot": "ftemp"},
+// TEMP_TN_3 
+	{ "block": "3", "slot": "ftemp"},
+// TEMP_TN_4  
+	{ "block": "4", "slot": "ftemp"},
+// TEMP_TN_5 
+	{ "block": "5", "slot": "ftemp"},
+// TEMP_TN_6  
+	{ "block": "6", "slot": "ftemp"},
+// TEMP_TN_7 
+	{ "block": "7", "slot": "ftemp"},
+// TEMP_TN_8  
+	{ "block": "8", "slot": "ftemp"},
+// TEMP_TN_9  
+	{ "block": "9", "slot": "ftemp"},
+// TEMP_TN_10 
+	{ "block": "10", "slot": "ftemp"},
+// TEMP_TN_11  
+	{ "block": "11", "slot": "ftemp"},
+// TEMP_TN_12  
+	{ "block": "12", "slot": "ftemp"},
+// TEMP_TN_13  
+	{ "block": "13", "slot": "ftemp"},
+// TEMP_TN_14  
+	{ "block": "14", "slot": "ftemp"},
+// TEMP_TN_15  
+	{ "block": "15", "slot": "ftemp"},
+// TEMP_TN_16  
+	{ "block": "16", "slot": "ftemp"},
+// TEMP_TN_17 
+	{ "block": "17", "slot": "ftemp"},
+// TEMP_TN_18 
+	{ "block": "18", "slot": "ftemp"},
+// Time
+    { "block": "9", "slot": "4", "channel": "1", "mode": "real", "param": "0150", "msb": "28", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY1_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY2_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "26", "lsb": "26", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY3_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY3_close
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "27", "lsb": "27", "price": "1", "sdi": "no", "sign": "no" },
+// IG_K1_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "24", "lsb": "24", "price": "1", "sdi": "no", "sign": "no" },
+// IG_K2_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "26", "lsb": "26", "price": "1", "sdi": "no", "sign": "no" },
+// IG_block_fault
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "13", "lsb": "13", "price": "1", "sdi": "no", "sign": "no" },
+// IG_system_fault
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "14", "lsb": "14", "price": "1", "sdi": "no", "sign": "no" },
+// IG_O2_1
+    { "block": "9", "slot": "8", "channel": "19", "mode": "real", "param": "046", "msb": "24", "lsb": "17", "price": "0.1", "sdi": "no", "sign": "no" },
+// IG_O2_2
+    { "block": "9", "slot": "8", "channel": "20", "mode": "real", "param": "046", "msb": "24", "lsb": "17", "price": "0.1", "sdi": "no", "sign": "no" },
+//IG_T3
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "8"},					
+//IG_T4
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "9"},	
+//IG_T5
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "10"},	
+	
+// Stat_L
+    { "block": "3", "slot": "9", "line": "1", "task": "1", "minor": "7", "offset_bits": "320" },
+// Stat_R
+    { "block": "3", "slot": "9", "line": "4", "task": "1", "minor": "5", "offset_bits": "560" },
+//Stat_Kil
+	{"mode": "raw", "block": "1", "slot": "1", "channel": "10"},
+//Stat_Stab
+	{"mode": "raw", "block": "1", "slot": "1", "channel": "9"}
+	
+        ]
+    },
+    // Basic AVIONICS stream for lightweight consumers on UDP 14444
+    {
+        "state": "on",
+        "host": "127.0.0.1",
+        "port": "14444",
+        "tickcount": "40",
+        "slots": [
+//	АВИОНИКА / основные параметры
+// Радиовысота
+            { "name": "Радиовысота", "block": "9", "slot": "4", "channel": "5", "mode": "real", "param": "0164", "msb": "29", "lsb": "13", "price": "0.125", "sdi": "no", "sign": "yes" },
+// Дальность DME
+            { "block": "9", "slot": "3", "channel": "20", "mode": "real", "param": "0202", "msb": "29", "lsb": "13", "price": "0.00781250", "sdi": "no", "sign": "yes" },
+// Магнитный курс
+            { "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0320", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол крена
+            { "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0325", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол тангажа
+            { "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0324", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Ny
+            { "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0333", "msb": "29", "lsb": "11", "price": "0.000015259", "sdi": "no", "sign": "yes" },
+// Вычисленная воздушная скорость CAS
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0206", "msb": "28", "lsb": "15", "price": "0.0625", "sdi": "no", "sign": "no" },
+// Вертикальная скорость барометрическая Vy
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0212", "msb": "29", "lsb": "14", "price": "1", "sdi": "no", "sign": "yes" },
+// Time
+            { "block": "9", "slot": "4", "channel": "1", "mode": "real", "param": "0150", "msb": "28", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" }
+        ]
+    },
+    // Тестов
+    {
+        "state": "on",
+        "host": "127.0.0.1",
+        "port": "14445",
+        "tickcount": "40",
+		"slots": [
+		
+//	АВИОНИКА	
+// Радиовысота
+            { "name": "Радиовысота", "block": "9", "slot": "4", "channel": "5", "mode": "real", "param": "0164", "msb": "29", "lsb": "13", "price": "0.125", "sdi": "no", "sign": "yes" },
+
+// Дальность DME
+            { "block": "9", "slot": "3", "channel": "20", "mode": "real", "param": "0202", "msb": "29", "lsb": "13", "price": "0.00781250", "sdi": "no", "sign": "yes" },
+
+// Магнитный курс
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0320", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол крена
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0325", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Угол тангажа
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0324", "msb": "29", "lsb": "11", "price": "0.00068664", "sdi": "no", "sign": "yes" },
+// Ny
+			{ "block": "9", "slot": "8", "channel": "16", "mode": "real", "param": "0333", "msb": "29", "lsb": "11", "price": "0.000015259", "sdi": "no", "sign": "yes" },
+
+// ДВИГАТЕЛИ
+// Обороты левого МСУ
+            { "block": "9", "slot": "3", "channel": "2", "mode": "real", "param": "0346", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Целевые обороты левого МСУ
+            { "block": "9", "slot": "3", "channel": "2", "mode": "real", "param": "0341", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Обороты правого МСУ
+            { "block": "9", "slot": "3", "channel": "6", "mode": "real", "param": "0346", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+
+// Целевые обороты правого МСУ
+            { "block": "9", "slot": "3", "channel": "6", "mode": "real", "param": "0341", "msb": "28", "lsb": "16", "price": "0.03125", "sdi": "no", "sign": "no" },
+// ТОПЛИВО
+// Общее количество топлива
+            { "block": "9", "slot": "2", "channel": "3", "mode": "real", "param": "0247", "msb": "28", "lsb": "14", "price": "4", "sdi": "no", "sign": "no" },
+// Шасси
+// ЛООШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "17", "lsb": "17", "price": "1", "sdi": "no", "sign": "no" },
+
+// ЛООШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "18", "lsb": "18", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПООШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0271", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПООШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0271", "msb": "29", "lsb": "29", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПОШ на замке убрано
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "23", "lsb": "23", "price": "1", "sdi": "no", "sign": "no" },
+
+// ПОШ на замке выпуска
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0270", "msb": "24", "lsb": "24", "price": "1", "sdi": "no", "sign": "no" },
+// ВСУ
+// Обороты ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "005", "msb": "28", "lsb": "19", "price": "0.25", "sdi": "no", "sign": "no" },
+
+// Температура масла ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "0157", "msb": "29", "lsb": "19", "price": "0.5", "sdi": "no", "sign": "yes" },
+
+// Температура газа за турбиной ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "024", "msb": "29", "lsb": "17", "price": "0.5", "sdi": "no", "sign": "yes" },
+
+// Давление масла за фильтром ВСУ
+            { "block": "9", "slot": "3", "channel": "13", "mode": "real", "param": "007", "msb": "29", "lsb": "18", "price": "0.0625", "sdi": "no", "sign": "yes" },
+// КСКВ
+// Целевая температура подачи 1
+            { "block": "9", "slot": "2", "channel": "14", "mode": "real", "param": "012", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+
+// Целевая температура подачи 2
+            { "block": "9", "slot": "2", "channel": "16", "mode": "real", "param": "012", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+
+// Целевая температура подачи 4
+            { "block": "9", "slot": "2", "channel": "16", "mode": "real", "param": "013", "msb": "29", "lsb": "11", "price": "0.00195313", "sdi": "no", "sign": "yes" },
+// БРУ 
+// Левая БРУ по крену
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "010", "msb": "29", "lsb": "14", "price": "0.00061035", "sdi": "no", "sign": "yes" },
+
+// Левая БРУ по тангажу
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "006", "msb": "29", "lsb": "14", "price": "-0.00061035", "sdi": "no", "sign": "yes" },
+
+// Правая БРУ по крену
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "011", "msb": "29", "lsb": "14", "price": "0.00061035", "sdi": "no", "sign": "yes" },
+
+// Правая БРУ по тангажу
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "007", "msb": "29", "lsb": "14", "price": "-0.00061035", "sdi": "no", "sign": "yes" },
+// АВИОНИКА
+// Стандартная высота
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0203", "msb": "29", "lsb": "12", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Барометрическая высота
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0204", "msb": "29", "lsb": "12", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Вычисленная воздушная скорость
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0206", "msb": "28", "lsb": "15", "price": "0.0625", "sdi": "no", "sign": "no" },
+
+// Число Маха
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0205", "msb": "28", "lsb": "13", "price": "0.0000625", "sdi": "no", "sign": "no" },
+
+// AoA_#1 - угол атаки
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0241", "msb": "29", "lsb": "17", "price": "0.0439453125", "sdi": "no", "sign": "yes" },
+
+// Индикаторный угол атаки
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0221", "msb": "28", "lsb": "17", "price": "0.04394531", "sdi": "no", "sign": "no" },
+
+// Вертикальная скорость барометрическая
+            { "block": "9", "slot": "8", "channel": "3", "mode": "real", "param": "0212", "msb": "29", "lsb": "14", "price": "1", "sdi": "no", "sign": "yes" },
+
+// Включение автопилот
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0270", "msb": "11", "lsb": "11", "price": "1", "sdi": "no", "sign": "no" },
+
+// Включение пилотажного директора
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0270", "msb": "12", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+
+// Включение режима HDG
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0274", "msb": "12", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+
+// Заданое значение HDG
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0100", "msb": "28", "lsb": "14", "price": "0.01098633", "sdi": "no", "sign": "no" },
+
+// Заданная вертикальная скорость 
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0104", "msb": "29", "lsb": "14", "price": "0.4999", "sdi": "no", "sign": "yes" },
+
+// Заданная скорость
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0103", "msb": "28", "lsb": "14", "price": "0.015625", "sdi": "no", "sign": "no" },
+
+// Положение креновой директорной планки
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0141", "msb": "29", "lsb": "14", "price": "0.003052", "sdi": "no", "sign": "yes" },
+
+// Положение тангажной директорной планки 
+            { "block": "9", "slot": "6", "channel": "13", "mode": "real", "param": "0140", "msb": "29", "lsb": "14", "price": "0.003052", "sdi": "no", "sign": "yes" },
+// КСУ
+// Положение ручки FLAPS
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "012", "msb": "29", "lsb": "14", "price": "0.00183105", "sdi": "no", "sign": "yes" },
+
+// Текущее положение закрылок
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "063", "msb": "28", "lsb": "14", "price": "0.00109863", "sdi": "no", "sign": "no" },
+
+// Текущее положение предкрылков
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "063", "msb": "28", "lsb": "14", "price": "0.00109863", "sdi": "no", "sign": "no" },
+
+// Положение интерцептора левого центрального
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого центрального
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора левого внешнего
+            { "block": "9", "slot": "6", "channel": "17", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора левого внутреннего
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого внутреннего
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Положение интерцептора правого внешнего
+            { "block": "9", "slot": "6", "channel": "17", "mode": "real", "param": "057", "msb": "29", "lsb": "14", "price": "0.0018315", "sdi": "no", "sign": "yes" },
+
+// Команда на выпуск ТЩ внутренний
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "0154", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+
+// Команда на выпуск ТЩ внешний
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "0154", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+
+// Положение стабилизатора
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "060", "msb": "29", "lsb": "14", "price": "0.00042725", "sdi": "no", "sign": "yes" },
+			
+// Положение направления направления(верх)
+            { "block": "9", "slot": "6", "channel": "12", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение руля направления(низ)
+            { "block": "9", "slot": "6", "channel": "15", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение руля направления(середина)
+            { "block": "9", "slot": "6", "channel": "20", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Триммер по курсу
+            { "block": "9", "slot": "6", "channel": "20", "mode": "real", "param": "042", "msb": "29", "lsb": "14", "price": "0.0006103515", "sdi": "no", "sign": "yes" },
+			
+// Положение правого руля высоты внешний 
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый руля высоты внешний 
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый руля высоты внутренний 
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение правый руля высоты внутренний 
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "055", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение правого элерона внутренний
+            { "block": "9", "slot": "6", "channel": "11", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый элерона внутрений
+            { "block": "9", "slot": "6", "channel": "14", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+			
+// Положение левый элерона внешний
+            { "block": "9", "slot": "6", "channel": "16", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },	
+			
+// Положение правого элерона внешний
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "056", "msb": "29", "lsb": "14", "price": "0.0009765625", "sdi": "no", "sign": "yes" },
+
+// Триммер по крену
+            { "block": "9", "slot": "6", "channel": "19", "mode": "real", "param": "042", "msb": "29", "lsb": "14", "price": "0.0001831", "sdi": "no", "sign": "yes" },
+			
+// Обжатие ПОШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "18", "lsb": "18", "price": "1", "sdi": "no", "sign": "no" },
+			
+// Обжатие ЛООШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "17", "lsb": "17", "price": "1", "sdi": "no", "sign": "no" },
+
+// Обжатие ПООШ
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "16", "lsb": "16", "price": "1", "sdi": "no", "sign": "no" },
+
+// Обжатие всех опор WOW
+            { "block": "9", "slot": "2", "channel": "5", "mode": "real", "param": "0272", "msb": "20", "lsb": "20", "price": "1", "sdi": "no", "sign": "no" },
+// STATUS_7
+            { "block": "3", "slot": "9", "line": "1", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_5
+            { "block": "3", "slot": "9", "line": "2", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_6
+            { "block": "3", "slot": "9", "line": "3", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_8
+            { "block": "3", "slot": "9", "line": "4", "task": "1", "minor": "1", "offset_bits": "48" },
+// STATUS_TN_0	
+			{ "block": "0", "slot": "status"},
+// STATUS_TN_1	
+            { "block": "1", "slot": "status"},
+// STATUS_TN_2	
+            { "block": "2", "slot": "status"},
+// STATUS_TN_3	
+            { "block": "3", "slot": "status"},
+// STATUS_TN_4	
+            { "block": "4", "slot": "status"},
+// STATUS_TN_5	
+            { "block": "5", "slot": "status"},
+// STATUS_TN_6	
+            { "block": "6", "slot": "status"},
+// STATUS_TN_7	
+            { "block": "7", "slot": "status"},
+// STATUS_TN_8	
+            { "block": "8", "slot": "status"},
+// STATUS_TN_9	
+            { "block": "9", "slot": "status"},
+// STATUS_TN_10	
+            { "block": "10", "slot": "status"},
+// STATUS_TN_11	
+            { "block": "11", "slot": "status"},
+// STATUS_TN_12	
+            { "block": "12", "slot": "status"},
+// STATUS_TN_13	
+            { "block": "13", "slot": "status"},
+// STATUS_TN_14	
+            { "block": "14", "slot": "status"},
+// STATUS_TN_15	
+            { "block": "15", "slot": "status"},
+// STATUS_TN_16	
+            { "block": "16", "slot": "status"},
+// STATUS_TN_17	
+            { "block": "17", "slot": "status"},
+// STATUS_TN_18	
+            { "block": "18", "slot": "status"},
+// TEMP_TN_0 
+	{ "block": "0", "slot": "ftemp"},
+// TEMP_TN_1 
+	{ "block": "1", "slot": "ftemp"},
+// TEMP_TN_2 
+	{ "block": "2", "slot": "ftemp"},
+// TEMP_TN_3 
+	{ "block": "3", "slot": "ftemp"},
+// TEMP_TN_4  
+	{ "block": "4", "slot": "ftemp"},
+// TEMP_TN_5 
+	{ "block": "5", "slot": "ftemp"},
+// TEMP_TN_6  
+	{ "block": "6", "slot": "ftemp"},
+// TEMP_TN_7 
+	{ "block": "7", "slot": "ftemp"},
+// TEMP_TN_8  
+	{ "block": "8", "slot": "ftemp"},
+// TEMP_TN_9  
+	{ "block": "9", "slot": "ftemp"},
+// TEMP_TN_10 
+	{ "block": "10", "slot": "ftemp"},
+// TEMP_TN_11  
+	{ "block": "11", "slot": "ftemp"},
+// TEMP_TN_12  
+	{ "block": "12", "slot": "ftemp"},
+// TEMP_TN_13  
+	{ "block": "13", "slot": "ftemp"},
+// TEMP_TN_14  
+	{ "block": "14", "slot": "ftemp"},
+// TEMP_TN_15  
+	{ "block": "15", "slot": "ftemp"},
+// TEMP_TN_16  
+	{ "block": "16", "slot": "ftemp"},
+// TEMP_TN_17 
+	{ "block": "17", "slot": "ftemp"},
+// TEMP_TN_18 
+	{ "block": "18", "slot": "ftemp"},
+// Time
+    { "block": "9", "slot": "4", "channel": "1", "mode": "real", "param": "0150", "msb": "28", "lsb": "12", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY1_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY2_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "26", "lsb": "26", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY3_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "28", "lsb": "28", "price": "1", "sdi": "no", "sign": "no" },
+// IG_RY3_close
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0272", "msb": "27", "lsb": "27", "price": "1", "sdi": "no", "sign": "no" },
+// IG_K1_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "24", "lsb": "24", "price": "1", "sdi": "no", "sign": "no" },
+// IG_K2_open
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "26", "lsb": "26", "price": "1", "sdi": "no", "sign": "no" },
+// IG_block_fault
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "13", "lsb": "13", "price": "1", "sdi": "no", "sign": "no" },
+// IG_system_fault
+    { "block": "9", "slot": "2", "channel": "4", "mode": "real", "param": "0271", "msb": "14", "lsb": "14", "price": "1", "sdi": "no", "sign": "no" },
+// IG_O2_1
+    { "block": "9", "slot": "8", "channel": "19", "mode": "real", "param": "046", "msb": "24", "lsb": "17", "price": "0.1", "sdi": "no", "sign": "no" },
+// IG_O2_2
+    { "block": "9", "slot": "8", "channel": "20", "mode": "real", "param": "046", "msb": "24", "lsb": "17", "price": "0.1", "sdi": "no", "sign": "no" },
+//IG_T3
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "8"},					
+//IG_T4
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "9"},	
+//IG_T5
+	{ "mode": "real", "block": "6", "slot": "9", "channel": "10"},	
+	
+// Stat_L
+    { "block": "3", "slot": "9", "line": "1", "task": "1", "minor": "7", "offset_bits": "320" },
+// Stat_R
+    { "block": "3", "slot": "9", "line": "4", "task": "1", "minor": "5", "offset_bits": "560" },
+//Stat_Kil
+	{"mode": "raw", "block": "1", "slot": "1", "channel": "10"},
+//Stat_Stab
+	{"mode": "raw", "block": "1", "slot": "1", "channel": "9"}
+	
+        ]
+    }
+]
+
+

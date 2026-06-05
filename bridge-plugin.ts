@@ -107,7 +107,7 @@ type RawMonitorState = {
 
 // ── constants ──────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(__dirname, "..");
+const PROJECT_ROOT = path.resolve(__dirname);
 const PANEL_CONFIG_CURRENT_PATH = path.join(__dirname, "data", "panels", "panel-config-current.json");
 const PANELS_DIR = path.join(__dirname, "data", "panels");
 const SIMULATOR_CONFIG_PATH = path.join(PROJECT_ROOT, "simulator-config.json");
@@ -230,17 +230,53 @@ let rawLastError: string | undefined;
 let decodeSchema: DecodeSchema | null = null;
 let decodeSchemaPort: number | null = null;
 
-function ensureDecodeSchema(): DecodeSchema {
+function ensureDecodeSchema(): DecodeSchema | null {
   if (decodeSchema && decodeSchemaPort === bridgeUdpPort) return decodeSchema;
   console.log("[BRIDGE] Loading decode schema from out.json...");
   const outPath = path.resolve(PROJECT_ROOT, "out.json");
-  const configs = loadOutJson(__dirname, outPath);
+
+  // ── Проверка наличия out.json ──
+  if (!fs.existsSync(outPath)) {
+    const errMsg =
+      "╔═══════════════════════════════════════════════════════════════╗\n" +
+      "║  ❌  Файл out.json НЕ НАЙДЕН в корне проекта!               ║\n" +
+      "║                                                               ║\n" +
+      "║  Декодирование телеметрии НЕВОЗМОЖНО без out.json.           ║\n" +
+      "║  Raw Data будет отображаться, но Decoded Parameters — ПУСТО. ║\n" +
+      "║                                                               ║\n" +
+      "║  Скопируй out.json из Windows-проекта в:                      ║\n" +
+      "║    " + outPath + "\n" +
+      "║                                                               ║\n" +
+      "║  Или настрой UDP_CONFIG в .env:                               ║\n" +
+      "║    UDP_CONFIG=/путь/к/out.json                                ║\n" +
+      "╚═══════════════════════════════════════════════════════════════╝";
+    console.error("\n" + errMsg + "\n");
+    lastError = errMsg;
+    return null;
+  }
+
+  let configs: StreamConfig[];
+  try {
+    configs = loadOutJson(__dirname, outPath);
+  } catch (err) {
+    const parseMsg = `❌ Ошибка загрузки out.json: ${err instanceof Error ? err.message : String(err)}`;
+    console.error("\n" + parseMsg + "\n");
+    lastError = parseMsg;
+    return null;
+  }
+
   const stream = findStreamForPort(configs, bridgeUdpPort);
   if (!stream) {
-    throw new Error(
-      `[BRIDGE] No stream configured for port ${bridgeUdpPort} in out.json. ` +
-      `Check the JSON for a section with "port": "${bridgeUdpPort}".`
-    );
+    const errMsg =
+      "╔══════════════════════════════════════════════════════════════════╗\n" +
+      "║  ❌  В out.json не найден stream для порта " + String(bridgeUdpPort).padEnd(30) + "║\n" +
+      "║                                                                  ║\n" +
+      "║  Проверь, что в файле есть секция с \"port\": \"" + bridgeUdpPort + "\"      ║\n" +
+      "║  и \"state\": \"on\".                                                ║\n" +
+      "╚══════════════════════════════════════════════════════════════════╝";
+    console.error("\n" + errMsg + "\n");
+    lastError = errMsg;
+    return null;
   }
   console.log(`[BRIDGE] Found ${stream.slots.length} slots for port ${bridgeUdpPort}`);
   decodeSchema = buildDecodeSchema(stream.slots, FIELD_CATALOG);
@@ -321,9 +357,14 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
         }
 
         if (!currentFrame) {
-          const decoded = decodePayload(message, schema);
-          if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, message, now);
-          publishDecodedFrame(decoded, now, captureDir);
+          if (schema) {
+            const decoded = decodePayload(message, schema);
+            if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, message, now);
+            publishDecodedFrame(decoded, now, captureDir);
+          } else {
+            if (rawUdpPort === bridgeUdpPort) feedRawData(null, message, now);
+            publishDecodedFrame(message.length > 0 ? {} : {}, now, captureDir);
+          }
           return;
         }
 
@@ -334,9 +375,14 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
         const frame = currentFrame;
         currentFrame = null;
         const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
-        const decoded = decodePayload(payload, schema);
-        if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, payload, now);
-        publishDecodedFrame(decoded, now, captureDir, frame.counter);
+        if (schema) {
+          const decoded = decodePayload(payload, schema);
+          if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, payload, now);
+          publishDecodedFrame(decoded, now, captureDir, frame.counter);
+        } else {
+          if (rawUdpPort === bridgeUdpPort) feedRawData(null, payload, now);
+          publishDecodedFrame(payload.length > 0 ? {} : {}, now, captureDir, frame.counter);
+        }
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
         console.error(`[UDP ERROR] ${lastError}`);
@@ -354,7 +400,11 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
       const addr = socket.address();
       bridgeUdpActive = true;
       console.log(`[BRIDGE] UDP udp://${addr.address}:${addr.port}`);
-      console.log(`[BRIDGE] schema ${schema.mappings.length} fields / ${schema.frameBytes} bytes per frame (out.json→field-catalog.ts)`);
+      if (schema) {
+        console.log(`[BRIDGE] schema ${schema.mappings.length} fields / ${schema.frameBytes} bytes per frame (out.json→field-catalog.ts)`);
+      } else {
+        console.error(`[BRIDGE] ❌ Декодирование отключено — out.json не загружен`);
+      }
       console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
       publishStatusUpdates();
     });
