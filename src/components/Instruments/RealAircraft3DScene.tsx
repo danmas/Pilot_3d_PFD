@@ -18,6 +18,7 @@ import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { WorldGroup } from './aircraft3d/WorldGroup';
 import { groundTouch } from './aircraft3d/aircraftPosition';
+import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel } from './aircraft3d/flightModel';
 import {
   CameraController,
   CAMERA_PRESETS,
@@ -29,6 +30,9 @@ import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/mode
 import { ModelDialog } from './aircraft3d/ModelDialog';
 import TouchControls from '../Controls/TouchControls';
 import { APP_VERSION } from '../../version';
+import { FlightModelDialog } from './aircraft3d/FlightModelDialog';
+import { type ParamsState } from './aircraft3d/flightModelParams';
+import { loadFdmParams } from './aircraft3d/flightModel';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -55,9 +59,10 @@ const ROTATE_BUTTONS = [
 interface SceneProps {
   model: ModelEntry;
   cameraRef: React.RefObject<CameraControls | null>;
+  useImprovedFdm?: boolean;
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm }) => {
   return (
     <>
       <CameraController ref={cameraRef} />
@@ -77,7 +82,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef }) => {
     </WorldGroup>
 
     {/* Aircraft (static in world coords, rotates via useFrame) */}
-    <AircraftModel model={model} />
+    <AircraftModel model={model} useImprovedFdm={useImprovedFdm} />
     </>
   );
 };
@@ -87,9 +92,10 @@ interface Aircraft3DCanvasProps {
   model: ModelEntry;
   projection: ProjectionType;
   cameraRef: React.RefObject<CameraControls | null>;
+  useImprovedFdm?: boolean;
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef }) => (
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm }) => (
   <Canvas
     gl={{
       antialias: true,
@@ -107,7 +113,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
     )}
-    <Scene model={model} cameraRef={cameraRef} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} />
   </Canvas>
 ));
 
@@ -126,6 +132,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   const [dialogOpen, setDialogOpen] = useState(false);
   const [projection, setProjection] = useState<ProjectionType>('perspective');
   const [showTouchdown, setShowTouchdown] = useState(false);
+  const [useImprovedFdm, setUseImprovedFdm] = useState(() => getSavedFdm() === 'improved');
+  const [fdmDialogOpen, setFdmDialogOpen] = useState(false);
+  const [fdmParamsState, setFdmParamsState] = useState<ParamsState>(() => loadFdmParams());
 
   /* ── Периодическая проверка groundTouch ── */
   useEffect(() => {
@@ -193,6 +202,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           model={selectedModel}
           projection={projection}
           cameraRef={cameraRef}
+          useImprovedFdm={useImprovedFdm}
         />
       </Suspense>
 
@@ -206,6 +216,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
       <div className="absolute top-2 right-2 text-[11px] font-mono text-white/80 leading-tight pointer-events-none text-right">
         <div>HDG <span className="text-cyan-400">{Math.round(heading).toString().padStart(3, '0')}°</span></div>
         <div>ALT <span className="text-orange-400">{fmt(alt, 0)} м</span></div>
+        <div className="text-[9px] mt-1 opacity-40">FDM: {useImprovedFdm ? 'Improved' : 'Direct'}</div>
       </div>
       <div className="absolute bottom-8 left-2 text-[11px] font-mono text-white/80 leading-tight pointer-events-none">
         <div>CAS <span className="text-green-400">{fmt(cas, 0)}</span></div>
@@ -240,7 +251,49 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
             {PROJECTION_LABELS[key]}
           </button>
         ))}
+        <span className="mx-0.5 text-white/30 select-none">│</span>
+        {/* FDM selector */}
+        <button
+          title={SimpleFlightModel.description}
+          className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+            ${!useImprovedFdm
+              ? 'bg-amber-600/50 text-white font-medium'
+              : 'bg-white/15 hover:bg-white/30 text-white/70'
+            }`}
+          onClick={() => {
+            setUseImprovedFdm(false);
+            saveFdm('simple');
+          }}
+        >
+          {SimpleFlightModel.label}
+        </button>
+        <button
+          title={ImprovedFlightModel.description}
+          className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+            ${useImprovedFdm
+              ? 'bg-emerald-600/50 text-white font-medium'
+              : 'bg-white/15 hover:bg-white/30 text-white/70'
+            }`}
+          onClick={() => {
+            setUseImprovedFdm(true);
+            saveFdm('improved');
+          }}
+        >
+          {ImprovedFlightModel.label}
+        </button>
       </div>
+
+      {/* FDM Settings button (only when improved) */}
+      {useImprovedFdm && (
+        <button
+          onClick={() => setFdmDialogOpen(true)}
+          className="absolute bottom-1.5 right-[7rem] px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-cyan-600/50
+                     text-white/90 backdrop-blur-sm transition-colors leading-none"
+          title="Настройки FDM"
+        >
+          ⚙ FDM
+        </button>
+      )}
 
       {/* Model button */}
       <button
@@ -262,6 +315,17 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           }}
           onSave={handleSaveModels}
           onClose={() => setDialogOpen(false)}
+        />
+      )}
+
+      {fdmDialogOpen && (
+        <FlightModelDialog
+          paramsState={fdmParamsState}
+          onApply={(state) => {
+            setFdmParamsState(state);
+            setFdmDialogOpen(false);
+          }}
+          onClose={() => setFdmDialogOpen(false)}
         />
       )}
 

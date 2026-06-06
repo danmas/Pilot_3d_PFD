@@ -52,6 +52,7 @@
 | [README_pluggable_fdm.md](./README_pluggable_fdm.md) | Подключаемые FDM (Flight Dynamics Model) | Архитектура FDM, модульность, плагины | 2026-06-05 |
 | [README_performance_3D.md](./README_performance_3D.md) | Производительность 3D | Оптимизация Three.js, FPS, LOD, мобильные устройства | 2026-06-05 |
 | [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md) | 3D-модель самолёта | Aircraft3DInstrument, AircraftModel, Three.js, GLB, manual mode | 2026-06-04 |
+| [README_ground_touch.md](./README_ground_touch.md) | Ground Touch Detection (v2.6.3) | Clamp Y≥-6, TOUCHDOWN overlay, groundTouch | 2026-06-06 |
 
 ---
 
@@ -125,6 +126,7 @@
 - **Система профилей:** [README_profiles.md](./README_profiles.md)
 - **Идеи в разработку:** [README_ideas.md](./README_ideas.md)
 - **3D-самолёт:** [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md)
+- **Ground Touch & Clamp (v2.6.3):** `aircraftPosition.ts` — `groundTouch`, `aircraftPosition.y ≥ -6` (`../src/components/Instruments/aircraft3d/aircraftPosition.ts`)
 - **Realtime Charts:** [../packages/realtime-charts/README.md](../packages/realtime-charts/README.md)
 - **Измерение латентности:** [../DOCS/Latency-Measurement-Methodology.md](../DOCS/Latency-Measurement-Methodology.md)
 - **tne-replay-tool (захват/реплей):** [../tne-replay-tool/README.md](../tne-replay-tool/README.md)
