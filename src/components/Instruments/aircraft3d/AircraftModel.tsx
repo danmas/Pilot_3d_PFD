@@ -4,7 +4,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ModelEntry } from './modelConfig';
 import { telemetryRef } from '../../../telemetryRef';
-import { aircraftPosition } from './aircraftPosition';
+import { aircraftPosition, groundTouch } from './aircraftPosition';
 import { aircraftControlsRef } from '../../../aircraftControlsRef';
 
 const DEG = Math.PI / 180;
@@ -119,7 +119,19 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     const forwardHoriz = Math.cos(pRad);
     aircraftPosition.x += -Math.sin(hRad) * speedWU * forwardHoriz * dt;
     aircraftPosition.z += -Math.cos(hRad) * speedWU * forwardHoriz * dt;
+    const prevY = aircraftPosition.y;
     aircraftPosition.y += Math.sin(pRad) * speedWU * dt;
+
+    /* ── Ground clamping & touch detection (ground level = Y -6) ── */
+    const GROUND_Y = -6;
+    if (aircraftPosition.y < GROUND_Y) {
+      aircraftPosition.y = GROUND_Y;
+    }
+    /* Detect first touch: was above ground, now at ground level */
+    if (!groundTouch.touched && prevY > GROUND_Y && aircraftPosition.y <= GROUND_Y) {
+      groundTouch.touched = true;
+      groundTouch.since = performance.now();
+    }
 
     const LIMIT = 2000;
     if (Math.abs(aircraftPosition.x) > LIMIT || Math.abs(aircraftPosition.z) > LIMIT) {

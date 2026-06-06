@@ -17,6 +17,7 @@ import { GroundDisc } from './aircraft3d/Ground';
 import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { WorldGroup } from './aircraft3d/WorldGroup';
+import { groundTouch } from './aircraft3d/aircraftPosition';
 import {
   CameraController,
   CAMERA_PRESETS,
@@ -124,6 +125,25 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   const [models, setModels] = useState<ModelEntry[]>([PRIMITIVE_MODEL]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [projection, setProjection] = useState<ProjectionType>('perspective');
+  const [showTouchdown, setShowTouchdown] = useState(false);
+
+  /* ── Периодическая проверка groundTouch ── */
+  useEffect(() => {
+    let rafId: number;
+    const check = () => {
+      if (groundTouch.touched) {
+        setShowTouchdown(true);
+        // Сброс через 3.5 сек
+        setTimeout(() => {
+          setShowTouchdown(false);
+          groundTouch.reset();
+        }, 3500);
+      }
+      rafId = requestAnimationFrame(check);
+    };
+    rafId = requestAnimationFrame(check);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   useEffect(() => {
     fetchModels().then(setModels);
@@ -243,6 +263,22 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           onSave={handleSaveModels}
           onClose={() => setDialogOpen(false)}
         />
+      )}
+
+      {/* ── TOUCHDOWN overlay ── */}
+      {showTouchdown && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="text-center">
+            <div className="text-[clamp(2rem,8vw,6rem)] font-black text-red-500/90
+                          [text-shadow:0_0_20px_rgba(239,68,68,0.6),0_0_60px_rgba(239,68,68,0.3)]
+                          tracking-[0.15em] animate-pulse">
+              TOUCHDOWN
+            </div>
+            <div className="text-sm font-mono text-white/60 mt-2 tracking-[0.1em]">
+              LANDING DETECTED
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Rotation + reset buttons */}
