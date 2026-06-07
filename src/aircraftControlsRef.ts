@@ -5,9 +5,10 @@
  * values are written here. The Three.js render loop (AircraftModel.tsx)
  * reads these values instead of telemetryRef when the override is active.
  *
- * Structure: { pitch, roll, yaw } in degrees, throttle -1..1 (rate command).
+ * Structure: { pitch, roll, yaw } in degrees, throttle 0..1 (throttle position).
  * pitch > 0 = nose up, roll > 0 = bank right, yaw > 0 = nose right.
- * throttle > 0 = increase thrust rate, < 0 = decrease, 0 = maintain.
+ *
+ * Throttle is set by tapping/dragging on the red throttle indicator column.
  *
  * When `active` is false, the render loop falls back to telemetryRef.
  */
@@ -16,7 +17,7 @@ export interface AircraftOverride {
   pitch: number;    // deg, nose up+
   roll: number;     // deg, bank right+
   yaw: number;      // deg, heading right+
-  throttle: number; // rate command: -1..1 (>0 = increase thrust, 0 = maintain)
+  throttle: number; // 0..1, throttle position (set via tap on indicator)
   /** Actual Euler Y rotation of the model group (rad) — published every frame after lerp */
   modelYaw: number;
   /** Internal: was active last frame? Used for smooth takeover */

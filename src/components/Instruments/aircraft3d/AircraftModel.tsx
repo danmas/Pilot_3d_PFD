@@ -67,8 +67,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
         st.ailerons = override.roll * sens;
         st.elevator = override.pitch * sens;
         st.rudder = override.yaw * sens;
-        // Тяга: джойстик даёт 0..1, преобразуем в rate -1..1 (0.5=нейтраль)
-        st.throttle = (override.throttle - 0.5) * 2;
+        st.throttle = override.throttle; // 0..1, положение РУД
       } else if (!override.telemetryLocked) {
         // Auto mode: читаем из телеметрии
         const f = telemetryRef.current;
