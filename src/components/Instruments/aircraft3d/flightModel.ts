@@ -146,7 +146,15 @@ export function tickImprovedFdm(
   state.vy = climbRate;
   state.altitude += climbRate * dt;
 
-  /* ── 7. Ground clamp + touch ── */
+  /* ── 7. Движение вперёд по курсу ── */
+  const headingRad = state.heading * DEG;
+  const pitchRadForward = state.pitchAngle * DEG;
+  const forwardHoriz = Math.cos(pitchRadForward);
+  const speedWU = state.speed * 0.5144 / 40; // knots → world-units/s
+  aircraftPosition.x += -Math.sin(headingRad) * speedWU * forwardHoriz * dt;
+  aircraftPosition.z += -Math.cos(headingRad) * speedWU * forwardHoriz * dt;
+
+  /* ── 8. Ground clamp + touch ── */
   const worldY = state.altitude * p.altitudeScale + (p.groundY + 3);
   aircraftPosition.y = worldY;
 
