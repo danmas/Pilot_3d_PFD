@@ -3,12 +3,14 @@
  * Runway.tsx — ВПП с разметкой для 3D-сцены «Самолёт».
  *
  * Бетонная полоса с кромочными линиями, осевой разметкой и пороговыми полосами.
- * Находится внутри WorldGroup — при наборе высоты ВПП удаляется вниз.
+ * Компенсирует сдвиг WorldGroup по Y, чтобы оставаться на земле.
  *
  * Все геометрии и материалы — общие (useMemo), для экономии draw-calls.
  */
-import { useMemo, useEffect, memo } from 'react';
+import { useMemo, useRef, useEffect, memo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { aircraftPosition } from './aircraftPosition';
 
 export const Runway: React.FC = memo(() => {
   const runwayMat = useMemo(
@@ -46,8 +48,18 @@ export const Runway: React.FC = memo(() => {
   // Threshold stripe X-offsets
   const threshX = [-6, -4, -2, 0, 2, 4, 6];
 
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Компенсация сдвига WorldGroup: ВПП должна оставаться на земле
+  useFrame(() => {
+    const grp = groupRef.current;
+    if (grp) {
+      grp.position.y = -aircraftPosition.y;
+    }
+  });
+
   return (
-    <group>
+    <group ref={groupRef}>
       {/* Runway surface */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}

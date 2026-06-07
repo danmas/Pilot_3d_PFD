@@ -16,6 +16,7 @@ import { AircraftModel } from './aircraft3d/AircraftModel';
 import { GroundDisc } from './aircraft3d/Ground';
 import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
+import { Trees } from './aircraft3d/Trees';
 import { WorldGroup } from './aircraft3d/WorldGroup';
 import { groundTouch } from './aircraft3d/aircraftPosition';
 import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel } from './aircraft3d/flightModel';
@@ -79,6 +80,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm }) => {
     <WorldGroup>
       <Runway />
       <Clouds count={40} />
+      <Trees />
     </WorldGroup>
 
     {/* Aircraft (static in world coords, rotates via useFrame) */}
