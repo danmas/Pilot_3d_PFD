@@ -17,6 +17,7 @@ import { GroundDisc } from './aircraft3d/Ground';
 import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { Trees } from './aircraft3d/Trees';
+import { RedTree } from './aircraft3d/RedTree';
 import { WorldGroup } from './aircraft3d/WorldGroup';
 import { groundTouch } from './aircraft3d/aircraftPosition';
 import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel } from './aircraft3d/flightModel';
@@ -73,14 +74,15 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm }) => {
     <directionalLight position={[10, 20, -10]} intensity={1.0} />
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
-    {/* HorizonSphere and GroundDisc are fixed in world space */}
+    {/* HorizonSphere is fixed in world space — outside WorldGroup */}
     <HorizonSphere />
-    <GroundDisc />
 
     <WorldGroup>
+      <GroundDisc />
       <Runway />
       <Clouds count={40} />
       <Trees />
+      <RedTree />
     </WorldGroup>
 
     {/* Aircraft (static in world coords, rotates via useFrame) */}

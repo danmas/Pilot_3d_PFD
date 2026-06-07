@@ -77,7 +77,7 @@ export const Trees: React.FC = memo(() => {
     Array.from({ length: TREE_COUNT }, () => [null, null]),
   );
 
-  /* ─── Frame update ─── */
+  /* ─── Frame update (compensate Y only: WorldGroup offsets -ay) ─── */
   useFrame(() => {
     const ax = aircraftPosition.x;
     const az = aircraftPosition.z;
@@ -103,10 +103,11 @@ export const Trees: React.FC = memo(() => {
       }
 
       const s = t.scale;
-      const groundY = -6 - ay;
-      trunk.position.set(t.wx, groundY + (TRUNK_H * s) / 2, t.wz);
+      // Y: compensate WorldGroup offset so trees stay on ground
+      // XZ: WorldGroup moves naturally with aircraft
+      trunk.position.set(t.wx, -6 - ay + (TRUNK_H * s) / 2, t.wz);
       trunk.scale.set(s, s, s);
-      crown.position.set(t.wx, groundY + TRUNK_H * s + (CROWN_H * s) / 2, t.wz);
+      crown.position.set(t.wx, -6 - ay + TRUNK_H * s + (CROWN_H * s) / 2, t.wz);
       crown.scale.set(s, s, s);
     }
   });

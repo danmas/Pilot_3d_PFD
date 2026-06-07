@@ -163,17 +163,6 @@ export const Clouds: React.FC = memo(() => {
     }
   });
 
-  /* ─── Red marker cloud (tree-shaped) next to runway ─── */
-  const markerRef = useRef<THREE.Mesh>(null);
-
-  // Compensate WorldGroup Y offset so marker stays on ground
-  useFrame(() => {
-    const m = markerRef.current;
-    if (m) {
-      m.position.y = -6 + 7.5 - aircraftPosition.y;
-    }
-  });
-
   return (
     <group>
       {pool.current.map((_, i) =>
@@ -187,11 +176,6 @@ export const Clouds: React.FC = memo(() => {
           />
         )),
       )}
-      {/* Red marker: cone + cylinder as a tree next to runway */}
-      <mesh ref={markerRef} position={[20, -6 + 7.5, 40]} castShadow>
-        <coneGeometry args={[6, 15, 6]} />
-        <meshStandardMaterial color="red" roughness={0.5} />
-      </mesh>
     </group>
   );
 });
