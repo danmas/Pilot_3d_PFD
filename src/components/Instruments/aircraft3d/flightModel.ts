@@ -9,6 +9,10 @@
  *   Органы → аэродинамические моменты → pitch/roll/yaw rates
  *   Крен → разворот (горизонтальная составляющая подъёмной силы)
  *   Все коэффициенты настраиваются через FlightModelParams.
+ *
+ * v2.8.0 — Управление тягой: красный джойстик управляет rate изменения
+ *   throttlePosition. Отклонение вверх → тяга растёт, вниз → падает,
+ *   нейтраль → фиксация. Скорость изменения = deviation * throttleMaxRate.
  */
 import * as THREE from 'three';
 import { aircraftPosition, groundTouch } from './aircraftPosition';
@@ -33,9 +37,12 @@ export interface ImprovedState {
   speed: number;
   altitude: number;
   vy: number;
+  /** Текущая позиция РУД (0..1) — накапливается из rate */
+  throttlePosition: number;
   elevator: number;
   ailerons: number;
   rudder: number;
+  /** Rate-команда от джойстика (-1..1): >0 = увеличить тягу */
   throttle: number;
   _elevator_smoothed: number;
   _ailerons_smoothed: number;
@@ -53,14 +60,15 @@ export function createImprovedState(): ImprovedState {
     speed: 250,
     altitude: 0,
     vy: 0,
+    throttlePosition: 0.5, // стартуем с 50%
     elevator: 0,
     ailerons: 0,
     rudder: 0,
-    throttle: 0.5,
+    throttle: 0, // rate-команда (0 = нейтраль)
     _elevator_smoothed: 0,
     _ailerons_smoothed: 0,
     _rudder_smoothed: 0,
-    _throttle_smoothed: 0.5,
+    _throttle_smoothed: 0,
     params: { ...CONFIG_PRESETS.default },
   };
 }
@@ -75,7 +83,7 @@ export const SimpleFlightModel = {
 
 export const ImprovedFlightModel = {
   label: 'Improved FDM',
-  description: 'Органы управления → аэродинамика → реакция модели. Крен создаёт разворот.',
+  description: 'Органы управления → аэродинамика → реакция модели. Крен создаёт разворот. Тяга — rate-управление.',
 } as const;
 
 /* ─── Тип для селектора ─── */
@@ -108,14 +116,25 @@ export function tickImprovedFdm(
   state._elevator_smoothed += (state.elevator - state._elevator_smoothed) * p.controlSmoothing;
   state._ailerons_smoothed += (state.ailerons - state._ailerons_smoothed) * p.controlSmoothing;
   state._rudder_smoothed += (state.rudder - state._rudder_smoothed) * p.controlSmoothing;
-  state._throttle_smoothed += (state.throttle - state._throttle_smoothed) * p.controlSmoothing;
 
   const el = state._elevator_smoothed;
   const ail = state._ailerons_smoothed;
   const rud = state._rudder_smoothed;
+  const thrRate = state.throttle; // -1..1
+
+  /* ── 2. Управление тягой (rate mode) ── */
+  // thrRate: -1 (полный вниз) до +1 (полный вверх), 0 = нейтраль
+  // Скорость изменения = thrRate * throttleMaxRate в секунду
+  if (thrRate !== 0) {
+    state.throttlePosition += thrRate * p.throttleMaxRate * dt;
+    state.throttlePosition = Math.max(0, Math.min(1, state.throttlePosition));
+  }
+
+  // Сглаживание для плавности
+  state._throttle_smoothed += (state.throttlePosition - state._throttle_smoothed) * p.controlSmoothing;
   const thr = state._throttle_smoothed;
 
-  /* ── 2. Скорость ── */
+  /* ── 3. Скорость ── */
   const drag = p.dragCoeff * state.speed * state.speed;
   const thrust = thr * p.thrustMax;
   state.speed += (thrust - drag) * dt;
@@ -123,15 +142,15 @@ export function tickImprovedFdm(
 
   const isStall = state.speed < p.stallSpeed;
 
-  /* ── 3. Крен ── */
+  /* ── 4. Крен ── */
   const rollRate = ail * p.aileronRate - state.rollAngle * p.spiralStability;
   state.rollAngle += rollRate * dt;
 
-  /* ── 4. Тангаж ── */
+  /* ── 5. Тангаж ── */
   const pitchRate = el * (p.elevatorRate - (isStall ? p.elevatorStallPenalty : 0));
   state.pitchAngle += pitchRate * dt;
 
-  /* ── 5. Курс ── */
+  /* ── 6. Курс ── */
   const rollRad = state.rollAngle * DEG;
   const yawFromBank = -Math.sin(rollRad) * p.bankToYawFactor;
   const yawFromRudder = rud * p.rudderRate;
@@ -139,16 +158,14 @@ export function tickImprovedFdm(
   state.heading += headingRate * dt;
   state.heading = ((state.heading % 360) + 360) % 360;
 
-  /* ── 6. Вертикальная скорость ── */
+  /* ── 7. Вертикальная скорость ── */
   const liftFactor = Math.cos(rollRad);
   const pitchRad = state.pitchAngle * DEG;
   const climbRate = (Math.sin(pitchRad) * state.speed * p.climbFactor - (isStall ? p.stallSinkRate : 0)) * liftFactor;
   state.vy = climbRate;
   state.altitude += climbRate * dt;
 
-  /* ── 7. Движение вперёд по курсу ── */
-  // headingRad = -state.heading — инверсия для согласования с
-  // g.rotation.y = -headingRad в AircraftModel.tsx (Simple FDM convention)
+  /* ── 8. Движение вперёд по курсу ── */
   const headingRad = -state.heading * DEG;
   const pitchRadForward = state.pitchAngle * DEG;
   const forwardHoriz = Math.cos(pitchRadForward);
@@ -156,7 +173,7 @@ export function tickImprovedFdm(
   aircraftPosition.x += -Math.sin(headingRad) * speedWU * forwardHoriz * dt;
   aircraftPosition.z += -Math.cos(headingRad) * speedWU * forwardHoriz * dt;
 
-  /* ── 8. Ground clamp + touch ── */
+  /* ── 9. Ground clamp + touch ── */
   const worldY = state.altitude * p.altitudeScale + (p.groundY + 3);
   aircraftPosition.y = worldY;
 
@@ -174,7 +191,7 @@ export function tickImprovedFdm(
     groundTouch.since = performance.now();
   }
 
-  /* ── 8. Запись в outFrame ── */
+  /* ── 10. Запись в outFrame ── */
   outFrame.PitchAngle = state.pitchAngle;
   outFrame.RollAngle = state.rollAngle;
   outFrame.Heading1 = state.heading;
@@ -192,7 +209,9 @@ export function tickImprovedFdm(
   (outFrame as any).elevator = el;
   (outFrame as any).ailerons = ail;
   (outFrame as any).rudder = rud;
-  (outFrame as any).throttle = thr;
+  (outFrame as any).throttle = thr; // сглаженная позиция РУД
+  (outFrame as any).throttleRate = thrRate;
+  (outFrame as any).throttlePosition = state.throttlePosition;
   (outFrame as any).headingRate = headingRate;
   (outFrame as any).rollRate = rollRate;
   (outFrame as any).pitchRate = pitchRate;
@@ -202,6 +221,8 @@ export function tickImprovedFdm(
 export function resetImprovedState(state: ImprovedState) {
   const fresh = createImprovedState();
   fresh.params = state.params; // preserve params reference
+  // Сохраняем throttlePosition при reset
+  fresh.throttlePosition = state.throttlePosition;
   Object.assign(state, fresh);
   aircraftPosition.set(0, 0, 0);
 }

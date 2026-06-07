@@ -1,13 +1,18 @@
 /**
  * TouchControls.tsx — композит джойстиков для мобильного управления самолётом.
  *
- * Левая сторона (красный): ThrottleJoystick — рыскание (X) + дельта газа (Y, пружина).
+ * Левая сторона (красный): ThrottleJoystick — рыскание (X) + тяга (Y, rate-mode).
  *   Горизонтальное движение → рыскание (yaw).
- *   Вертикальное движение → приращение газа (throttle 0..1, фиксируется отдельно).
+ *   Вертикальное движение → rate-команда тяги (-1..1, где 0=нейтраль).
+ *     Вверх (dy>0) → throttle rate > 0 (тяга растёт непрерывно, пока отклонён)
+ *     Вниз (dy<0) → throttle rate < 0 (тяга падает)
+ *     Центр (dy=0) → throttle rate = 0 (тяга фиксируется)
  *
  * Правая сторона (синий): Joystick — крен (X) + тангаж (Y).
  *
- * Справа от левого джойстика — вертикальный индикатор положения рычага газа.
+ * Справа от левого джойстика — вертикальный индикатор положения РУД.
+ * Значение throttlePosition берётся из improvedState (через outFrame)
+ * и отображается как уровень заполнения.
  *
  * Передаёт значения напрямую в aircraftControlsRef (модульный ref),
  * который читается в AircraftModel.useFrame() на каждом кадре.
@@ -22,21 +27,16 @@ const MAX_PITCH = 45;  // макс тангаж ±45°
 const MAX_ROLL  = 60;  // макс крен ±60°
 const MAX_YAW   = 90;  // макс рыскание ±90°
 
-/** Чувствительность газа: сколько доли (0..1) добавлять при полном отклонении */
-const THROTTLE_SENSITIVITY = 0.003;
-
 const TouchControls: React.FC = memo(() => {
   // Локальный стейт для визуального положения джойстиков
   const [leftJoy, setLeftJoy] = useState({ x: 0, y: 0 });     // roll + pitch (синий)
-  const [rightJoy, setRightJoy] = useState({ x: 0, y: 0 });   // yaw + throttle delta (красный)
-  // Throttle — фиксированное положение 0..1, меняем только дельтой
-  const [throttle, setThrottle] = useState(0.5); // стартуем с 50%
+  const [rightJoy, setRightJoy] = useState({ x: 0, y: 0 });   // yaw + throttle rate (красный)
 
   const [manualMsg, setManualMsg] = useState(false);
   const manualActivated = useRef(false);
 
   const writeOverride = useCallback(
-    (pitch: number, roll: number, yaw: number, throttleVal: number) => {
+    (pitch: number, roll: number, yaw: number, throttleRate: number) => {
       const ref = aircraftControlsRef.current;
       // First touch ever: lock telemetry permanently and show message once
       if (!manualActivated.current) {
@@ -49,7 +49,9 @@ const TouchControls: React.FC = memo(() => {
       ref.pitch = pitch;
       ref.roll = roll;
       ref.yaw = yaw;
-      ref.throttle = throttleVal;
+      // throttleRate: -1..1, где 0 = нейтраль (тяга фиксируется)
+      // Значение из джойстика: dy от -1 до 1
+      ref.throttle = throttleRate;
     },
     [],
   );
@@ -77,97 +79,35 @@ const TouchControls: React.FC = memo(() => {
       setLeftJoy({ x, y });
       const pitch = -y * MAX_PITCH;  // инвертирован
       const roll  = -x * MAX_ROLL;  // инвертирован
-      if (x === 0 && y === 0 && rightJoy.x === 0) {
+      if (x === 0 && y === 0 && rightJoy.x === 0 && rightJoy.y === 0) {
         clearOverride();
       } else {
-        writeOverride(pitch, roll, rightJoy.x * MAX_YAW, throttle);
+        writeOverride(pitch, roll, rightJoy.x * MAX_YAW, rightJoy.y);
       }
     },
-    [rightJoy, throttle, writeOverride, clearOverride],
+    [rightJoy, writeOverride, clearOverride],
   );
 
-  // Right joystick: yaw (x) + throttle delta (y, spring) — левый на экране
+  // Right joystick: yaw (x) + throttle rate (y, spring return to center)
   const onRightChange = useCallback(
     (x: number, dy: number) => {
       setRightJoy({ x, y: dy });
 
-      // Throttle: приращение от вертикального смещения (пружина → дельта)
-      // dy > 0 = вверх = больше газа
-      let newThrottle = throttle;
-      if (dy !== 0) {
-        newThrottle = Math.max(0, Math.min(1, throttle + dy * THROTTLE_SENSITIVITY * 10));
-      }
-      setThrottle(newThrottle);
-
       const yaw = x * MAX_YAW;
-      if (x === 0 && leftJoy.x === 0 && leftJoy.y === 0) {
-        writeOverride(0, 0, 0, newThrottle);
+      if (x === 0 && dy === 0 && leftJoy.x === 0 && leftJoy.y === 0) {
+        writeOverride(0, 0, 0, 0);
       } else {
-        writeOverride(leftJoy.y * MAX_PITCH, leftJoy.x * MAX_ROLL, yaw, newThrottle);
+        writeOverride(leftJoy.y * MAX_PITCH, leftJoy.x * MAX_ROLL, yaw, dy);
       }
     },
-    [leftJoy, throttle, writeOverride],
+    [leftJoy, writeOverride],
   );
-
-  // Throttle indicator: вертикальная полоса справа от левого джойстика
-  const throttlePercent = Math.round(throttle * 100);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50">
-      {/* Left area: ThrottleJoystick + indicator */}
+      {/* Left area: ThrottleJoystick + throttle indicator */}
       <div className="absolute left-4 bottom-20 flex items-end gap-3 pointer-events-auto">
         <ThrottleJoystick value={rightJoy} onChange={onRightChange} size={140} />
-        {/* Throttle indicator column */}
-        <div
-          className="relative"
-          style={{
-            width: 24,
-            height: 140,
-            background: 'rgba(20, 22, 27, 0.85)',
-            borderRadius: 6,
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Fill bar (bottom-up) */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              width: '100%',
-              height: `${throttlePercent}%`,
-              background: 'linear-gradient(to top, #dc2626, #ef4444)',
-              borderRadius: '0 0 5px 5px',
-              transition: 'height 0.1s ease-out',
-            }}
-          />
-          {/* Tick marks every 25% */}
-          {[25, 50, 75].map((tick) => (
-            <div
-              key={tick}
-              className="absolute left-0 w-full pointer-events-none"
-              style={{
-                bottom: `${tick}%`,
-                height: 1,
-                background: 'rgba(255,255,255,0.15)',
-              }}
-            />
-          ))}
-          {/* Label */}
-          <div
-            className="absolute bottom-0 left-0 w-full text-center pointer-events-none select-none"
-            style={{
-              color: 'rgba(239, 68, 68, 0.9)',
-              fontSize: 10,
-              fontFamily: 'monospace',
-              lineHeight: '14px',
-              textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-            }}
-          >
-            {throttlePercent}%
-          </div>
-        </div>
       </div>
 
       {/* Manual flight notification banner */}
