@@ -147,7 +147,9 @@ export function tickImprovedFdm(
   state.altitude += climbRate * dt;
 
   /* ── 7. Движение вперёд по курсу ── */
-  const headingRad = state.heading * DEG;
+  // headingRad = -state.heading — инверсия для согласования с
+  // g.rotation.y = -headingRad в AircraftModel.tsx (Simple FDM convention)
+  const headingRad = -state.heading * DEG;
   const pitchRadForward = state.pitchAngle * DEG;
   const forwardHoriz = Math.cos(pitchRadForward);
   const speedWU = state.speed * 0.5144 / 40; // knots → world-units/s
