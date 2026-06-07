@@ -75,10 +75,11 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm }) => {
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
     {/* HorizonSphere is fixed in world space — outside WorldGroup */}
+    {/* GroundDisc тоже снаружи WorldGroup — следует за aircraftPosition самостоятельно */}
     <HorizonSphere />
+    <GroundDisc />
 
     <WorldGroup>
-      <GroundDisc />
       <Runway />
       <Clouds count={40} />
       <Trees />

@@ -77,11 +77,10 @@ export const Trees: React.FC = memo(() => {
     Array.from({ length: TREE_COUNT }, () => [null, null]),
   );
 
-  /* ─── Frame update (compensate Y only: WorldGroup offsets -ay) ─── */
+  /* ─── Frame update (WorldGroup moves world, trees are static in local space) ─── */
   useFrame(() => {
     const ax = aircraftPosition.x;
     const az = aircraftPosition.z;
-    const ay = aircraftPosition.y;
     const cullSq = CULL_DIST * CULL_DIST;
     const outerSq = AREA_RADIUS * AREA_RADIUS;
     const trees = pool.current;
@@ -103,11 +102,11 @@ export const Trees: React.FC = memo(() => {
       }
 
       const s = t.scale;
-      // Y: compensate WorldGroup offset so trees stay on ground
-      // XZ: WorldGroup moves naturally with aircraft
-      trunk.position.set(t.wx, -6 - ay + (TRUNK_H * s) / 2, t.wz);
+      // Y: WorldGroup уже сдвигает мир на -aircraftPosition.y,
+      // поэтому деревья просто стоят на земле (Y=-6) в локальных координатах
+      trunk.position.set(t.wx, -6 + (TRUNK_H * s) / 2, t.wz);
       trunk.scale.set(s, s, s);
-      crown.position.set(t.wx, -6 - ay + TRUNK_H * s + (CROWN_H * s) / 2, t.wz);
+      crown.position.set(t.wx, -6 + TRUNK_H * s + (CROWN_H * s) / 2, t.wz);
       crown.scale.set(s, s, s);
     }
   });

@@ -10,7 +10,6 @@
 import { useMemo, useRef, useEffect, memo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { aircraftPosition } from './aircraftPosition';
 
 export const Runway: React.FC = memo(() => {
   const runwayMat = useMemo(
@@ -50,12 +49,10 @@ export const Runway: React.FC = memo(() => {
 
   const groupRef = useRef<THREE.Group>(null);
 
-  // Компенсация только Y: WorldGroup сдвигает на -aircraftPosition.y,
-  // мы сдвигаем обратно, чтобы ВПП оставалась на земле
   useFrame(() => {
     const grp = groupRef.current;
     if (grp) {
-      grp.position.y = -aircraftPosition.y;
+      grp.position.y = 0; // компенсация не нужна — WorldGroup уже сдвигает весь мир
     }
   });
 
