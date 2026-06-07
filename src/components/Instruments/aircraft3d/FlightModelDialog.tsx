@@ -40,6 +40,7 @@ const PARAM_DEFS: ParamDef[] = [
   { key: 'stallSinkRate',      label: 'Снижение при stall',   min: 5,   max: 150, step: 1 },
   { key: 'altitudeScale',      label: 'Масштаб высоты',       min: 0.01, max: 0.2, step: 0.01 },
   { key: 'groundY',            label: 'Уровень земли',        min: -20, max: -1,  step: 0.5 },
+  { key: 'joystickSensitivity',label: 'Чувств. джойстика',    min: 0.001, max: 0.1,   step: 0.001 },
 ];
 
 const PRESET_OPTIONS: { key: PresetKey; label: string }[] = [
@@ -164,8 +165,10 @@ export const FlightModelDialog: React.FC<Props> = memo(({ paramsState, onApply, 
                   className="flex-1 h-1 accent-cyan-500"
                 />
                 <span className="text-[11px] text-white/90 w-16 text-right">
-                  {def.step >= 0.01 && def.step < 1
-                    ? localParams[def.key].toFixed(def.step === 0.00001 ? 5 : 2)
+                  {def.step <= 0.001
+                    ? localParams[def.key].toFixed(5)
+                    : def.step >= 0.01 && def.step < 1
+                    ? localParams[def.key].toFixed(2)
                     : Math.round(localParams[def.key])}
                 </span>
               </div>

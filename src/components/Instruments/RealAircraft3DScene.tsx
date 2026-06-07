@@ -72,12 +72,12 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm }) => {
     <directionalLight position={[10, 20, -10]} intensity={1.0} />
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
-    {/* HorizonSphere and GroundDisc stay at origin — they're infinite */}
+    {/* HorizonSphere, GroundDisc and Runway are fixed in world space */}
     <HorizonSphere />
     <GroundDisc />
+    <Runway />
 
     <WorldGroup>
-      <Runway />
       <Clouds count={40} />
     </WorldGroup>
 

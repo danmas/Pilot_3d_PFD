@@ -39,7 +39,7 @@ const GROUND_FRAG = /* glsl */ `
   }
 `;
 
-const DISC_RADIUS = 600;
+const DISC_RADIUS = 5000;
 
 export const GroundDisc: React.FC = memo(() => {
   const groupRef = useRef<THREE.Group>(null);
@@ -84,13 +84,13 @@ export const GroundDisc: React.FC = memo(() => {
     g.position.x = aircraftPosition.x;
     g.position.z = aircraftPosition.z;
 
-    // Altitude → ground drops as aircraft climbs
+    // Altitude — ground follows aircraft downward very gently
     const alt =
       typeof f.RAltitude === 'number' && Number.isFinite(f.RAltitude)
         ? f.RAltitude
         : 0;
-    const targetY = -6 - alt / 150;
-    g.position.y += (targetY - g.position.y) * 0.04;
+    const targetY = -6 - alt / 500;
+    g.position.y += (targetY - g.position.y) * 0.06;
   });
 
   return (
@@ -99,6 +99,7 @@ export const GroundDisc: React.FC = memo(() => {
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -6, 0]}
         renderOrder={-2}
+        frustumCulled={false}
         material={material}
         geometry={geometry}
       />

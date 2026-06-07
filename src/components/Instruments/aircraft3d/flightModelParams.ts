@@ -40,6 +40,9 @@ export interface FlightModelParams {
   altitudeScale: number;
   /** Уровень земли в мировых координатах */
   groundY: number;
+
+  /** Чувствительность джойстика (0..1, 0.05 = очень плавно, 1 = мгновенный отклик) */
+  joystickSensitivity: number;
 }
 
 /* ─── Пресеты ─── */
@@ -65,6 +68,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
 
     altitudeScale: 0.05,
     groundY: -6,
+    joystickSensitivity: 0.05,
   },
 
   slow: {
@@ -86,6 +90,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
 
     altitudeScale: 0.05,
     groundY: -6,
+    joystickSensitivity: 0.05,
   },
 
   fast: {
@@ -107,6 +112,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
 
     altitudeScale: 0.05,
     groundY: -6,
+    joystickSensitivity: 0.1,
   },
 
   custom: { ...({
@@ -124,6 +130,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     stallSinkRate: 50,
     altitudeScale: 0.05,
     groundY: -6,
+    joystickSensitivity: 0.05,
   }) },
 };
 

@@ -62,9 +62,12 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       // В manual mode джойстики активны, иначе читаем из telemetry (auto)
       if (override.active) {
         // Левый джойстик: X → элероны, Y → элеватор (инвертирован)
-        st.ailerons = override.roll;   // -1..1
-        st.elevator = -override.pitch; // up = negative pitch
-        st.rudder = override.yaw;      // -1..1
+        // Чувствительность из параметров
+        const sens = st.params.joystickSensitivity;
+        st.ailerons = override.roll * sens;
+        st.elevator = override.pitch * sens;
+        st.rudder = override.yaw * sens;
+        st.throttle = override.throttle; // 0..1
       } else if (!override.telemetryLocked) {
         // Auto mode: читаем из телеметрии
         const f = telemetryRef.current;
@@ -216,7 +219,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
   const oz = model?.offsetZ ?? 0;
 
   return (
-    <group ref={groupRef} position={[ox, oy, oz]}>
+    <group ref={groupRef} position={[ox, oy, oz]} frustumCulled={false}>
       {useGlb ? (
         <Suspense fallback={null}>
           <GLBAircraft
