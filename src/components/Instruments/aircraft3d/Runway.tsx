@@ -3,8 +3,7 @@
  * Runway.tsx — ВПП с разметкой для 3D-сцены «Самолёт».
  *
  * Бетонная полоса с кромочными линиями, осевой разметкой и пороговыми полосами.
- * Остаётся неподвижной в мировых координатах (внутри WorldGroup) —
- * самолёт улетает от неё, что создаёт ощущение реального полёта.
+ * Находится внутри WorldGroup — при наборе высоты ВПП удаляется вниз.
  *
  * Все геометрии и материалы — общие (useMemo), для экономии draw-calls.
  */
@@ -54,6 +53,7 @@ export const Runway: React.FC = memo(() => {
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -5.97, 0]}
         receiveShadow
+        frustumCulled={false}
         material={runwayMat}
         geometry={runwayGeom}
       />
@@ -64,6 +64,7 @@ export const Runway: React.FC = memo(() => {
           key={x}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[x, -5.95, 0]}
+          frustumCulled={false}
           material={markMat}
           geometry={edgeGeom}
         />
@@ -75,6 +76,7 @@ export const Runway: React.FC = memo(() => {
           key={z}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, -5.95, z]}
+          frustumCulled={false}
           material={markMat}
           geometry={dashGeom}
         />
@@ -86,6 +88,7 @@ export const Runway: React.FC = memo(() => {
           key={`n${x}`}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[x, -5.95, -245]}
+          frustumCulled={false}
           material={markMat}
           geometry={threshGeom}
         />
@@ -97,6 +100,7 @@ export const Runway: React.FC = memo(() => {
           key={`f${x}`}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[x, -5.95, 245]}
+          frustumCulled={false}
           material={markMat}
           geometry={threshGeom}
         />
