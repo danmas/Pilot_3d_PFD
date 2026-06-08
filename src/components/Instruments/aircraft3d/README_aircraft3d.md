@@ -11,10 +11,12 @@
 ```
 src/components/Instruments/
 ├── Aircraft3DInstrument.tsx          ← главный компонент, HUD, кнопки, регистрация
+├── RealAircraft3DScene.tsx           ← 3D-авиагоризонт (Pitch/Roll/Heading в WebGL)
 └── aircraft3d/
     ├── HorizonSphere.tsx             ← небесная сфера (GLSL-шейдер)
     ├── AircraftModel.tsx             ← примитивы + загрузка GLB (useGLTF)
     ├── CameraController.tsx          ← OrbitControls + пресеты + кнопочное вращение
+    ├── GridOverlay.tsx               ← сетка на земле 2000×2000 (шаг 10, localStorage)
     ├── ModelDialog.tsx               ← диалог выбора и настройки модели
     ├── modelConfig.ts                ← типы ModelEntry, fetchModels()
     ├── VelocityVector.tsx            ← (отключён) вектор траектории

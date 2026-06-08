@@ -1,6 +1,6 @@
 # Архитектура Pilot_3d_PFD
 
-> Версия документа: v2.4.1
+> Версия документа: v2.8.3
 
 ---
 
@@ -132,8 +132,10 @@ Sources → telemetryRef → setFrame() → Component(frame)
 | `Clouds.tsx`           | Облака (процедурные)                            |
 | `HorizonSphere.tsx`    | Небесная сфера (GLSL-шейдер)                    |
 | `Runway.tsx`           | ВПП                                             |
+| `GridOverlay.tsx`      | Сетка на земле (2000×2000, шаг 10)              |
+| `RealAircraft3DScene.tsx`| Авиагоризонт в 3D (Pitch/Roll/Heading)         |
 | `VelocityVector.tsx`   | Вектор траектории (отключён)                    |
-| `aircraftPosition.ts`  | Позиционирование самолёта                       |
+| `aircraftPosition.ts`  | **Позиционирование + Ground Touch.** Ограничивает Y ≥ -6, срабатывает TOUCHDOWN. |
 | `modelConfig.ts`       | Типы и загрузка .glb моделей                    |
 | `ModelDialog.tsx`      | UI выбора модели                                |
 
@@ -147,7 +149,14 @@ Sources → telemetryRef → setFrame() → Component(frame)
 - **Sidebar** — список доступных инструментов
 - **Registry** — реестр всех зарегистрированных виджетов (PFD-приборы, 3D)
 
-### 4.5 Приборы (инструменты)
+### 4.5 Hub View (App.tsx)
+
+Главная страница — карточки-ссылки на все view. В нижней строке:
+- UDP порт (`sourceStatus.udpPort`)
+- Версия приложения (`APP_VERSION` из `src/version.ts`)
+- Статус источника (active/inactive)
+
+### 4.6 Приборы (инструменты)
 
 Все в `src/components/Instruments/`:
 
@@ -165,6 +174,10 @@ Sources → telemetryRef → setFrame() → Component(frame)
 | `ConfigDisplayInstrument.tsx`| Конфигурация полёта                 |
 | `AuxPanelInstrument.tsx`     | Вспомогательная панель              |
 | `Aircraft3DInstrument.tsx`   | 3D вид самолёта                     |
+
+### 4.7 Ground Touch (v2.6.3)
+
+`aircraftPosition.ts`: при касании земли (`Y ≤ -6`) — позиция зажимается в Y = -6, срабатывает `groundTouch.current = true`, на экране появляется оверлей TOUCHDOWN. Подробнее: [README_ground_touch.md](./README_ground_touch.md).
 
 ---
 

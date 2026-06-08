@@ -46,7 +46,7 @@ FlightSimulator.step(0.04), 25 Hz ──────────────┤
 > **Важно:** порядок байт в бинарном потоке НЕ определяется `field-catalog.ts`.
 > Единственный источник порядка байт — **`out.json`** (читается модулем `decoding.ts` при старте).
 > Сопоставление слотов с каталогом — по ARINC param, а не по индексу.
-> Подробнее — [README_decoding.md](./README_decoding.md).
+> Подробнее — [KB/README_decoding.md](./KB/README_decoding.md).
 
 ### Расчётные поля (dec_ префикс)
 
@@ -147,14 +147,14 @@ Initial presets:
 | `high_altitude_25000_250` | `25000 ft`, `250 kt`, `throttle 0.72`, `pitch 4°` |
 | `approach_1500_140` | `1500 ft`, `140 kt`, `throttle 0.5`, `pitch 4°` |
 
-Подробно: [README_flight_physics.md](./README_flight_physics.md).
+Подробно: [KB/README_flight_physics.md](./KB/README_flight_physics.md).
 
-**Подключаемые модели (pluggable FDM):** [README_pluggable_fdm.md](./README_pluggable_fdm.md).
+**Подключаемые модели (pluggable FDM):** [KB/README_pluggable_fdm.md](./KB/README_pluggable_fdm.md).
 Архитектурный анализ проведён, спецификация готова. Реализация отложена — текущая модель работает стабильно.
 
 ## Panel Builder
 
-Конструктор компоновки приборов (Hub → «Panel Builder»). Подробнее — [KB/README_Panel_builder](../KB/README_Panel_builder).
+Конструктор компоновки приборов (Hub → «Panel Builder»). Подробнее — [src/components/PanelKit/README_PantlKit.md](./src/components/PanelKit/README_PantlKit.md).
 
 ### Конфигурация панели
 

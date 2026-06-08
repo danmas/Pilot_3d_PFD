@@ -18,6 +18,7 @@ import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { Trees } from './aircraft3d/Trees';
 import { RedTree } from './aircraft3d/RedTree';
+import { GridOverlay } from './aircraft3d/GridOverlay';
 import { WorldGroup } from './aircraft3d/WorldGroup';
 import { groundTouch } from './aircraft3d/aircraftPosition';
 import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel, applyFdmParamsToActive } from './aircraft3d/flightModel';
@@ -62,9 +63,10 @@ interface SceneProps {
   model: ModelEntry;
   cameraRef: React.RefObject<CameraControls | null>;
   useImprovedFdm?: boolean;
+  showGrid?: boolean;
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid }) => {
   return (
     <>
       <CameraController ref={cameraRef} />
@@ -84,6 +86,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm }) => {
       <Clouds count={40} />
       <Trees />
       <RedTree />
+      {showGrid && <GridOverlay />}
     </WorldGroup>
 
     {/* Aircraft (static in world coords, rotates via useFrame) */}
@@ -98,9 +101,10 @@ interface Aircraft3DCanvasProps {
   projection: ProjectionType;
   cameraRef: React.RefObject<CameraControls | null>;
   useImprovedFdm?: boolean;
+  showGrid?: boolean;
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm }) => (
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid }) => (
   <Canvas
     gl={{
       antialias: true,
@@ -118,7 +122,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
     )}
-    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} />
   </Canvas>
 ));
 
@@ -140,6 +144,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   const [useImprovedFdm, setUseImprovedFdm] = useState(() => getSavedFdm() === 'improved');
   const [fdmDialogOpen, setFdmDialogOpen] = useState(false);
   const [fdmParamsState, setFdmParamsState] = useState<ParamsState>(() => loadFdmParams());
+  const [showGrid, setShowGrid] = useState(() => {
+    try { return localStorage.getItem('pilot-3d-pfd:showGrid') === 'true'; } catch { return false; }
+  });
 
   /* ── Периодическая проверка groundTouch ── */
   useEffect(() => {
@@ -208,6 +215,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           projection={projection}
           cameraRef={cameraRef}
           useImprovedFdm={useImprovedFdm}
+          showGrid={showGrid}
         />
       </Suspense>
 
@@ -297,6 +305,19 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
             ⚙
           </button>
         )}
+        {/* Grid toggle */}
+        <button
+          onClick={() => {
+            const next = !showGrid;
+            setShowGrid(next);
+            try { localStorage.setItem('pilot-3d-pfd:showGrid', String(next)); } catch {}
+          }}
+          className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+            ${showGrid ? 'bg-green-600/50 text-white font-medium' : 'bg-white/15 hover:bg-white/30 text-white/70'}`}
+          title="Сетка на земле"
+        >
+          ▦
+        </button>
       </div>
 
       {/* Model button */}

@@ -27,8 +27,8 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API | 2026-06-04 |
-| [README_INDEX.md](./README_INDEX.md) | **Этот файл** | Оглавление БЗ проекта | 2026-06-06 |
+| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene | 2026-06-07 |
+| [README_INDEX.md](./README_INDEX.md) | **Этот файл** | Оглавление БЗ проекта | 2026-06-07 |
 
 ---
 
@@ -51,7 +51,7 @@
 | [README_simulator_realisation.md](./README_simulator_realisation.md) | Реализация симулятора | Симуляция полёта, FDM, численные методы | 2026-06-04 |
 | [README_pluggable_fdm.md](./README_pluggable_fdm.md) | Подключаемые FDM (Flight Dynamics Model) | Архитектура FDM, модульность, плагины | 2026-06-05 |
 | [README_performance_3D.md](./README_performance_3D.md) | Производительность 3D | Оптимизация Three.js, FPS, LOD, мобильные устройства | 2026-06-05 |
-| [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md) | 3D-модель самолёта | Aircraft3DInstrument, AircraftModel, Three.js, GLB, manual mode | 2026-06-04 |
+| [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md) | 3D-модель самолёта | Aircraft3DInstrument, AircraftModel, Three.js, GLB, manual mode, GridOverlay, RealAircraft3DScene | 2026-06-07 |
 | [README_ground_touch.md](./README_ground_touch.md) | Ground Touch Detection (v2.6.3) | Clamp Y≥-6, TOUCHDOWN overlay, groundTouch | 2026-06-06 |
 
 ---
@@ -90,7 +90,7 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [../README.md](../README.md) | Главный README проекта | Сборка, запуск, зависимости, pm2, порты | 2026-06-06 |
+| [../README.md](../README.md) | Главный README проекта | Сборка, запуск, зависимости, pm2, порты, KB-индекс | 2026-06-07 |
 | [../packages/realtime-charts/README.md](../packages/realtime-charts/README.md) | Realtime Charts | Stacked & Overlay chart, реалтайм-визуализация | 2026-06-05 |
 | [../packages/realtime-charts/README_chart_plan_1_sol_1.md](../packages/realtime-charts/README_chart_plan_1_sol_1.md) | План чартов — решение 1 | Архитектура stacked/overlay | 2026-06-05 |
 | [../packages/realtime-charts/README_chart_sol_2.md](../packages/realtime-charts/README_chart_sol_2.md) | План чартов — решение 2 | Альтернативная архитектура | 2026-06-05 |
