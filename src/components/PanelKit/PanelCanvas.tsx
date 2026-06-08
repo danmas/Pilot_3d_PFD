@@ -118,22 +118,24 @@ export const PanelCanvas = <TData,>({
   };
 
   const isWidget = node.type === 'widget' && !!node.widgetId;
+  // 3D-сцена использует мышь для вращения/зума — не перетаскиваем
+  const isDraggable = isWidget && node.widgetId !== 'aircraft-3d';
 
   return (
     <div
       ref={canvasRef}
       data-drop-zone="true"
       data-drop-widget={isWidget ? '' : undefined}
-      draggable={isWidget}
-      onDragStart={isWidget ? handleDragStart : undefined}
-      onDragEnd={isWidget ? handleDragEnd : undefined}
+      draggable={isDraggable}
+      onDragStart={isDraggable ? handleDragStart : undefined}
+      onDragEnd={isDraggable ? handleDragEnd : undefined}
       className={`w-full h-full relative group flex flex-col items-center justify-center
         ${
           node.type === 'empty'
             ? 'border-2 border-dashed border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40 cursor-pointer'
             : 'bg-[#161719] border border-[#2d2e30]'
         }
-        ${isWidget ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       <div className="absolute top-1 right-1 hidden group-hover:flex space-x-1 z-20 bg-[#161719] rounded-sm p-1 shadow-lg border border-[#2d2e30]">
         <button
