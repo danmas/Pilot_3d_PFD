@@ -41,6 +41,16 @@
       "offsetZ": 0
     },
     {
+      "id": "il-76",
+      "label": "il-76",
+      "url": "/data/aircraft3d/models/il-76.glb",
+      "scale": 1,
+      "yawOffsetDeg": 0,
+      "offsetX": 0,
+      "offsetY": 0,
+      "offsetZ": 0
+    },
+    {
       "id": "aircraft",
       "label": "aircraft",
       "url": "/data/aircraft3d/models/aircraft.glb",
