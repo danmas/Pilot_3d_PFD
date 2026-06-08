@@ -170,6 +170,9 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       // Sync telemetryRef for manual mode
       if (override.telemetryLocked) {
         const last = telemetryRef.current;
+        const altFt = Math.max(0, aircraftPosition.y * 3.28084);
+        const radioAltFt = Math.max(0, (aircraftPosition.y - GROUND_Y) * 3.28084);
+        const throttle = override.throttle ?? 0;
         telemetryRef.current = {
           ...(last || {}),
           schema: 'telemetry-frame.v1',
@@ -177,11 +180,49 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
           timeMs: (last?.timeMs ?? 0) + (delta * 1000),
           source: last?.source ?? 'manual',
           receivedAt: new Date().toISOString(),
+          // Attitude
           PitchAngle: pitchDeg,
           RollAngle: rollDeg,
           Heading1: headingDeg,
           MagneticHeading: headingDeg,
+          // Air data
           CAS: 250,
+          BaroAltitude: altFt,
+          dec_BaroAltFt: altFt,
+          RadioAltitude: radioAltFt,
+          dec_RadioAltFt: radioAltFt,
+          StandardAltitude: altFt,
+          SpeedSelect: 250,
+          Vy: pitchDeg * 500,
+          RAltitude: radioAltFt,
+          // Angle of attack
+          AoA: pitchDeg * 0.3,
+          // G-force
+          NormalG: 1.0 + Math.abs(rollDeg) / 100,
+          dec_G: 1.0 + Math.abs(rollDeg) / 100,
+          // Flight director (not simulated)
+          FD_PitchCmd: 0,
+          FD_RollCmd: 0,
+          // Nav (not simulated)
+          HeadingSelect: headingDeg,
+          DME_Distance: 0,
+          // Engine
+          Engine_N1_Left: throttle * 100,
+          Engine_N1_Right: throttle * 100,
+          TotalFuel: 12000,
+          // APU
+          APU_EGT: 450,
+          APU_OilPressure: 3.5,
+          APU_OilTemp: 80,
+          // Configuration
+          FlapsPosition: 0,
+          SlatsPosition: 0,
+          StabPosition: 0,
+          Airbrake_Inner_Cmd: 0,
+          Elev_Left_Inner: 0,
+          Elev_Left_Outer: 0,
+          Elev_Right_Inner: 0,
+          Elev_Right_Outer: 0,
         };
         override.onTelemetryUpdate?.(telemetryRef.current);
       }

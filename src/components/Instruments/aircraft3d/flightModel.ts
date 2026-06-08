@@ -181,13 +181,42 @@ export function tickImprovedFdm(
   }
 
   /* ── 9. Запись в outFrame ── */
+  const altFt = Math.max(0, state.altitude);
+  const cosRoll = Math.cos(state.rollAngle * DEG);
   outFrame.PitchAngle = state.pitchAngle;
   outFrame.RollAngle = state.rollAngle;
   outFrame.Heading1 = state.heading;
   outFrame.MagneticHeading = state.heading;
   outFrame.CAS = state.speed;
-  outFrame.Vy = state.vy;
-  outFrame.RAltitude = state.altitude;
+  outFrame.Vy = state.vy * 60; // ft/s → fpm
+  outFrame.RAltitude = altFt;
+  outFrame.BaroAltitude = altFt;
+  outFrame.dec_BaroAltFt = altFt;
+  outFrame.RadioAltitude = altFt;
+  outFrame.dec_RadioAltFt = altFt;
+  outFrame.StandardAltitude = altFt;
+  outFrame.SpeedSelect = state.speed;
+  outFrame.AoA = state.pitchAngle * 0.5 - state.vy / 100;
+  outFrame.NormalG = 1.0 / Math.max(0.1, cosRoll);
+  outFrame.dec_G = 1.0 / Math.max(0.1, cosRoll);
+  outFrame.FD_PitchCmd = 0;
+  outFrame.FD_RollCmd = 0;
+  outFrame.HeadingSelect = state.heading;
+  outFrame.DME_Distance = 0;
+  outFrame.Engine_N1_Left = thr * 100;
+  outFrame.Engine_N1_Right = thr * 100;
+  outFrame.TotalFuel = 12000;
+  outFrame.APU_EGT = 450;
+  outFrame.APU_OilPressure = 3.5;
+  outFrame.APU_OilTemp = 80;
+  outFrame.FlapsPosition = 0;
+  outFrame.SlatsPosition = 0;
+  outFrame.StabPosition = el * 3;
+  outFrame.Airbrake_Inner_Cmd = 0;
+  outFrame.Elev_Left_Inner = el * 15;
+  outFrame.Elev_Left_Outer = el * 12;
+  outFrame.Elev_Right_Inner = el * 15;
+  outFrame.Elev_Right_Outer = el * 12;
   outFrame.schema = 'telemetry-frame.v1' as any;
   outFrame.seq = (outFrame.seq ?? 0) + 1;
   outFrame.timeMs = (outFrame.timeMs ?? 0) + delta * 1000;
