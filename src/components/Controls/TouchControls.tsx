@@ -108,18 +108,14 @@ const TouchControls: React.FC = memo(() => {
       const el = throttleRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      // y relative to the bar, 0 = top, 1 = bottom
       const relY = 1 - (clientY - rect.top) / rect.height;
       const newThrottle = Math.max(0, Math.min(1, relY));
       setThrottle(newThrottle);
-      // Write immediately
+      // Всегда через writeOverride — чтобы FDM не засыпал
       const ref = aircraftControlsRef.current;
-      ref.throttle = newThrottle;
-      if (!ref.active && (leftJoy.x !== 0 || leftJoy.y !== 0 || rightJoy.x !== 0)) {
-        writeOverride(leftJoy.y * MAX_PITCH, leftJoy.x * MAX_ROLL, rightJoy.x * MAX_YAW, newThrottle);
-      }
+      writeOverride(ref.pitch, ref.roll, ref.yaw, newThrottle);
     },
-    [leftJoy, rightJoy, writeOverride],
+    [writeOverride],
   );
 
   const onThrottlePointerDown = useCallback(
