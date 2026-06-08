@@ -1,6 +1,6 @@
 # Архитектура Pilot_3d_PFD
 
-> Версия документа: v2.8.3
+> Версия документа: v2.8.10
 
 ---
 
@@ -143,11 +143,13 @@ Sources → telemetryRef → setFrame() → Component(frame)
 
 Абстрактный drag-n-drop конструктор дашбордов. Основные элементы:
 
-- **PanelCanvas** — холст с деревом узлов
+- **PanelCanvas** — холст с деревом узлов, поддерживает drop из сайдбара и **между ячейками** (v2.8.5)
 - **PanelNode** — узел (empty/instrument/split)
 - **SplitContainer** — разделитель H/V с перетаскиванием
 - **Sidebar** — список доступных инструментов
 - **Registry** — реестр всех зарегистрированных виджетов (PFD-приборы, 3D)
+
+**Drag-n-drop между ячейками (v2.8.5):** Приборы можно перетаскивать между ячейками (move-семантика — исходная очищается). Десктоп: HTML5 DnD, тач: `usePanelWidgetTouchDrag`. Исключение: `Aircraft3DInstrument` выключен из меж-ячеечного DnD (v2.8.6) — мышь занята вращением сцены.
 
 ### 4.5 Hub View (App.tsx)
 
@@ -204,11 +206,14 @@ type OverrideData = {
   roll: number;    // -1..1
   pitch: number;   // -1..1
   yaw: number;     // -1..1
+  throttle: number; // 0..1 (v2.8.10)
 }
 
 writeOverride(data: OverrideData): void   // активирует manual mode
 clearOverride(): void                     // отпускает джойстик
 ```
+
+**v2.8.10 — фикс РУД:** `ThrottleJoystick` раньше менял `ref.throttle` напрямую, без `writeOverride`. После касания синего джойстика состояние `active` засыпало, и РУД переставал обновлять обороты. Теперь РУД всегда вызывает `writeOverride` с текущими значениями roll/pitch/yaw/throttle.
 
 ---
 

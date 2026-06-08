@@ -27,7 +27,7 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene | 2026-06-07 |
+| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene, drag-n-drop ячеек (v2.8.5), FDM телеметрия (v2.8.8) | 2026-06-08 |
 | [README_INDEX.md](./README_INDEX.md) | **Этот файл** | Оглавление БЗ проекта | 2026-06-07 |
 
 ---
@@ -48,7 +48,7 @@
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
 | [README_flight_physics.md](./README_flight_physics.md) | Физика полёта | Аэродинамика, тяга, силы, управление, уравнения движения | 2026-06-04 |
-| [README_simulator_realisation.md](./README_simulator_realisation.md) | Реализация симулятора | Симуляция полёта, FDM, численные методы | 2026-06-04 |
+| [README_simulator_realisation.md](./README_simulator_realisation.md) | Реализация симулятора | Симуляция полёта, FDM, численные методы, 28 полей телеметрии (v2.8.8) | 2026-06-08 |
 | [README_pluggable_fdm.md](./README_pluggable_fdm.md) | Подключаемые FDM (Flight Dynamics Model) | Архитектура FDM, модульность, плагины | 2026-06-05 |
 | [README_performance_3D.md](./README_performance_3D.md) | Производительность 3D | Оптимизация Three.js, FPS, LOD, мобильные устройства | 2026-06-05 |
 | [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md) | 3D-модель самолёта | Aircraft3DInstrument, AircraftModel, Three.js, GLB, manual mode, GridOverlay, RealAircraft3DScene | 2026-06-07 |
@@ -61,8 +61,8 @@
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
 | [README_profiles.md](./README_profiles.md) | Система профилей | profiles, panels, presets, переключение, конфигурация | 2026-06-05 |
-| [README_joysticks.md](./README_joysticks.md) | Управление джойстиками | TouchControls, Joystick, RudderSlider, manual flight, heading hold | 2026-06-04 |
-| [../src/components/PanelKit/README_PantlKit.md](../src/components/PanelKit/README_PantlKit.md) | PanelKit — конструктор панелей | PanelCanvas, PanelNode, SplitContainer, drag-n-drop, регистрация | 2026-06-04 |
+| [README_joysticks.md](./README_joysticks.md) | Управление джойстиками | TouchControls, Joystick, RudderSlider, manual flight, heading hold, баг РУД без writeOverride (v2.8.10) | 2026-06-08 |
+| [../src/components/PanelKit/README_PantlKit.md](../src/components/PanelKit/README_PantlKit.md) | PanelKit — конструктор панелей | PanelCanvas, PanelNode, SplitContainer, drag-n-drop сайдбар+ячейки (v2.8.5), регистрация, исключение 3D (v2.8.6) | 2026-06-08 |
 
 ---
 
@@ -169,7 +169,7 @@
    - При удалении документа — удаляется строка из индекса.
    - Приватные / чувствительные данные (API-ключи, пароли) в KB не попадают.
 
-**Последнее обновление:** 2026-06-07
+**Последнее обновление:** 2026-06-08
 
 
 

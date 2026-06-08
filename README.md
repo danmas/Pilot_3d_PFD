@@ -7,7 +7,7 @@
 | Компонент | URL | Описание |
 |---|---|---|
 | **PFD (КПИ)** | `http://localhost:3410/` | React PFD: авиагоризонт, ленты скорости/высоты, вариометр |
-| **Panel Builder** | Hub → «Panel Builder» | Конструктор приборной панели: drag-and-drop, split, save/load |
+|| **Panel Builder** | Hub → «Panel Builder» | Конструктор приборной панели: drag-and-drop из сайдбара и между ячейками, split, save/load |
 | **Viewer (диагностика)** | `http://localhost:3410/viewer/` | Live/replay, capture, отладка telemetry-frame.v1 |
 | **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443), hex+decoded, piggyback-режим |
 | **Bridge (UDP → HTTP)** | порт 14443 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
@@ -149,12 +149,27 @@ Initial presets:
 
 Подробно: [KB/README_flight_physics.md](./KB/README_flight_physics.md).
 
+**FDM телеметрия (v2.8.8+):** Симулятор публикует 28 полей в `TelemetryFrame`:
+- Положение: `PitchAngle`, `RollAngle`, `MagneticHeading`
+- Скорости: `CAS` (kt), `TAS` (kt), `Vy` (fpm), `MachNumber`
+- Высоты: `dec_BaroAltFt`, `dec_RadioAltFt`
+- Управление: `FCU_Roll_Left`, `FCU_Pitch_Left`, `RudderPosition`
+- Двигатели: `N1_Actual`, `N2_Actual` (N1 idle = 20%), `EGT` (от газа)
+- Аэродинамика: `AoA`, `NormalG`, угловые скорости
+- Координаты: `Latitude`, `Longitude`, `TrueHeading`
+
 **Подключаемые модели (pluggable FDM):** [KB/README_pluggable_fdm.md](./KB/README_pluggable_fdm.md).
 Архитектурный анализ проведён, спецификация готова. Реализация отложена — текущая модель работает стабильно.
 
 ## Panel Builder
 
 Конструктор компоновки приборов (Hub → «Panel Builder»). Подробнее — [src/components/PanelKit/README_PantlKit.md](./src/components/PanelKit/README_PantlKit.md).
+
+### Drag-and-drop между ячейками
+
+Начиная с **v2.8.5**, приборы можно перетаскивать не только из сайдбара на холст, но и **между ячейками панели** (move-семантика: исходная ячейка очищается). Работает на десктопе (HTML5 DnD) и на тач-устройствах.
+
+Исключение: 3D Aircraft (`Aircraft3DInstrument`) не участвует в drag-n-drop между ячейками (v2.8.6) — мышь занята вращением сцены.
 
 ### Конфигурация панели
 
@@ -340,9 +355,10 @@ aircraftControlsRef.ts  ← module-level ref { active, pitch, roll, yaw }
 AircraftModel.tsx → useFrame() проверяет override.active
 ```
 
-- `aircraftControlsRef.ts` — общий модуль с ref'ом `{ active: false, pitch: 0, roll: 0, yaw: 0 }`
+- `aircraftControlsRef.ts` — общий модуль с ref'ом `{ active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0 }`
 - `Joystick.tsx` — 140px круглый джойстик, touch + mouse drag от центра
 - `RudderSlider.tsx` — 36×200px вертикальный слайдер, touch + mouse drag
+- **`ThrottleJoystick.tsx`** — РУД (красный столбик), touch + mouse drag. **v2.8.10:** всегда вызывает `writeOverride` (не только при изменении газа) — иначе после касания синего джойстика РУД не обновлял `active`, и обороты засыпали.
 - `TouchControls.tsx` — overlay `inset-0 z-50 pointer-events-none`
 - `AircraftModel.tsx` — в `useFrame()`: если `override.active === true`, берёт pitch/roll/yaw из ref'а вместо телеметрии
 
