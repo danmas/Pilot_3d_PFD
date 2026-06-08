@@ -94,6 +94,15 @@ export function saveFdm(mode: FdmMode) {
   try { localStorage.setItem(FDM_STORAGE_KEY, mode); } catch {}
 }
 
+/* ─── Shared ref for dialog → FDM params sync ─── */
+export const activeImprovedStateRef: { current: ImprovedState | null } = { current: null };
+
+export function applyFdmParamsToActive(params: FlightModelParams): void {
+  if (activeImprovedStateRef.current) {
+    Object.assign(activeImprovedStateRef.current.params, params);
+  }
+}
+
 /* ══════════════════════════════════════════════
    Improved FDM — tick
    ══════════════════════════════════════════════ */

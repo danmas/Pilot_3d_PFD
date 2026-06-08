@@ -20,7 +20,7 @@ import { Trees } from './aircraft3d/Trees';
 import { RedTree } from './aircraft3d/RedTree';
 import { WorldGroup } from './aircraft3d/WorldGroup';
 import { groundTouch } from './aircraft3d/aircraftPosition';
-import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel } from './aircraft3d/flightModel';
+import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel, applyFdmParamsToActive } from './aircraft3d/flightModel';
 import {
   CameraController,
   CAMERA_PRESETS,
@@ -286,19 +286,18 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         >
           {ImprovedFlightModel.label}
         </button>
+        {/* FDM Settings button (only when improved) */}
+        {useImprovedFdm && (
+          <button
+            onClick={() => setFdmDialogOpen(true)}
+            className="px-1.5 py-0.5 text-[10px] rounded bg-white/15 hover:bg-cyan-600/50
+                       text-white/90 backdrop-blur-sm transition-colors leading-none"
+            title="Настройки FDM"
+          >
+            ⚙
+          </button>
+        )}
       </div>
-
-      {/* FDM Settings button (only when improved) */}
-      {useImprovedFdm && (
-        <button
-          onClick={() => setFdmDialogOpen(true)}
-          className="absolute bottom-1.5 right-[7rem] px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-cyan-600/50
-                     text-white/90 backdrop-blur-sm transition-colors leading-none"
-          title="Настройки FDM"
-        >
-          ⚙ FDM
-        </button>
-      )}
 
       {/* Model button */}
       <button
@@ -328,6 +327,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           paramsState={fdmParamsState}
           onApply={(state) => {
             setFdmParamsState(state);
+            applyFdmParamsToActive(state.params);
             setFdmDialogOpen(false);
           }}
           onClose={() => setFdmDialogOpen(false)}

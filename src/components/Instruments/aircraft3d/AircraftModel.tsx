@@ -10,6 +10,7 @@ import {
   createImprovedState,
   tickImprovedFdm,
   resetImprovedState,
+  activeImprovedStateRef,
   type ImprovedState,
 } from './flightModel';
 import { loadFdmParams } from './flightModel';
@@ -50,6 +51,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
     if (improved) {
       /* ── Improved FDM ── */
       const st = improvedState.current;
+      activeImprovedStateRef.current = st;
       if (!improvedInit.current) {
         // Load params from storage on first tick
         const saved = loadFdmParams();

@@ -40,7 +40,7 @@ const PARAM_DEFS: ParamDef[] = [
   { key: 'stallSinkRate',      label: 'Снижение при stall',   min: 5,   max: 150, step: 1 },
   { key: 'altitudeScale',      label: 'Масштаб высоты',       min: 0.01, max: 0.2, step: 0.01 },
   { key: 'groundY',            label: 'Уровень земли',        min: -20, max: -1,  step: 0.5 },
-  { key: 'joystickSensitivity',label: 'Чувств. джойстика',    min: 0.001, max: 0.1,   step: 0.001 },
+  { key: 'joystickSensitivity',label: 'Чувств. джойстика',    min: 0.01, max: 0.1,   step: 0.01 },
 ];
 
 const PRESET_OPTIONS: { key: PresetKey; label: string }[] = [

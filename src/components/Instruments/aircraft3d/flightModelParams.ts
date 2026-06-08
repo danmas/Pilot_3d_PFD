@@ -90,7 +90,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
 
     altitudeScale: 0.05,
     groundY: -6,
-    joystickSensitivity: 0.05,
+    joystickSensitivity: 0.02,
   },
 
   fast: {
@@ -112,7 +112,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
 
     altitudeScale: 0.05,
     groundY: -6,
-    joystickSensitivity: 0.1,
+    joystickSensitivity: 0.08,
   },
 
   custom: { ...({
