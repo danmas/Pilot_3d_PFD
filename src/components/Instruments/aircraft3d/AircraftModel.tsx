@@ -207,11 +207,11 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
           HeadingSelect: headingDeg,
           DME_Distance: 0,
           // Engine
-          Engine_N1_Left: throttle * 100,
-          Engine_N1_Right: throttle * 100,
+          Engine_N1_Left: 20 + throttle * 80,
+          Engine_N1_Right: 20 + throttle * 80,
           TotalFuel: 12000,
           // APU
-          APU_EGT: 450,
+          APU_EGT: 400 + throttle * 400,
           APU_OilPressure: 3.5,
           APU_OilTemp: 80,
           // Configuration

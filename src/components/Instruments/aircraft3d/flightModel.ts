@@ -203,10 +203,10 @@ export function tickImprovedFdm(
   outFrame.FD_RollCmd = 0;
   outFrame.HeadingSelect = state.heading;
   outFrame.DME_Distance = 0;
-  outFrame.Engine_N1_Left = thr * 100;
-  outFrame.Engine_N1_Right = thr * 100;
+  outFrame.Engine_N1_Left = 20 + thr * 80;
+  outFrame.Engine_N1_Right = 20 + thr * 80;
   outFrame.TotalFuel = 12000;
-  outFrame.APU_EGT = 450;
+  outFrame.APU_EGT = 400 + thr * 400;
   outFrame.APU_OilPressure = 3.5;
   outFrame.APU_OilTemp = 80;
   outFrame.FlapsPosition = 0;
