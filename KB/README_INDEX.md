@@ -53,6 +53,8 @@
 | [README_performance_3D.md](./README_performance_3D.md) | Производительность 3D | Оптимизация Three.js, FPS, LOD, мобильные устройства | 2026-06-05 |
 | [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md) | 3D-модель самолёта | Aircraft3DInstrument, AircraftModel, Three.js, GLB, manual mode, GridOverlay, RealAircraft3DScene | 2026-06-07 |
 | [README_ground_touch.md](./README_ground_touch.md) | Ground Touch Detection (v2.6.3) | Clamp Y≥-6, TOUCHDOWN overlay, groundTouch | 2026-06-06 |
+| [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) | Сцена Aircraft 3D: размеры, объекты, масштаб WU | TARGET_SIZE, WorldGroup, координаты, камера, World Units (1WU=40m) | 2026-06-09 |
+| [README_plan_realistic_3D.md](./README_plan_realistic_3D.md) | План: реалистичный ландшафт | Шейдерный ground, InstancedMesh, биомы, фазы реализации | 2026-06-09 |
 
 ---
 

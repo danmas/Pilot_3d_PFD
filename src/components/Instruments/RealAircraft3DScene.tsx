@@ -318,6 +318,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         >
           ▦
         </button>
+
       </div>
 
       {/* Model button */}

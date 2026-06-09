@@ -1,157 +1,168 @@
 {
-  "id": "root",
+  "id": "ue9d23r",
   "type": "split",
-  "splitDirection": "vertical",
-  "splitRatio": 0.21639898691713366,
+  "splitDirection": "horizontal",
+  "splitRatio": 0.7494519548826086,
   "children": [
     {
-      "id": "178y2zv",
+      "id": "qw9x1nf",
       "type": "split",
       "splitDirection": "horizontal",
-      "splitRatio": 0.30587812102362644,
+      "splitRatio": 0.43622936198807116,
       "children": [
         {
-          "id": "4bm2mp5",
-          "type": "instrument",
-          "instrumentId": "engine-display"
-        },
-        {
-          "id": "qum0qre",
+          "id": "rhetji8",
           "type": "split",
-          "splitDirection": "horizontal",
-          "splitRatio": 0.2618073676286562,
+          "splitDirection": "vertical",
+          "splitRatio": 0.6138421711303382,
           "children": [
             {
-              "id": "7qapvqt",
-              "type": "instrument",
-              "instrumentId": "config-display"
+              "id": "zmcb7ru",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.5,
+              "children": [
+                {
+                  "id": "muk34b8",
+                  "type": "instrument",
+                  "instrumentId": "engine-display"
+                },
+                {
+                  "id": "eib0rji",
+                  "type": "instrument",
+                  "instrumentId": "pfd"
+                }
+              ]
             },
             {
-              "id": "qpg94ml",
-              "type": "instrument",
-              "instrumentId": "pfd2"
+              "id": "jx27r6t",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.5,
+              "children": [
+                {
+                  "id": "jamcjqy",
+                  "type": "instrument",
+                  "instrumentId": "aux-panel"
+                },
+                {
+                  "id": "2hirvut",
+                  "type": "instrument",
+                  "instrumentId": "nav-display"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "9vxvddr",
+          "type": "split",
+          "splitDirection": "vertical",
+          "splitRatio": 0.824574519033098,
+          "children": [
+            {
+              "id": "pkebcov",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.20543375478086784,
+              "children": [
+                {
+                  "id": "ngnpy0p",
+                  "type": "split",
+                  "splitDirection": "vertical",
+                  "splitRatio": 0.5,
+                  "children": [
+                    {
+                      "id": "1bve8u8",
+                      "type": "empty"
+                    },
+                    {
+                      "id": "8kox6di",
+                      "type": "instrument",
+                      "instrumentId": "airspeed"
+                    }
+                  ]
+                },
+                {
+                  "id": "tlxoc13",
+                  "type": "instrument",
+                  "instrumentId": "aircraft-3d"
+                }
+              ]
+            },
+            {
+              "id": "ftc5z1a",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.5,
+              "children": [
+                {
+                  "id": "gzhlnog",
+                  "type": "instrument",
+                  "instrumentId": "altitude"
+                },
+                {
+                  "id": "isbepf8",
+                  "type": "instrument",
+                  "instrumentId": "vertical-speed"
+                }
+              ]
             }
           ]
         }
       ]
     },
     {
-      "id": "ue9d23r",
+      "id": "19jiodm",
       "type": "split",
-      "splitDirection": "horizontal",
-      "splitRatio": 0.7654548263796356,
+      "splitDirection": "vertical",
+      "splitRatio": 0.5880806763634979,
       "children": [
         {
-          "id": "2i846vt",
+          "id": "1qx0nw5",
           "type": "split",
-          "splitDirection": "vertical",
-          "splitRatio": 0.18698799335454805,
+          "splitDirection": "horizontal",
+          "splitRatio": 0.3975573926921938,
           "children": [
             {
-              "id": "x2tdshv",
-              "type": "instrument",
-              "instrumentId": "pfd"
-            },
-            {
-              "id": "qw9x1nf",
+              "id": "de00n4m",
               "type": "split",
-              "splitDirection": "horizontal",
-              "splitRatio": 0.3764045373568303,
+              "splitDirection": "vertical",
+              "splitRatio": 0.43039093964648084,
               "children": [
                 {
-                  "id": "rhetji8",
-                  "type": "instrument",
-                  "instrumentId": "aux-panel"
+                  "id": "cvel2cf",
+                  "type": "empty"
                 },
                 {
-                  "id": "9vxvddr",
-                  "type": "split",
-                  "splitDirection": "vertical",
-                  "splitRatio": 0.7432200663639073,
-                  "children": [
-                    {
-                      "id": "pkebcov",
-                      "type": "instrument",
-                      "instrumentId": "aircraft-3d"
-                    },
-                    {
-                      "id": "ftc5z1a",
-                      "type": "instrument",
-                      "instrumentId": "altitude"
-                    }
-                  ]
+                  "id": "bx7vgah",
+                  "type": "instrument",
+                  "instrumentId": "graph-g"
                 }
               ]
+            },
+            {
+              "id": "yfid05t",
+              "type": "instrument",
+              "instrumentId": "graph-alt"
             }
           ]
         },
         {
-          "id": "19jiodm",
+          "id": "qaladee",
           "type": "split",
           "splitDirection": "vertical",
-          "splitRatio": 0.5880806763634979,
+          "splitRatio": 0.5,
           "children": [
             {
-              "id": "1qx0nw5",
-              "type": "split",
-              "splitDirection": "horizontal",
-              "splitRatio": 0.3975573926921938,
-              "children": [
-                {
-                  "id": "de00n4m",
-                  "type": "split",
-                  "splitDirection": "vertical",
-                  "splitRatio": 0.43039093964648084,
-                  "children": [
-                    {
-                      "id": "cvel2cf",
-                      "type": "instrument",
-                      "instrumentId": "graph-pitch"
-                    },
-                    {
-                      "id": "bx7vgah",
-                      "type": "instrument",
-                      "instrumentId": "graph-g"
-                    }
-                  ]
-                },
-                {
-                  "id": "coemp7f",
-                  "type": "split",
-                  "splitDirection": "horizontal",
-                  "splitRatio": 0.534835318358227,
-                  "children": [
-                    {
-                      "id": "yfid05t",
-                      "type": "instrument",
-                      "instrumentId": "graph-alt"
-                    },
-                    {
-                      "id": "2c614u8",
-                      "type": "instrument",
-                      "instrumentId": "graph-roll"
-                    }
-                  ]
-                }
-              ]
+              "id": "4a0zdhh",
+              "type": "instrument",
+              "instrumentId": "graph-cas"
             },
             {
-              "id": "qaladee",
-              "type": "split",
-              "splitDirection": "vertical",
-              "splitRatio": 0.5,
-              "children": [
-                {
-                  "id": "4a0zdhh",
-                  "type": "instrument",
-                  "instrumentId": "nav-display"
-                },
-                {
-                  "id": "ue3237n",
-                  "type": "instrument",
-                  "instrumentId": "graph-vs"
-                }
-              ]
+              "id": "ue3237n",
+              "type": "instrument",
+              "instrumentId": "graph-alt"
             }
           ]
         }
