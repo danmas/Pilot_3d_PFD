@@ -55,6 +55,7 @@
 | [README_ground_touch.md](./README_ground_touch.md) | Ground Touch Detection (v2.6.3) | Clamp Y≥-6, TOUCHDOWN overlay, groundTouch | 2026-06-06 |
 | [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) | Сцена Aircraft 3D: размеры, объекты, масштаб WU | TARGET_SIZE, WorldGroup, координаты, камера, World Units (1WU=40m) | 2026-06-09 |
 | [README_plan_realistic_3D.md](./README_plan_realistic_3D.md) | План: реалистичный ландшафт | Шейдерный ground, InstancedMesh, биомы, фазы реализации | 2026-06-09 |
+| [README_plan_real_terrain.md](./README_plan_real_terrain.md) | План: реальный ландшафт из интернета | Mapbox Terrain-RGB, тайлы, кэш, LOD, интеграция | 2026-06-10 |
 
 ---
 
