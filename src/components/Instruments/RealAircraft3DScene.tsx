@@ -182,7 +182,8 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   const realTerrain = useRealTerrain(
     frame.Latitude as number | undefined,
     frame.Longitude as number | undefined,
-    realTerrainEnabled
+    realTerrainEnabled,
+    5  // gridSize=5 → 5×5 тайлов для покрытия большой площади
   );
 
   /* ── Периодическая проверка groundTouch ── */

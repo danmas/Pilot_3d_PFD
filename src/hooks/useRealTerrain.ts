@@ -24,9 +24,9 @@ export interface RealTerrainState {
   error: string | null;
 }
 
-// Тестовые координаты (Шереметьево) — используются, если в телеметрии нет lat/lon
-const DEFAULT_LAT = 55.972;
-const DEFAULT_LON = 37.415;
+// Тестовые координаты (Альпы, Монблан) — используются, если в телеметрии нет lat/lon
+const DEFAULT_LAT = 45.832;
+const DEFAULT_LON = 6.865;
 
 /**
  * Hook для интеграции реального ландшафта
