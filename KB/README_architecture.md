@@ -1,6 +1,6 @@
 # Архитектура Pilot_3d_PFD
 
-> Версия документа: v2.8.10
+> Версия документа: v2.8.11
 
 ---
 
@@ -138,6 +138,7 @@ Sources → telemetryRef → setFrame() → Component(frame)
 | `aircraftPosition.ts`  | **Позиционирование + Ground Touch.** Ограничивает Y ≥ -6, срабатывает TOUCHDOWN. |
 | `modelConfig.ts`       | Типы и загрузка .glb моделей                    |
 | `ModelDialog.tsx`      | UI выбора модели                                |
+| `terrain/`             | **Реальный ландшафт (Mapbox).** TerrainManager (оркестрация), TerrainCache (IndexedDB), RealTerrainMesh (R3F), TerrainDialog (пресеты + geocoding), terrainTileUtils. |
 
 ### 4.4 PanelBuilder (`src/components/PanelKit/`)
 
@@ -180,6 +181,33 @@ Sources → telemetryRef → setFrame() → Component(frame)
 ### 4.7 Ground Touch (v2.6.3)
 
 `aircraftPosition.ts`: при касании земли (`Y ≤ -6`) — позиция зажимается в Y = -6, срабатывает `groundTouch.current = true`, на экране появляется оверлей TOUCHDOWN. Подробнее: [README_ground_touch.md](./README_ground_touch.md).
+
+### 4.8 Реальный ландшафт (Mapbox Terrain-RGB)
+
+**Фаза 1 — MVP (реализовано 2026-06-10).** Загрузка реального рельефа и спутниковых снимков через Mapbox API.
+
+**Компоненты:**
+| Файл | Назначение |
+|------|-----------|
+| `terrainTileUtils.ts` | Конвертация lat/lon ↔ tile x/y/z, декодирование Terrain-RGB |
+| `TerrainCache.ts` | IndexedDB кэш тайлов (DEM + satellite) |
+| `TerrainManager.ts` | Синглтон: оркестрация запросов, geocoding, пресеты |
+| `RealTerrainMesh.tsx` | R3F-компонент: PlaneGeometry с displacement из DEM + satellite-текстура |
+| `TerrainDialog.tsx` | UI-диалог: пресеты (Альпы, Кавказ, Гималаи и др.), поиск места через Mapbox Geocoding, ручной ввод lat/lon |
+
+**Поток данных:**
+```
+🏔 toggle → useRealTerrain(enabled) → TerrainManager.setAnchor(lat, lon)
+  → Mapbox API (Terrain-RGB + Satellite)
+  → IndexedDB cache
+  → RealTerrainMesh (R3F inside WorldGroup)
+```
+
+**UI:** Кнопка 🏔 (вкл/выкл) + 📍 (выбор места) в тулбаре 3D-сцены. При первом включении авто-открывается диалог выбора места. Позиция сохраняется в localStorage.
+
+**Источник данных:** Mapbox (требует `VITE_MAPBOX_TOKEN` в `.env.local`). Тайлы: 512×512 Terrain-RGB PNG + Satellite JPEG, zoom 14. Позиция по умолчанию: Москва/Шереметьево (55.97, 37.41).
+
+Подробнее: [README_real_terrain.md](./README_real_terrain.md). План развития: [README_plan_real_terrain.md](./README_plan_real_terrain.md).
 
 ---
 
@@ -290,6 +318,7 @@ src/
 │   ├── PFD/                    ← классический PFD (5 приборов)
 │   ├── Instruments/            ← все регистрируемые приборы
 │   │   └── aircraft3d/         ← Three.js 3D самолёт
+│   │       └── terrain/        ← Реальный ландшафт (Mapbox)
 │   ├── PanelKit/               ← drag-n-drop конструктор панелей
 │   └── PanelBuilder/           ← обёртка PanelKit + AviationWidget
 └── index.html / boot-screen.html

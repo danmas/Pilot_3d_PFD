@@ -12,6 +12,7 @@
 | **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443), hex+decoded, piggyback-режим |
 | **Bridge (UDP → HTTP)** | порт 14443 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
 | **Flight Simulator** | PFD → Live → Simulator | Серверный симулятор полёта, запись telemetry + blackbox, scripted test profiles |
+| **3D Aircraft + Terrain** | Hub → «3D Aircraft» → 🏔 | 3D-визуализация самолёта + реальный ландшафт из Mapbox (Terrain-RGB + Satellite), 6 пресетов, geocoding |
 
 ## Архитектура
 

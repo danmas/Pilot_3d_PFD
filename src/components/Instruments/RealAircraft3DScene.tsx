@@ -36,6 +36,10 @@ import { APP_VERSION } from '../../version';
 import { FlightModelDialog } from './aircraft3d/FlightModelDialog';
 import { type ParamsState } from './aircraft3d/flightModelParams';
 import { loadFdmParams } from './aircraft3d/flightModel';
+import { RealTerrainMesh } from './aircraft3d/terrain/RealTerrainMesh';
+import type { TerrainTile } from './aircraft3d/terrain/TerrainManager';
+import { useRealTerrain } from '../../hooks/useRealTerrain';
+import { TerrainDialog } from './aircraft3d/terrain/TerrainDialog';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -64,9 +68,11 @@ interface SceneProps {
   cameraRef: React.RefObject<CameraControls | null>;
   useImprovedFdm?: boolean;
   showGrid?: boolean;
+  showTerrain?: boolean;
+  terrainTile?: TerrainTile | null;
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, showTerrain, terrainTile }) => {
   return (
     <>
       <CameraController ref={cameraRef} />
@@ -77,9 +83,9 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
     {/* HorizonSphere is fixed in world space — outside WorldGroup */}
-    {/* GroundDisc тоже снаружи WorldGroup — следует за aircraftPosition самостоятельно */}
     <HorizonSphere />
-    <GroundDisc />
+      {/* Ground: schematic or real terrain */}
+      {showTerrain && terrainTile ? <RealTerrainMesh tile={terrainTile} /> : <GroundDisc />}
 
     <WorldGroup>
       <Runway />
@@ -102,9 +108,11 @@ interface Aircraft3DCanvasProps {
   cameraRef: React.RefObject<CameraControls | null>;
   useImprovedFdm?: boolean;
   showGrid?: boolean;
+  showTerrain?: boolean;
+  terrainTile?: TerrainTile | null;
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid }) => (
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, showTerrain, terrainTile }) => (
   <Canvas
     gl={{
       antialias: true,
@@ -122,7 +130,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
     )}
-    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} showTerrain={showTerrain} terrainTile={terrainTile} />
   </Canvas>
 ));
 
@@ -146,6 +154,17 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   const [fdmParamsState, setFdmParamsState] = useState<ParamsState>(() => loadFdmParams());
   const [showGrid, setShowGrid] = useState(() => {
     try { return localStorage.getItem('pilot-3d-pfd:showGrid') === 'true'; } catch { return false; }
+  });
+  const [showTerrain, setShowTerrain] = useState(() => {
+    try { return localStorage.getItem('pilot-3d-pfd:showTerrain') === 'true'; } catch { return false; }
+  });
+  const [terrainDialogOpen, setTerrainDialogOpen] = useState(false);
+
+  // Real terrain hook
+  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
+  const { state: terrainState } = useRealTerrain({
+    token: mapboxToken,
+    enabled: showTerrain && !!mapboxToken,
   });
 
   /* ── Периодическая проверка groundTouch ── */
@@ -216,6 +235,8 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           cameraRef={cameraRef}
           useImprovedFdm={useImprovedFdm}
           showGrid={showGrid}
+          showTerrain={showTerrain}
+          terrainTile={terrainState.centerTile}
         />
       </Suspense>
 
@@ -318,6 +339,31 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         >
           ▦
         </button>
+        {/* Terrain toggle */}
+        <button
+          onClick={() => {
+            const next = !showTerrain;
+            setShowTerrain(next);
+            try { localStorage.setItem('pilot-3d-pfd:showTerrain', String(next)); } catch {}
+            if (next) setTerrainDialogOpen(true); // auto-open dialog on first enable
+          }}
+          className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+            ${showTerrain ? 'bg-emerald-600/50 text-white font-medium' : 'bg-white/15 hover:bg-white/30 text-white/70'}`}
+          title={showTerrain ? 'Реальный ландшафт (вкл)' : 'Реальный ландшафт (выкл)'}
+        >
+          🏔
+        </button>
+        {/* Position button (only when terrain active) */}
+        {showTerrain && (
+          <button
+            onClick={() => setTerrainDialogOpen(true)}
+            className="px-1.5 py-0.5 text-[10px] rounded bg-white/15 hover:bg-cyan-600/50
+                       text-white/90 backdrop-blur-sm transition-colors leading-none"
+            title="Выбрать место"
+          >
+            📍
+          </button>
+        )}
 
       </div>
 
@@ -356,6 +402,15 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         />
       )}
 
+      {terrainDialogOpen && (
+        <TerrainDialog
+          token={mapboxToken}
+          currentLat={terrainState.anchorLat}
+          currentLon={terrainState.anchorLon}
+          onClose={() => setTerrainDialogOpen(false)}
+        />
+      )}
+
       {/* ── TOUCHDOWN overlay ── */}
       {showTouchdown && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
@@ -369,6 +424,18 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
               LANDING DETECTED
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Terrain loading indicator */}
+      {showTerrain && terrainState.centerTile?.loading && (
+        <div className="absolute bottom-1.5 left-2 text-[10px] font-mono text-amber-400/80 pointer-events-none">
+          ⏳ Загрузка ландшафта…
+        </div>
+      )}
+      {showTerrain && terrainState.error && (
+        <div className="absolute bottom-1.5 left-2 text-[10px] font-mono text-red-400/80 pointer-events-none">
+          ⚠ {terrainState.error}
         </div>
       )}
 
