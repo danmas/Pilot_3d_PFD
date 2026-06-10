@@ -1,19 +1,16 @@
 /**
- * useRealTerrain.ts — Hook для управления реальным ландшафтом.
+ * useRealTerrain.ts — Hook для управления реальным ландшафтом с lazy загрузкой.
  *
- * Подписывается на телеметрию (lat/lon), управляет TerrainManager,
- * и предоставляет данные тайла для RealTerrainMesh.
+ * Подписывается на телеметрию (lat/lon), вызывает TerrainManager.updatePosition()
+ * и предоставляет массив загруженных тайлов для RealTerrainMesh.
  */
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TerrainManager, type TerrainTileData } from '../components/Instruments/aircraft3d/terrain/TerrainManager';
 import type { TileCoord } from '../components/Instruments/aircraft3d/terrain/terrainTileUtils';
 
 export interface RealTerrainState {
-  /** Текущие данные тайла */
-  tileData: TerrainTileData | null;
-  /** Координаты загруженного тайла */
-  tileCoord: TileCoord | null;
+  /** Все загруженные тайлы */
+  tiles: Array<{ coord: TileCoord; data: TerrainTileData }>;
   /** Идёт загрузка */
   loading: boolean;
   /** Прогресс загрузки */
@@ -22,85 +19,101 @@ export interface RealTerrainState {
   hasCoords: boolean;
   /** Ошибка */
   error: string | null;
+  /** Количество загруженных тайлов */
+  tileCount: number;
 }
 
-// Тестовые координаты (Альпы, Монблан) — используются, если в телеметрии нет lat/lon
+// Тестовые координаты (Альпы, Монблан)
 const DEFAULT_LAT = 45.832;
 const DEFAULT_LON = 6.865;
 
 /**
- * Hook для интеграции реального ландшафта
- *
- * @param lat — широта из телеметрии (может быть null/undefined)
- * @param lon — долгота из телеметрии
- * @param enabled — включён ли реальный ландшафт
- * @param gridSize — размер сетки тайлов (1 = 1×1, 2 = 2×2, 3 = 3×3)
+ * Hook для lazy загрузки реального ландшафта
  */
 export function useRealTerrain(
   lat: number | null | undefined,
   lon: number | null | undefined,
   enabled: boolean = false,
-  gridSize: number = 1
 ): RealTerrainState {
-  const [tileData, setTileData] = useState<TerrainTileData | null>(null);
-  const [tileCoord, setTileCoord] = useState<TileCoord | null>(null);
+  const [tiles, setTiles] = useState<Array<{ coord: TileCoord; data: TerrainTileData }>>([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<{ loaded: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const lastCoordsRef = useRef<string>('');
+  const lastLatRef = useRef<number | null>(null);
+  const lastLonRef = useRef<number | null>(null);
   const enabledRef = useRef(enabled);
+  const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Инициализация TerrainManager с токеном из .env
+  // Инициализация TerrainManager с токеном
   useEffect(() => {
     const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
-    console.log('[useRealTerrain] init, token:', token ? token.slice(0,10)+'...' : 'MISSING');
     if (token) {
       TerrainManager.init(token);
     }
   }, []);
 
-  // Подписка на события TerrainManager
+  // Подписка на добавление новых тайлов
   useEffect(() => {
-    console.log('[useRealTerrain] subscribing to events');
     TerrainManager.onTile((coord, data) => {
-      console.log('[useRealTerrain] onTile fired:', coord);
-      setTileData(data);
-      setTileCoord(coord);
-    });
-    TerrainManager.onLoadProgress((p) => {
-      console.log('[useRealTerrain] progress:', p.loaded, '/', p.total);
-      setProgress(p);
+      // Просто инвалидируем — всё равно читаем getAllTiles() по таймеру
+      const all = TerrainManager.getAllTiles();
+      setTiles([...all]);
     });
   }, []);
 
-  // Основной эффект: загрузка тайлов при изменении координат
-  const loadTiles = useCallback(async (currentLat: number, currentLon: number) => {
-    const coordsKey = `${currentLat.toFixed(4)}_${currentLon.toFixed(4)}`;
-    if (coordsKey === lastCoordsRef.current) return;
-    lastCoordsRef.current = coordsKey;
+  // Debounced обновление позиции — не чаще 1 раза в 2 сек
+  const scheduleUpdate = useCallback((currentLat: number, currentLon: number) => {
+    if (!enabledRef.current || !TerrainManager.isReady) return;
 
-    setLoading(true);
-    setError(null);
+    // Порог движения: ~50% тайла на zoom=14
+    const TILE_LAT = 0.021; // ~2.3 км на zoom=14
+    const TILE_LON = 0.043; // ~2.3 км на zoom=14
+    const THRESHOLD_LAT = TILE_LAT * 0.4;
+    const THRESHOLD_LON = TILE_LON * 0.4;
 
-    try {
-      await TerrainManager.loadTileGrid(currentLat, currentLon, gridSize);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
+    if (lastLatRef.current !== null && lastLonRef.current !== null) {
+      const dLat = Math.abs(currentLat - lastLatRef.current);
+      const dLon = Math.abs(currentLon - lastLonRef.current);
+      if (dLat < THRESHOLD_LAT && dLon < THRESHOLD_LON) {
+        return; // Не сдвинулись достаточно
+      }
     }
-  }, [gridSize]);
 
+    lastLatRef.current = currentLat;
+    lastLonRef.current = currentLon;
+
+    // Debounce: не запускать updatePosition слишком часто
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current);
+    }
+
+    updateTimerRef.current = setTimeout(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        await TerrainManager.updatePosition(currentLat, currentLon);
+        const all = TerrainManager.getAllTiles();
+        setTiles([...all]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    }, 300); // 300ms debounce
+  }, []);
+
+  // Основной эффект
   useEffect(() => {
     enabledRef.current = enabled;
 
     if (!enabled || !TerrainManager.isReady) {
-      setTileData(null);
-      setTileCoord(null);
+      TerrainManager.clearAll();
+      setTiles([]);
       setLoading(false);
       setProgress(null);
-      lastCoordsRef.current = ''; // Сброс для повторного включения
+      lastLatRef.current = null;
+      lastLonRef.current = null;
       return;
     }
 
@@ -108,23 +121,38 @@ export function useRealTerrain(
     const currentLon = lon ?? DEFAULT_LON;
 
     if (isFinite(currentLat) && isFinite(currentLon)) {
-      loadTiles(currentLat, currentLon);
+      scheduleUpdate(currentLat, currentLon);
     }
-  }, [lat, lon, enabled, loadTiles]);
 
-  // Очистка при размонтировании
-  useEffect(() => {
+    // Периодическая проверка позиции каждые 5 сек
+    const interval = setInterval(() => {
+      if (!enabledRef.current) return;
+      const clat = lat ?? DEFAULT_LAT;
+      const clon = lon ?? DEFAULT_LON;
+      if (isFinite(clat) && isFinite(clon)) {
+        scheduleUpdate(clat, clon);
+      }
+    }, 5000);
+
     return () => {
-      TerrainManager.cancel();
+      clearInterval(interval);
+      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
     };
+  }, [lat, lon, enabled, scheduleUpdate]);
+
+  // Получаем прогресс из TerrainManager
+  useEffect(() => {
+    TerrainManager.onLoadProgress((p) => {
+      setProgress(p);
+    });
   }, []);
 
   return {
-    tileData,
-    tileCoord,
+    tiles,
     loading,
     progress,
     hasCoords: enabled && TerrainManager.isReady && (lat !== null || lon !== null),
     error,
+    tileCount: tiles.length,
   };
 }

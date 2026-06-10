@@ -16,6 +16,7 @@ import { AircraftModel } from './aircraft3d/AircraftModel';
 import { GroundDisc } from './aircraft3d/Ground';
 import { RealTerrainMesh } from './aircraft3d/terrain/RealTerrainMesh';
 import { TerrainLogPanel } from './aircraft3d/terrain/TerrainLogPanel';
+import type { TileCoord } from './aircraft3d/terrain/terrainTileUtils';
 import { useRealTerrain } from '../../hooks/useRealTerrain';
 import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
@@ -86,15 +87,15 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
     {/* HorizonSphere is fixed in world space — outside WorldGroup */}
-    {realTerrainEnabled && realTerrainData?.loading && !realTerrainData?.tileData && (
+    {realTerrainEnabled && realTerrainData?.loading && (!realTerrainData?.tiles || realTerrainData.tiles.length === 0) && (
       <GroundDisc />
     )}
 
     <WorldGroup>
-      {/* RealTerrainMesh в WorldGroup — неподвижен относительно мира (Runway/Grid) */}
-      {realTerrainEnabled && realTerrainData?.tileData ? (
+      {/* RealTerrainMesh в WorldGroup — массив тайлов, lazy загрузка */}
+      {realTerrainEnabled && realTerrainData?.tiles && realTerrainData.tiles.length > 0 ? (
         <RealTerrainMesh
-          tileData={realTerrainData.tileData}
+          tiles={realTerrainData.tiles}
           aircraftX={aircraftPos.x}
           aircraftY={aircraftPos.y}
           aircraftZ={aircraftPos.z}
@@ -126,7 +127,7 @@ interface Aircraft3DCanvasProps {
   showGrid?: boolean;
   realTerrainEnabled?: boolean;
   realTerrainData: {
-    tileData: import('./aircraft3d/terrain/TerrainManager').TerrainTileData | null;
+    tiles: Array<{ coord: TileCoord; data: import('./aircraft3d/terrain/TerrainManager').TerrainTileData }>;
     loading: boolean;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
@@ -257,7 +258,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           showGrid={showGrid}
           realTerrainEnabled={realTerrainEnabled}
           realTerrainData={{
-            tileData: realTerrain.tileData,
+            tiles: realTerrain.tiles,
             loading: realTerrain.loading,
           }}
           aircraftPos={{ x: 0, y: alt ?? 0, z: 0 }}

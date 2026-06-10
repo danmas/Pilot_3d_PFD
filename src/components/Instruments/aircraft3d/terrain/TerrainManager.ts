@@ -1,8 +1,9 @@
 /**
- * TerrainManager.ts — оркестрация загрузки и кэширования terrain тайлов.
+ * TerrainManager.ts — оркестрация lazy загрузки terrain тайлов.
  *
- * Синглтон: управляет запросами к Mapbox API, кэшированием,
- * rate limiting и отменой запросов при смене позиции.
+ * Синглтон: управляет загрузкой тайлов по мере движения самолёта.
+ * Вместо загрузки всей сетки — подгружает новые тайлы при смещении
+ * и удаляет (dispose) те, что вышли за пределы радиуса.
  */
 
 import {
@@ -15,138 +16,178 @@ import {
   tileCenterLatLon,
   TILE_SIZE,
   DEFAULT_ZOOM,
+  type TileCoord,
 } from './terrainTileUtils';
 import { getTile, putTile } from './TerrainCache';
-import type { TileCoord } from './terrainTileUtils';
 
 export interface TerrainTileData {
-  /** DEM высоты (метры, Float32Array) */
   heights: Float32Array;
-  /** Спутниковая текстура как ImageBitmap или null */
   satelliteBitmap: ImageBitmap | null;
-  /** Ширина тайла в пикселях */
   width: number;
-  /** Высота тайла в пикселях */
   height: number;
-  /** Размер тайла в World Units */
   worldUnits: number;
-  /** Минимальная высота на тайле (м) */
   minElevation: number;
-  /** Максимальная высота на тайле (м) */
   maxElevation: number;
 }
 
 export interface TileLoadProgress {
-  /** Количество загруженных тайлов */
   loaded: number;
-  /** Всего тайлов к загрузке */
   total: number;
 }
 
+type TileAddedCallback = (coord: TileCoord, data: TerrainTileData) => void;
 type ProgressCallback = (progress: TileLoadProgress) => void;
-type TileCallback = (coord: TileCoord, data: TerrainTileData) => void;
 
-// Конфигурация по умолчанию
 const CONFIG = {
   maxConcurrent: 6,
   fetchTimeoutMs: 8_000,
   zoom: DEFAULT_ZOOM,
+  /** Радиус загрузки в тайлах от центра */
+  loadRadius: 2, // 5×5 сетка (2 в каждую сторону)
+  /** Порог смещения (в долях тайла) для триггера обновления */
+  moveThreshold: 0.3,
 };
 
 class TerrainManagerImpl {
   private token: string = '';
   private abortController: AbortController | null = null;
-  private pendingRequests = 0;
-  private onTileReady: TileCallback | null = null;
+  private onTileAdded: TileAddedCallback | null = null;
   private onProgress: ProgressCallback | null = null;
-  private totalTiles = 0;
-  private loadedTiles = 0;
 
-  /** Инициализация с Mapbox токеном */
+  /** Загруженные тайлы: ключ "z/x/y" → данные */
+  private loadedTiles = new Map<string, { coord: TileCoord; data: TerrainTileData }>();
+  /** Текущий центр в координатах тайла */
+  private currentCenter: TileCoord | null = null;
+  /** Последние lat/lon для отслеживания смещения */
+  private lastLat = 0;
+  private lastLon = 0;
+  /** Идёт ли загрузка */
+  private isLoading = false;
+  /** Очередь тайлов на загрузку */
+  private loadQueue: TileCoord[] = [];
+
   init(token: string): void {
     this.token = token;
     this.abortController?.abort();
     this.abortController = new AbortController();
   }
 
-  /** Подписка на события готовности тайла */
-  onTile(cb: TileCallback): void {
-    this.onTileReady = cb;
+  onTile(cb: TileAddedCallback): void {
+    this.onTileAdded = cb;
   }
 
-  /** Подписка на прогресс загрузки */
   onLoadProgress(cb: ProgressCallback): void {
     this.onProgress = cb;
   }
 
-  /** Отмена всех текущих запросов */
-  cancel(): void {
+  /** Проверить, есть ли токен */
+  get isReady(): boolean {
+    return this.token.length > 0;
+  }
+
+  /** Количество загруженных тайлов */
+  get loadedCount(): number {
+    return this.loadedTiles.size;
+  }
+
+  /** Получить все загруженные тайлы */
+  getAllTiles(): Array<{ coord: TileCoord; data: TerrainTileData }> {
+    return Array.from(this.loadedTiles.values());
+  }
+
+  /** Удалить (dispose) все тайлы */
+  clearAll(): void {
+    this.loadedTiles.clear();
+    this.currentCenter = null;
     this.abortController?.abort();
     this.abortController = new AbortController();
-    this.pendingRequests = 0;
+    this.loadQueue = [];
   }
 
   /**
-   * Загрузить сетку тайлов вокруг заданных координат
-   *
-   * @param lat — широта
-   * @param lon — долгота
-   * @param gridSize — размер сетки (1 = 1×1, 2 = 2×2, 3 = 3×3 и т.д.)
+   * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
+   * Вызывается при каждом новом кадре телеметрии.
    */
-  async loadTileGrid(lat: number, lon: number, gridSize: number = 1): Promise<void> {
+  async updatePosition(lat: number, lon: number): Promise<void> {
     if (!this.token) return;
 
-    // Отменяем предыдущие запросы
-    this.cancel();
-    const signal = this.abortController!.signal;
-
     const center = latLonToTile(lat, lon, CONFIG.zoom);
-    const halfGrid = Math.floor(gridSize / 2);
+    this.lastLat = lat;
+    this.lastLon = lon;
 
-    // Собираем все тайлы сетки
-    const tiles: TileCoord[] = [];
-    for (let dx = -halfGrid; dx <= halfGrid; dx++) {
-      for (let dy = -halfGrid; dy <= halfGrid; dy++) {
-        tiles.push({
-          x: center.x + dx,
-          y: center.y + dy,
-          z: CONFIG.zoom,
-        });
+    // 1. Если центр не изменился (тот же тайл) — ничего не делаем
+    if (this.currentCenter && 
+        this.currentCenter.x === center.x && 
+        this.currentCenter.y === center.y) {
+      return;
+    }
+
+    this.currentCenter = center;
+
+    // 2. Вычисляем нужные тайлы
+    const needed = new Set<string>();
+    const neededCoords: TileCoord[] = [];
+    for (let dx = -CONFIG.loadRadius; dx <= CONFIG.loadRadius; dx++) {
+      for (let dy = -CONFIG.loadRadius; dy <= CONFIG.loadRadius; dy++) {
+        const key = `${CONFIG.zoom}/${center.x + dx}/${center.y + dy}`;
+        needed.add(key);
+        neededCoords.push({ x: center.x + dx, y: center.y + dy, z: CONFIG.zoom });
       }
     }
 
-    this.totalTiles = tiles.length;
-    this.loadedTiles = 0;
-    this.pendingRequests = tiles.length;
+    // 3. Удаляем тайлы, вышедшие за радиус
+    const toDelete: string[] = [];
+    for (const [key] of this.loadedTiles) {
+      if (!needed.has(key)) {
+        toDelete.push(key);
+      }
+    }
+    for (const key of toDelete) {
+      this.loadedTiles.delete(key);
+    }
 
-    // Загружаем с rate limiting
-    const queue = [...tiles];
-    const active: Promise<void>[] = [];
+    // 4. Определяем новые тайлы для загрузки
+    const newTiles = neededCoords.filter(t => {
+      const key = `${t.z}/${t.x}/${t.y}`;
+      return !this.loadedTiles.has(key);
+    });
+
+    if (newTiles.length === 0) return;
+
+    // 5. Загружаем новые тайлы (с rate limiting)
+    this.loadQueue = newTiles;
+    this.isLoading = true;
+    const total = newTiles.length;
+    let loaded = 0;
+
+    const signal = this.abortController!.signal;
 
     const processNext = async (): Promise<void> => {
-      while (queue.length > 0 && !signal.aborted) {
-        const tile = queue.shift()!;
+      while (this.loadQueue.length > 0 && !signal.aborted) {
+        const tile = this.loadQueue.shift()!;
+        const key = `${tile.z}/${tile.x}/${tile.y}`;
         try {
           const data = await this.loadSingleTile(tile, signal);
           if (data && !signal.aborted) {
-            this.loadedTiles++;
-            this.onTileReady?.(tile, data);
-            this.onProgress?.({ loaded: this.loadedTiles, total: this.totalTiles });
+            this.loadedTiles.set(key, { coord: tile, data });
+            loaded++;
+            this.onTileAdded?.(tile, data);
+            this.onProgress?.({ loaded, total });
           }
         } catch {
-          // Пропускаем неудачные тайлы
-        } finally {
-          this.pendingRequests--;
+          // Пропускаем неудачные
         }
       }
     };
 
-    // Запускаем параллельные воркеры
-    const workerCount = Math.min(CONFIG.maxConcurrent, tiles.length);
-    for (let i = 0; i < workerCount; i++) {
-      active.push(processNext());
+    const workers = Math.min(CONFIG.maxConcurrent, newTiles.length);
+    const promises: Promise<void>[] = [];
+    for (let i = 0; i < workers; i++) {
+      promises.push(processNext());
     }
-    await Promise.allSettled(active);
+    await Promise.allSettled(promises);
+
+    this.isLoading = false;
   }
 
   /**
@@ -170,18 +211,13 @@ class TerrainManagerImpl {
         });
         if (!response.ok) throw new Error(`DEM fetch failed: ${response.status}`);
         demBlob = await response.blob();
-        // Кэшируем (fire & forget)
         putTile(demKey, demBlob, { source: 'dem', z, x, y }).catch(() => {});
       }
 
-      // Декодируем DEM
       const demImage = await createImageBitmap(demBlob);
-      console.log(`[TerrainManager] DEM image: ${demImage.width}x${demImage.height}`);
-      
-      // Fallback если ImageBitmap нулевого размера
       const imgW = demImage.width > 0 ? demImage.width : 256;
       const imgH = demImage.height > 0 ? demImage.height : 256;
-      
+
       const canvas = document.createElement('canvas');
       canvas.width = imgW;
       canvas.height = imgH;
@@ -192,7 +228,6 @@ class TerrainManagerImpl {
 
       const heights = decodeTerrainRGB(imageData);
 
-      // Минимальная/максимальная высота
       let minElev = Infinity;
       let maxElev = -Infinity;
       for (let i = 0; i < heights.length; i++) {
@@ -200,7 +235,7 @@ class TerrainManagerImpl {
         if (heights[i] > maxElev) maxElev = heights[i];
       }
 
-      // 2. Satellite тайл (пытаемся загрузить, но не блокируем onTile)
+      // 2. Satellite (не блокирует)
       let satelliteBitmap: ImageBitmap | null = null;
       try {
         const satKey = tileCacheKey('sat', z, x, y);
@@ -221,14 +256,13 @@ class TerrainManagerImpl {
           satelliteBitmap = await createImageBitmap(satBlob);
         }
       } catch (satErr) {
-        console.warn(`[TerrainManager] satellite tile ${z}/${x}/${y} failed, continuing without texture:`, satErr);
+        console.warn(`[TerrainManager] satellite ${z}/${x}/${y} failed:`, satErr);
       }
 
-      // Размер тайла в WU
       const center = tileCenterLatLon(x, y, z);
       const wu = tileWorldUnits(z, center.lat);
 
-      const result = {
+      return {
         heights,
         satelliteBitmap,
         width: imgW,
@@ -237,22 +271,20 @@ class TerrainManagerImpl {
         minElevation: minElev,
         maxElevation: maxElev,
       };
-      console.log(`[TerrainManager] returning tile ${z}/${x}/${y}: w=${result.width} h=${result.height} wu=${wu.toFixed(2)} heights=${heights.length}`);
-      return result;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        return null; // Нормальная отмена
+        return null;
       }
-      console.warn(`[TerrainManager] Failed to load tile ${z}/${x}/${y}:`, err);
+      console.warn(`[TerrainManager] Failed ${z}/${x}/${y}:`, err);
       return null;
     }
   }
 
-  /** Проверить, есть ли токен */
-  get isReady(): boolean {
-    return this.token.length > 0;
+  cancel(): void {
+    this.abortController?.abort();
+    this.abortController = new AbortController();
+    this.loadQueue = [];
   }
 }
 
-/** Глобальный синглтон TerrainManager */
 export const TerrainManager = new TerrainManagerImpl();
