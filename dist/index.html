@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pilot 3D PFD</title>
+    <style>
+      html, body, #root { height: 100%; overflow: hidden; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #0a0a0f;
+        color: #d1d5db;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        margin: 0;
+      }
+
+      #boot-screen {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        opacity: 1;
+        transition: opacity 0.3s ease-out;
+      }
+      #boot-screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .logo {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 4px;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-transform: uppercase;
+      }
+
+      .version {
+        font-size: 48px;
+        font-weight: 300;
+        color: #3b82f6;
+        letter-spacing: 2px;
+        font-family: 'Courier New', monospace;
+        padding: 8px 24px;
+        border: 1px solid #3b82f6;
+        border-radius: 8px;
+        background: rgba(59, 130, 246, 0.05);
+      }
+
+      .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #252628;
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .status {
+        font-size: 12px;
+        color: #6b7280;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .steps {
+        display: flex;
+        gap: 12px;
+        font-size: 10px;
+        font-family: 'Courier New', monospace;
+        color: #4b5563;
+        text-transform: uppercase;
+      }
+      .steps .step {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: color 0.3s;
+      }
+      .steps .step.done { color: #22c55e; }
+      .steps .step.active { color: #3b82f6; animation: pulse 1.2s infinite; }
+      .steps .step.pending { color: #4b5563; }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
+      .error-box {
+        margin-top: 12px;
+        padding: 12px 20px;
+        border: 1px solid #ef4444;
+        border-radius: 6px;
+        background: rgba(239, 68, 68, 0.08);
+        color: #fca5a5;
+        font-size: 11px;
+        font-family: 'Courier New', monospace;
+        max-width: 400px;
+        display: none;
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-Dphe60xI.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Si7cq8lj.css">
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <div id="boot-screen">
+      <div class="logo">Pilot 3D PFD</div>
+      <div class="version" id="boot-version">v—</div>
+      <div class="spinner"></div>
+      <div class="status" id="boot-status">Initializing...</div>
+      <div class="steps" id="boot-steps">
+        <span class="step pending" id="s-vite">◌ Vite Server</span>
+        <span class="step pending" id="s-modules">◌ Modules</span>
+        <span class="step pending" id="s-app">◌ App</span>
+        <span class="step pending" id="s-bridge">◌ Bridge</span>
+      </div>
+      <div class="error-box" id="boot-error"></div>
+    </div>
+
+    <script>
+      // Boot status updater
+      window.__bootSteps = {
+        vite: false,
+        modules: false,
+        app: false,
+        bridge: false,
+      };
+
+      window.__bootStatus = function(key, status, msg) {
+        const el = document.getElementById('s-' + key);
+        if (!el) return;
+        const all = ['vite', 'modules', 'app', 'bridge'];
+        el.className = 'step ' + status; // done | active | pending
+        if (status === 'done') el.innerHTML = '● ' + el.textContent.slice(2);
+        if (status === 'active') el.innerHTML = '◌ ' + el.textContent.slice(2);
+        if (status === 'pending') el.innerHTML = '◌ ' + el.textContent.slice(2);
+        window.__bootSteps[key] = status === 'done';
+        if (msg) document.getElementById('boot-status').textContent = msg;
+        // auto-hide when all done (app + bridge only — vite/modules are HMR-dependent)
+        if (window.__bootSteps.app && window.__bootSteps.bridge) {
+          setTimeout(() => {
+            document.getElementById('boot-screen').classList.add('hidden');
+          }, 300);
+        }
+      };
+
+      window.__bootError = function(msg) {
+        const box = document.getElementById('boot-error');
+        box.textContent = '⚠ ' + msg;
+        box.style.display = 'block';
+        document.getElementById('boot-status').textContent = 'Error';
+      };
+
+      // Vite's HMR connect signals modules are ready
+      window.__viteReady = false;
+      window.addEventListener('vite:beforeUpdate', () => {
+        window.__bootStatus('vite', 'done', 'Compiling modules...');
+        window.__bootStatus('modules', 'active', 'Loading modules...');
+      });
+      window.addEventListener('vite:afterUpdate', () => {
+        window.__bootStatus('modules', 'done', 'Modules loaded');
+        window.__bootStatus('app', 'active', 'Starting application...');
+      });
+
+      // Mark Vite as connected when the module script loads
+      document.querySelector('script[src*="main"]')?.addEventListener('load', () => {
+        window.__bootStatus('vite', 'done', 'Vite connected');
+        window.__bootStatus('modules', 'active', 'Compiling modules...');
+      });
+
+      // Fallback: if HMR is disabled (DISABLE_HMR=true), mark vite+modules as done immediately
+      if (!('onbeforeinput' in window)) { /* noop - not the best detector, but works */ }
+      document.addEventListener('DOMContentLoaded', () => {
+        // If vite:beforeUpdate hasn't fired by now, assume HMR is off
+        setTimeout(() => {
+          if (!window.__bootSteps.vite) {
+            window.__bootStatus('vite', 'done', 'Vite connected');
+            window.__bootStatus('modules', 'done', 'Modules loaded');
+          }
+        }, 100);
+      });
+
+      // Fallback timeout — if app doesn't boot in 30s, show error
+      setTimeout(() => {
+        const allDone = window.__bootSteps.app && window.__bootSteps.bridge;
+        if (!allDone) window.__bootError('Connection timeout. Try refreshing the page.');
+      }, 30000);
+
+      // Safety: hide boot-screen on any error (React error boundary fallback)
+      window.addEventListener('error', () => {
+        const allDone = window.__bootSteps.app && window.__bootSteps.bridge;
+        if (allDone) {
+          document.getElementById('boot-screen')?.classList.add('hidden');
+        }
+      });
+
+      // Bridge status — set by app code
+      window.__bootBridgeReady = function() {
+        window.__bootStatus('bridge', 'done', 'Ready');
+      };
+    </script>
+
+
+  </body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3D Flight Viewer Pilot</title>
+    <link rel="stylesheet" href="/viewer/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a href="/" class="back-btn" title="Back to Hub">← Hub</a>
+      <div>
+        <h1>3D Flight Viewer Pilot</h1>
+        <p id="source-config">Live/replay диагностика decoder source</p>
+      </div>
+      <div class="status-card">
+        <span id="connection-dot" class="dot"></span>
+        <span id="connection-text">connecting</span>
+      </div>
+    </header>
+
+    <nav class="tab-bar">
+      <button class="tab active" data-tab="flight">Flight</button>
+      <button class="tab" data-tab="pfd">PFD / КПИ</button>
+      <button class="tab" data-tab="debug">Debug</button>
+    </nav>
+
+    <main class="layout">
+      <!-- Tab 1: Flight (live metrics + replay) -->
+      <section class="panel flight-panel tab-panel active" data-panel="flight">
+        <div class="flight-layout">
+          <div class="flight-left">
+            <div class="mode-row">
+              <button id="live-mode" class="primary">Live</button>
+              <button id="replay-mode">Replay</button>
+              <span id="mode-label" class="pill">live</span>
+            </div>
+
+            <div class="flight-grid">
+              <div class="metric"><span>Time</span><strong id="timeMs">-</strong></div>
+              <div class="metric"><span>dec_RadioAltFt</span><strong id="dec_RadioAltFt">-</strong></div>
+              <div class="metric"><span>dec_BaroAltFt</span><strong id="dec_BaroAltFt">-</strong></div>
+              <div class="metric"><span>DME_Distance</span><strong id="DME_Distance">-</strong></div>
+              <div class="metric"><span>MagneticHeading</span><strong id="MagneticHeading">-</strong></div>
+              <div class="metric"><span>RollAngle</span><strong id="RollAngle">-</strong></div>
+              <div class="metric"><span>PitchAngle</span><strong id="PitchAngle">-</strong></div>
+              <div class="metric"><span>NormalG</span><strong id="NormalG">-</strong></div>
+              <div class="metric"><span>CAS</span><strong id="CAS">-</strong></div>
+              <div class="metric"><span>Vy</span><strong id="Vy">-</strong></div>
+              <div class="metric"><span>AoA</span><strong id="AoA">-</strong></div>
+            </div>
+          </div>
+
+          <div class="flight-right">
+            <div class="capture-box">
+              <h3>Capture</h3>
+              <div class="row">
+                <button id="start-capture">Start capture</button>
+                <button id="stop-capture">Stop capture</button>
+              </div>
+              <p id="capture-status" class="muted">capture status unknown</p>
+            </div>
+
+            <h3>Replay</h3>
+            <div class="row">
+              <select id="recordings"></select>
+              <button id="refresh-recordings">Refresh</button>
+              <button id="load-recording">Load</button>
+            </div>
+
+            <input id="timeline" type="range" min="0" max="0" value="0" step="1" />
+
+            <div class="row controls">
+              <button id="jump-start">|&lt;</button>
+              <button id="step-back">&lt;</button>
+              <button id="play-pause">Play</button>
+              <button id="step-forward">&gt;</button>
+              <button id="jump-end">&gt;|</button>
+              <select id="speed">
+                <option value="0.25">0.25x</option>
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+              </select>
+            </div>
+
+            <div class="row">
+              <label>seek timeMs <input id="seek-input" type="number" value="0" /></label>
+              <button id="seek-button">Seek</button>
+            </div>
+
+            <p id="recording-meta" class="muted">Запись не загружена.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 2: PFD / КПИ -->
+      <section class="panel pfd-panel tab-panel" data-panel="pfd">
+        <div class="panel-title-row">
+          <div>
+            <h2>PFD / КПИ</h2>
+            <p class="muted">Синхронизировано с текущим кадром telemetry-frame.v1</p>
+          </div>
+          <span id="pfd-schema" class="pill">telemetry-frame.v1</span>
+        </div>
+
+        <div class="pfd-grid">
+          <div class="pfd-card">
+            <span>Attitude</span>
+            <strong id="pfd-attitude">-</strong>
+            <small id="pfd-attitude-valid">valid: -</small>
+          </div>
+          <div class="pfd-card">
+            <span>Air</span>
+            <strong id="pfd-air">-</strong>
+            <small id="pfd-air-valid">valid: -</small>
+          </div>
+          <div class="pfd-card">
+            <span>Altitude</span>
+            <strong id="pfd-altitude">-</strong>
+            <small id="pfd-altitude-valid">valid: -</small>
+          </div>
+          <div class="pfd-card">
+            <span>Vertical Speed</span>
+            <strong id="pfd-vspeed">-</strong>
+            <small>Vy units/sign: unconfirmed</small>
+          </div>
+          <div class="pfd-card">
+            <span>Loads</span>
+            <strong id="pfd-loads">-</strong>
+            <small>Ny scale/origin: unconfirmed</small>
+          </div>
+          <div class="pfd-card">
+            <span>Navigation</span>
+            <strong id="pfd-nav">-</strong>
+            <small>selected heading: missing</small>
+          </div>
+          <div class="pfd-card wide">
+            <span>Autopilot / Flight Director</span>
+            <strong id="pfd-autopilot">-</strong>
+            <small>selected speed/altitude/VS and FD commands: missing</small>
+          </div>
+          <div class="pfd-card wide">
+            <span>Quality</span>
+            <strong id="pfd-quality">-</strong>
+            <small id="pfd-quality-detail">-</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 3: Debug -->
+      <section class="panel debug-panel tab-panel" data-panel="debug">
+        <h2>Debug</h2>
+        <div class="debug-grid">
+          <div>
+            <h3>Status</h3>
+            <pre id="status-json">{}</pre>
+          </div>
+          <div>
+            <h3>Last frame</h3>
+            <pre id="frame-json">{}</pre>
+          </div>
+          <div>
+            <h3>PFD frame</h3>
+            <pre id="pfd-json">{}</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/viewer/app.js" type="module"></script>
+  </body>
+</html>

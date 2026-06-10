@@ -1,112 +1,203 @@
 /**
- * RealTerrainMesh — R3F component rendering a terrain tile with displacement + satellite texture.
- * Placed OUTSIDE WorldGroup (like GroundDisc), follows aircraftPosition in XZ.
- * Y is fixed relative to ground level (-6).
+ * RealTerrainMesh.tsx — R3F компонент для отображения реального рельефа.
+ *
+ * Принимает decoded DEM + спутниковую текстуру и создаёт PlaneGeometry
+ * с displacement map.
  */
 
-import React, { useMemo, useEffect, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
-import type { TerrainTile } from './TerrainManager';
-import { aircraftPosition } from '../aircraftPosition';
+import type { TerrainTileData } from './TerrainManager';
 
 interface RealTerrainMeshProps {
-  tile: TerrainTile;
+  /** Данные тайла (heights, satelliteBitmap, метаданные) */
+  tileData: TerrainTileData | null;
+  /** Позиция самолёта в мировых координатах (используем только для выравнивания) */
+  aircraftX: number;
+  /** Позиция самолёта по Y (высота) */
+  aircraftY: number;
+  /** Позиция самолёта по Z */
+  aircraftZ: number;
+  /** Прозрачность (для crossfade при смене режимов) */
+  opacity?: number;
+  /** Режим ландшафта */
+  mode?: 'realistic' | 'schematic';
 }
 
-const GRID_RES = 256;
-const METER_TO_WU = 1 / 40;
+const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
+  tileData,
+  aircraftX,
+  aircraftY,
+  aircraftZ,
+  opacity = 1,
+  mode = 'realistic',
+}) => {
+  const meshRef = useRef<THREE.Mesh>(null);
 
-export const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({ tile }) => {
-  const groupRef = useRef<THREE.Group>(null);
+  console.log('[RealTerrainMesh] render, tileData:', !!tileData, 'mode:', mode, 'pos:', aircraftX.toFixed(1), aircraftY.toFixed(1), aircraftZ.toFixed(1));
 
-  // Satellite texture
-  const [satTexture, setSatTexture] = React.useState<THREE.Texture | null>(null);
-
-  useEffect(() => {
-    if (!tile.satObjectUrl) return;
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      tile.satObjectUrl,
-      (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        setSatTexture(tex);
-      },
-      undefined,
-      () => { /* fail silently */ },
-    );
-  }, [tile.satObjectUrl]);
-
-  // Create geometry with displacement from height data
+  // Создаём или обновляем геометрию при новых данных тайла
   const geometry = useMemo(() => {
-    if (!tile.heights) return null;
+    if (!tileData) { console.log('[RealTerrainMesh] no tileData, returning null'); return null; }
 
-    const geo = new THREE.PlaneGeometry(tile.sizeWU, tile.sizeWU, GRID_RES, GRID_RES);
-    geo.rotateX(-Math.PI / 2); // flat on XZ plane
+    // Геометрия: сегментированная плоскость в XZ (не через rotateX, а напрямую)
+    const segX = Math.min(tileData.width, 64);
+    const segZ = Math.min(tileData.height, 256);
 
-    // Apply displacement from decoded heights
-    const pos = geo.attributes.position;
-    const maxH = 8000;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const u = Math.max(0, Math.min(1, x / tile.sizeWU + 0.5));
-      const v = Math.max(0, Math.min(1, z / tile.sizeWU + 0.5));
-      const tx = Math.floor(u * (GRID_RES - 1));
-      const ty = Math.floor(v * (GRID_RES - 1));
-      const idx = Math.max(0, Math.min(tile.heights.length - 1, ty * GRID_RES + tx));
-      const h = Math.max(-500, Math.min(maxH, tile.heights[idx]));
-      pos.setY(i, h * METER_TO_WU);
+    console.log('[RealTerrainMesh] geo params:', { segX, segZ, wu: tileData.worldUnits, w: tileData.width, h: tileData.height, heightsLen: tileData.heights?.length });
+
+    // Защита от невалидных данных
+    if (!segX || !segZ || !isFinite(tileData.worldUnits)) { console.log('[RealTerrainMesh] invalid params'); return null; }
+    const wu = tileData.worldUnits > 0 ? tileData.worldUnits * 2 : 200;
+    const halfW = wu / 2;
+    const geo = new THREE.BufferGeometry();
+
+    const positions = new Float32Array((segX + 1) * (segZ + 1) * 3);
+    const uvs = new Float32Array((segX + 1) * (segZ + 1) * 2);
+    const indices: number[] = [];
+
+    const stepX = wu / segX;
+    const stepZ = wu / segZ;
+
+    // Вычисляем минимальную высоту тайла — чтобы terrain не был приподнят
+    // над уровнем земли (heights в метрах над уровнем моря, а сцена в local coords)
+    let minH = Infinity;
+    for (let iz = 0; iz <= segZ; iz++) {
+      for (let ix = 0; ix <= segX; ix++) {
+        const u = ix / segX;
+        const v = iz / segZ;
+        const heightIx = Math.round(u * (tileData.width - 1));
+        const heightIz = Math.round(v * (tileData.height - 1));
+        const clampedIx = Math.max(0, Math.min(tileData.width - 1, heightIx));
+        const clampedIz = Math.max(0, Math.min(tileData.height - 1, heightIz));
+        const flatIx = clampedIz * tileData.width + clampedIx;
+        const hv = tileData.heights && flatIx < tileData.heights.length ? tileData.heights[flatIx] : 0;
+        if (isFinite(hv)) minH = Math.min(minH, hv);
+      }
     }
-    geo.computeVertexNormals();
-    geo.attributes.position.needsUpdate = true;
-    return geo;
-  }, [tile]);
+    if (!isFinite(minH)) minH = 0;
 
-  // Material
+    let idx = 0;
+    for (let iz = 0; iz <= segZ; iz++) {
+      for (let ix = 0; ix <= segX; ix++) {
+        const x = -halfW + ix * stepX;
+        const z = -halfW + iz * stepZ;
+
+        // UV для сэмплинга heights
+        const u = ix / segX;
+        const v = iz / segZ;
+        const heightIx = Math.round(u * (tileData.width - 1));
+        const heightIz = Math.round(v * (tileData.height - 1));
+        const clampedIx = Math.max(0, Math.min(tileData.width - 1, heightIx));
+        const clampedIz = Math.max(0, Math.min(tileData.height - 1, heightIz));
+        const flatIx = clampedIz * tileData.width + clampedIx;
+        let h = 0;
+        if (tileData.heights && flatIx < tileData.heights.length) {
+          h = tileData.heights[flatIx];
+        }
+        if (!isFinite(h) || typeof h !== 'number' || isNaN(h)) h = 0;
+        const hWu = (h - minH) / 40;
+
+        positions[idx * 3] = x;
+        positions[idx * 3 + 1] = hWu;
+        positions[idx * 3 + 2] = z;
+        uvs[idx * 2] = u;
+        uvs[idx * 2 + 1] = 1 - v; // flip V для текстуры
+        idx++;
+      }
+    }
+
+    for (let iz = 0; iz < segZ; iz++) {
+      for (let ix = 0; ix < segX; ix++) {
+        const a = iz * (segX + 1) + ix;
+        const b = iz * (segX + 1) + ix + 1;
+        const c = (iz + 1) * (segX + 1) + ix;
+        const d = (iz + 1) * (segX + 1) + ix + 1;
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
+    }
+
+    try {
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+    } catch (err) {
+      console.error('[RealTerrainMesh] buffer error:', err);
+      return null;
+    }
+
+    console.log('[RealTerrainMesh] geometry created OK');
+    return geo;
+  }, [tileData]);
+
+  // Текстура из спутникового снимка
+  const texture = useMemo(() => {
+    if (!tileData?.satelliteBitmap) return null;
+    const tex = new THREE.CanvasTexture(
+      tileData.satelliteBitmap as unknown as HTMLCanvasElement
+    );
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = true;
+    return tex;
+  }, [tileData?.satelliteBitmap]);
+
+    // Материал
   const material = useMemo(() => {
-    if (satTexture) {
+    if (mode === 'schematic') {
       return new THREE.MeshStandardMaterial({
-        map: satTexture,
-        roughness: 0.85,
+        color: '#4a7c3f',
+        roughness: 0.8,
         metalness: 0.0,
+        transparent: true,
+        opacity,
         side: THREE.DoubleSide,
       });
     }
+
     return new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#4a7c3f'),
-      roughness: 0.9,
+      map: texture ?? undefined,
+      color: texture ? '#ffffff' : '#ff3333', // ярко-красный если нет текстуры
+      roughness: 0.7,
       metalness: 0.0,
+      transparent: true,
+      opacity: opacity < 1 ? opacity : 1,
       side: THREE.DoubleSide,
     });
-  }, [satTexture]);
+  }, [texture, opacity, mode]);
 
-  // Follow aircraft in XZ, stay at ground level Y = -6
-  useFrame(() => {
-    const g = groupRef.current;
-    if (!g) return;
-    g.position.x = aircraftPosition.x;
-    g.position.z = aircraftPosition.z;
-    // Ground level — same as GroundDisc
-    const targetY = -6 - aircraftPosition.y;
-    g.position.y += (targetY - g.position.y) * 0.06;
-  });
+  // Позиционирование: на уровне земли (-6, как GroundDisc) в локальных координатах
+  // WorldGroup сдвинет всю группу на -aircraftPosition.y
+  useEffect(() => {
+    if (meshRef.current && tileData) {
+      meshRef.current.position.set(0, -6, 0);
+    }
+  }, [tileData]);
 
-  // Placeholder geometry while loading
-  const displayGeo = geometry || (() => {
-    const phGeo = new THREE.PlaneGeometry(tile.sizeWU, tile.sizeWU);
-    phGeo.rotateX(-Math.PI / 2);
-    return phGeo;
-  })();
+  // Обновление прозрачности и цвета при смене режима
+  useEffect(() => {
+    if (material) {
+      material.opacity = opacity;
+      material.transparent = opacity < 1;
+      if (mode === 'schematic') {
+        (material as THREE.MeshStandardMaterial).color.set('#4a7c3f');
+        (material as THREE.MeshStandardMaterial).map = null;
+        (material as THREE.MeshStandardMaterial).needsUpdate = true;
+      } else {
+        (material as THREE.MeshStandardMaterial).map = texture || null;
+        (material as THREE.MeshStandardMaterial).needsUpdate = true;
+      }
+    }
+  }, [opacity, mode, texture, material]);
+
+  if (!geometry) return null;
 
   return (
-    <group ref={groupRef}>
-      <mesh
-        geometry={displayGeo}
-        material={material}
-        receiveShadow
-        position={[0, -6.01, 0]}
-      />
-    </group>
+    <mesh ref={meshRef} geometry={geometry} material={material} frustumCulled={false} />
   );
 };
+
+export { RealTerrainMesh };

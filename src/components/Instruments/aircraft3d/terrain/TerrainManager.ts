@@ -1,269 +1,258 @@
 /**
- * TerrainManager — orchestrates tile fetching, caching, and decoding.
- * Singleton pattern for use outside React (e.g., in useFrame).
+ * TerrainManager.ts — оркестрация загрузки и кэширования terrain тайлов.
+ *
+ * Синглтон: управляет запросами к Mapbox API, кэшированием,
+ * rate limiting и отменой запросов при смене позиции.
  */
 
 import {
   latLonToTile,
-  tileToLatLon,
-  tileGroundSizeMeters,
+  terrainRgbUrl,
+  satelliteUrl,
+  tileCacheKey,
   decodeTerrainRGB,
-  mapboxTileUrl,
+  tileWorldUnits,
+  tileCenterLatLon,
+  TILE_SIZE,
   DEFAULT_ZOOM,
-  WU_PER_METER,
 } from './terrainTileUtils';
-import { getTile, putTile, tileCacheKey, clearOlderThan } from './TerrainCache';
+import { getTile, putTile } from './TerrainCache';
+import type { TileCoord } from './terrainTileUtils';
 
-/** Mapbox Geocoding API v5 */
-const GEOCODING_URL = 'https://api.mapbox.com/geocoding/v5/mapbox.places';
-
-export interface GeocodingResult {
-  name: string;
-  lat: number;
-  lon: number;
+export interface TerrainTileData {
+  /** DEM высоты (метры, Float32Array) */
+  heights: Float32Array;
+  /** Спутниковая текстура как ImageBitmap или null */
+  satelliteBitmap: ImageBitmap | null;
+  /** Ширина тайла в пикселях */
+  width: number;
+  /** Высота тайла в пикселях */
+  height: number;
+  /** Размер тайла в World Units */
+  worldUnits: number;
+  /** Минимальная высота на тайле (м) */
+  minElevation: number;
+  /** Максимальная высота на тайле (м) */
+  maxElevation: number;
 }
 
-export const TERRAIN_PRESETS: { name: string; lat: number; lon: number; label: string }[] = [
-  { name: 'alps',      lat: 46.8182, lon: 8.2275,  label: '🏔 Альпы' },
-  { name: 'caucasus',  lat: 43.3499, lon: 42.4453, label: '🏔 Кавказ' },
-  { name: 'himalayas', lat: 27.9881, lon: 86.9250, label: '🗻 Гималаи (Эверест)' },
-  { name: 'grandcanyon', lat: 36.1069, lon: -112.1129, label: '🏜 Гранд-Каньон' },
-  { name: 'andes',     lat: -33.5,   lon: -70.0,   label: '⛰ Анды' },
-  { name: 'moscow',    lat: 55.9726, lon: 37.4146, label: '🏙 Москва (Шереметьево)' },
-];
-
-export interface TerrainTile {
-  z: number;
-  x: number;
-  y: number;
-  /** Center of tile in world units (relative to anchor position) */
-  centerWU: { x: number; z: number };
-  /** Tile size in world units */
-  sizeWU: number;
-  /** Decoded height data (512×512 Float32 array, meters) */
-  heights: Float32Array | null;
-  /** Satellite texture blob (for creating texture) */
-  satBlob: Blob | null;
-  /** Satellite object URL (for texture loader) */
-  satObjectUrl: string | null;
-  loading: boolean;
-  loaded: boolean;
+export interface TileLoadProgress {
+  /** Количество загруженных тайлов */
+  loaded: number;
+  /** Всего тайлов к загрузке */
+  total: number;
 }
 
-export interface TerrainState {
-  anchorLat: number;
-  anchorLon: number;
-  centerTile: TerrainTile | null;
-  token: string;
-  ready: boolean;
-  error: string | null;
-}
+type ProgressCallback = (progress: TileLoadProgress) => void;
+type TileCallback = (coord: TileCoord, data: TerrainTileData) => void;
 
-type Listener = (state: TerrainState) => void;
+// Конфигурация по умолчанию
+const CONFIG = {
+  maxConcurrent: 6,
+  fetchTimeoutMs: 8_000,
+  zoom: DEFAULT_ZOOM,
+};
 
 class TerrainManagerImpl {
-  private token: string;
-  private state: TerrainState;
-  private listeners = new Set<Listener>();
-  private pendingFetches = new Map<string, Promise<void>>();
+  private token: string = '';
+  private abortController: AbortController | null = null;
+  private pendingRequests = 0;
+  private onTileReady: TileCallback | null = null;
+  private onProgress: ProgressCallback | null = null;
+  private totalTiles = 0;
+  private loadedTiles = 0;
 
-  constructor(token: string) {
+  /** Инициализация с Mapbox токеном */
+  init(token: string): void {
     this.token = token;
-    this.state = {
-      anchorLat: 0,
-      anchorLon: 0,
-      centerTile: null,
-      token,
-      ready: false,
-      error: null,
-    };
+    this.abortController?.abort();
+    this.abortController = new AbortController();
   }
 
-  getState(): TerrainState {
-    return this.state;
+  /** Подписка на события готовности тайла */
+  onTile(cb: TileCallback): void {
+    this.onTileReady = cb;
   }
 
-  subscribe(fn: Listener): () => void {
-    this.listeners.add(fn);
-    return () => { this.listeners.delete(fn); };
+  /** Подписка на прогресс загрузки */
+  onLoadProgress(cb: ProgressCallback): void {
+    this.onProgress = cb;
   }
 
-  private notify() {
-    const s = this.state;
-    this.listeners.forEach((fn) => fn(s));
+  /** Отмена всех текущих запросов */
+  cancel(): void {
+    this.abortController?.abort();
+    this.abortController = new AbortController();
+    this.pendingRequests = 0;
   }
 
   /**
-   * Set anchor position (called when lat/lon changes significantly).
-   * Triggers tile loading for the new position.
+   * Загрузить сетку тайлов вокруг заданных координат
+   *
+   * @param lat — широта
+   * @param lon — долгота
+   * @param gridSize — размер сетки (1 = 1×1, 2 = 2×2, 3 = 3×3 и т.д.)
    */
-  async setAnchor(lat: number, lon: number): Promise<void> {
-    const zoom = DEFAULT_ZOOM;
-    const tile = latLonToTile(lat, lon, zoom);
-    const key = tileCacheKey('dem', zoom, tile.x, tile.y);
+  async loadTileGrid(lat: number, lon: number, gridSize: number = 1): Promise<void> {
+    if (!this.token) return;
 
-    // Skip if already at this tile
-    if (
-      this.state.centerTile?.x === tile.x &&
-      this.state.centerTile?.y === tile.y &&
-      this.state.centerTile?.z === zoom
-    ) {
-      return;
+    // Отменяем предыдущие запросы
+    this.cancel();
+    const signal = this.abortController!.signal;
+
+    const center = latLonToTile(lat, lon, CONFIG.zoom);
+    const halfGrid = Math.floor(gridSize / 2);
+
+    // Собираем все тайлы сетки
+    const tiles: TileCoord[] = [];
+    for (let dx = -halfGrid; dx <= halfGrid; dx++) {
+      for (let dy = -halfGrid; dy <= halfGrid; dy++) {
+        tiles.push({
+          x: center.x + dx,
+          y: center.y + dy,
+          z: CONFIG.zoom,
+        });
+      }
     }
 
-    const nw = tileToLatLon(tile.x, tile.y, zoom);
-    const sizeM = tileGroundSizeMeters(zoom, lat);
-    const sizeWU = sizeM * WU_PER_METER;
+    this.totalTiles = tiles.length;
+    this.loadedTiles = 0;
+    this.pendingRequests = tiles.length;
 
-    const terrainTile: TerrainTile = {
-      z: zoom,
-      x: tile.x,
-      y: tile.y,
-      centerWU: { x: 0, z: 0 }, // centered on aircraft
-      sizeWU,
-      heights: null,
-      satBlob: null,
-      satObjectUrl: null,
-      loading: true,
-      loaded: false,
+    // Загружаем с rate limiting
+    const queue = [...tiles];
+    const active: Promise<void>[] = [];
+
+    const processNext = async (): Promise<void> => {
+      while (queue.length > 0 && !signal.aborted) {
+        const tile = queue.shift()!;
+        try {
+          const data = await this.loadSingleTile(tile, signal);
+          if (data && !signal.aborted) {
+            this.loadedTiles++;
+            this.onTileReady?.(tile, data);
+            this.onProgress?.({ loaded: this.loadedTiles, total: this.totalTiles });
+          }
+        } catch {
+          // Пропускаем неудачные тайлы
+        } finally {
+          this.pendingRequests--;
+        }
+      }
     };
 
-    this.state = {
-      ...this.state,
-      anchorLat: lat,
-      anchorLon: lon,
-      centerTile: terrainTile,
-      ready: false,
-      error: null,
-    };
-    this.notify();
+    // Запускаем параллельные воркеры
+    const workerCount = Math.min(CONFIG.maxConcurrent, tiles.length);
+    for (let i = 0; i < workerCount; i++) {
+      active.push(processNext());
+    }
+    await Promise.allSettled(active);
+  }
 
-    // Fetch DEM and satellite in parallel
+  /**
+   * Загрузить один тайл (DEM + Satellite)
+   */
+  private async loadSingleTile(
+    tile: TileCoord,
+    signal: AbortSignal
+  ): Promise<TerrainTileData | null> {
+    const { x, y, z } = tile;
+
     try {
-      await Promise.all([
-        this.fetchDem(zoom, tile.x, tile.y, terrainTile),
-        this.fetchSat(zoom, tile.x, tile.y, terrainTile),
-      ]);
-      terrainTile.loading = false;
-      terrainTile.loaded = true;
-      this.state = { ...this.state, ready: true, centerTile: terrainTile };
-      this.notify();
-    } catch (err) {
-      terrainTile.loading = false;
-      this.state = {
-        ...this.state,
-        centerTile: terrainTile,
-        error: (err as Error).message,
+      // 1. DEM тайл
+      const demKey = tileCacheKey('dem', z, x, y);
+      let demBlob = await getTile(demKey);
+
+      if (!demBlob) {
+        const response = await fetch(terrainRgbUrl(this.token, z, x, y), {
+          signal,
+          cache: 'force-cache',
+        });
+        if (!response.ok) throw new Error(`DEM fetch failed: ${response.status}`);
+        demBlob = await response.blob();
+        // Кэшируем (fire & forget)
+        putTile(demKey, demBlob, { source: 'dem', z, x, y }).catch(() => {});
+      }
+
+      // Декодируем DEM
+      const demImage = await createImageBitmap(demBlob);
+      console.log(`[TerrainManager] DEM image: ${demImage.width}x${demImage.height}`);
+      
+      // Fallback если ImageBitmap нулевого размера
+      const imgW = demImage.width > 0 ? demImage.width : 256;
+      const imgH = demImage.height > 0 ? demImage.height : 256;
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = imgW;
+      canvas.height = imgH;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(demImage, 0, 0, imgW, imgH);
+      const imageData = ctx.getImageData(0, 0, imgW, imgH);
+      demImage.close();
+
+      const heights = decodeTerrainRGB(imageData);
+
+      // Минимальная/максимальная высота
+      let minElev = Infinity;
+      let maxElev = -Infinity;
+      for (let i = 0; i < heights.length; i++) {
+        if (heights[i] < minElev) minElev = heights[i];
+        if (heights[i] > maxElev) maxElev = heights[i];
+      }
+
+      // 2. Satellite тайл (пытаемся загрузить, но не блокируем onTile)
+      let satelliteBitmap: ImageBitmap | null = null;
+      try {
+        const satKey = tileCacheKey('sat', z, x, y);
+        let satBlob = await getTile(satKey);
+
+        if (!satBlob) {
+          const response = await fetch(satelliteUrl(this.token, z, x, y), {
+            signal,
+            cache: 'force-cache',
+          });
+          if (response.ok) {
+            satBlob = await response.blob();
+            putTile(satKey, satBlob, { source: 'sat', z, x, y }).catch(() => {});
+          }
+        }
+
+        if (satBlob) {
+          satelliteBitmap = await createImageBitmap(satBlob);
+        }
+      } catch (satErr) {
+        console.warn(`[TerrainManager] satellite tile ${z}/${x}/${y} failed, continuing without texture:`, satErr);
+      }
+
+      // Размер тайла в WU
+      const center = tileCenterLatLon(x, y, z);
+      const wu = tileWorldUnits(z, center.lat);
+
+      const result = {
+        heights,
+        satelliteBitmap,
+        width: imgW,
+        height: imgH,
+        worldUnits: wu,
+        minElevation: minElev,
+        maxElevation: maxElev,
       };
-      this.notify();
+      console.log(`[TerrainManager] returning tile ${z}/${x}/${y}: w=${result.width} h=${result.height} wu=${wu.toFixed(2)} heights=${heights.length}`);
+      return result;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return null; // Нормальная отмена
+      }
+      console.warn(`[TerrainManager] Failed to load tile ${z}/${x}/${y}:`, err);
+      return null;
     }
   }
 
-  private async fetchDem(z: number, x: number, y: number, tile: TerrainTile) {
-    const key = tileCacheKey('dem', z, x, y);
-    const url = mapboxTileUrl(this.token, 'dem', z, x, y);
-
-    // Check cache first
-    const cached = await getTile(key);
-    if (cached) {
-      const img = await blobToImage(cached.blob);
-      tile.heights = decodeTerrainRGB(imageToImageData(img));
-      return;
-    }
-
-    // Fetch from network
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`DEM fetch failed: ${resp.status}`);
-    const blob = await resp.blob();
-
-    // Cache
-    putTile(key, blob, { z, x, y, type: 'dem', timestamp: Date.now(), size: blob.size }).catch(() => {});
-
-    const img = await blobToImage(blob);
-    tile.heights = decodeTerrainRGB(imageToImageData(img));
-  }
-
-  private async fetchSat(z: number, x: number, y: number, tile: TerrainTile) {
-    const key = tileCacheKey('sat', z, x, y);
-    const url = mapboxTileUrl(this.token, 'sat', z, x, y);
-
-    // Check cache first
-    const cached = await getTile(key);
-    if (cached) {
-      tile.satBlob = cached.blob;
-      tile.satObjectUrl = URL.createObjectURL(cached.blob);
-      return;
-    }
-
-    // Fetch from network
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`Sat fetch failed: ${resp.status}`);
-    const blob = await resp.blob();
-
-    // Cache
-    putTile(key, blob, { z, x, y, type: 'sat', timestamp: Date.now(), size: blob.size }).catch(() => {});
-
-    tile.satBlob = blob;
-    tile.satObjectUrl = URL.createObjectURL(blob);
-  }
-
-  dispose() {
-    if (this.state.centerTile?.satObjectUrl) {
-      URL.revokeObjectURL(this.state.centerTile.satObjectUrl);
-    }
-    this.listeners.clear();
+  /** Проверить, есть ли токен */
+  get isReady(): boolean {
+    return this.token.length > 0;
   }
 }
 
-// Helpers
-
-function blobToImage(blob: Blob): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = URL.createObjectURL(blob);
-  });
-}
-
-function imageToImageData(img: HTMLImageElement): ImageData {
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(img, 0, 0);
-  return ctx.getImageData(0, 0, img.width, img.height);
-}
-
-// Singleton
-
-let instance: TerrainManagerImpl | null = null;
-
-export function getTerrainManager(): TerrainManagerImpl | null {
-  return instance;
-}
-
-export function createTerrainManager(token: string): TerrainManagerImpl {
-  if (instance) instance.dispose();
-  instance = new TerrainManagerImpl(token);
-  return instance;
-}
-
-/** Move terrain to a new position */
-export function setTerrainPosition(lat: number, lon: number): void {
-  const mgr = getTerrainManager();
-  if (mgr) mgr.setAnchor(lat, lon);
-}
-
-/** Geocode a place name to coordinates using Mapbox API */
-export async function geocodePlace(query: string, token: string): Promise<GeocodingResult[]> {
-  const url = `${GEOCODING_URL}/${encodeURIComponent(query)}.json?access_token=${token}&limit=5&types=place,region,country`;
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Geocoding failed: ${resp.status}`);
-  const data = await resp.json();
-  return (data.features || []).map((f: any) => ({
-    name: f.place_name || f.text || 'Unknown',
-    lat: f.center?.[1] ?? f.geometry?.coordinates?.[1] ?? 0,
-    lon: f.center?.[0] ?? f.geometry?.coordinates?.[0] ?? 0,
-  }));
-}
+/** Глобальный синглтон TerrainManager */
+export const TerrainManager = new TerrainManagerImpl();

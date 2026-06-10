@@ -4,7 +4,7 @@
 
 Проект: `Pilot_3d_PFD`
 Компонент: `src/components/Instruments/aircraft3d/`
-Актуализация: 2026-06-10
+Актуализация: 2026-06-09
 
 ---
 
@@ -41,13 +41,6 @@
     *   X/Z: Следует за `aircraftPosition.x` и `.z`
     *   Y: `-6 - aircraftPosition.y` (синхронно с WorldGroup)
     *   Особенности: Единственный наземный объект вне WorldGroup; использует плавную интерполяцию Y.
-    *   **Скрывается** при включении реального ландшафта (🏔). Заменяется на RealTerrainMesh.
-
-*   **RealTerrainMesh** (реальный ландшафт из Mapbox) — см. [README_real_terrain.md](./README_real_terrain.md)
-    *   Внутри WorldGroup на origin — WorldGroup центрирует на самолёте.
-    *   PlaneGeometry(256×256) с displacement из Terrain-RGB + satellite текстура.
-    *   Размер тайла ~34 WU (~1366 м на zoom 14).
-    *   Включается кнопкой 🏔, позиция выбирается через 📍.
 
 *   **HorizonSphere**
     *   Позиция: `[0, 0, 0]`
@@ -147,6 +140,3 @@
 *   [README_architecture.md](./README_architecture.md) — Общая архитектура приложения
 *   [README_performance_3D.md](./README_performance_3D.md) — Оптимизация и FPS
 *   [README_ground_touch.md](./README_ground_touch.md) — Детекция касания земли
-*   [README_real_terrain.md](./README_real_terrain.md) — Реальный ландшафт (Mapbox)
-*   [README_plan_real_terrain.md](./README_plan_real_terrain.md) — План развития ландшафта
-*   [README_plan_realistic_3D.md](./README_plan_realistic_3D.md) — Процедурный ландшафт (откатан)

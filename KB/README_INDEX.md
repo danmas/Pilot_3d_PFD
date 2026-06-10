@@ -56,7 +56,6 @@
 | [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) | Сцена Aircraft 3D: размеры, объекты, масштаб WU | TARGET_SIZE, WorldGroup, координаты, камера, World Units (1WU=40m) | 2026-06-09 |
 | [README_plan_realistic_3D.md](./README_plan_realistic_3D.md) | План: реалистичный ландшафт | Шейдерный ground, InstancedMesh, биомы, фазы реализации | 2026-06-09 |
 | [README_plan_real_terrain.md](./README_plan_real_terrain.md) | План: реальный ландшафт из интернета | Mapbox Terrain-RGB, тайлы, кэш, LOD, интеграция | 2026-06-10 |
-| [README_real_terrain.md](./README_real_terrain.md) | Реальный ландшафт (Mapbox) — реализация | TerrainManager, TerrainCache, RealTerrainMesh, TerrainDialog, пресеты, geocoding, Фаза 1 MVP | 2026-06-10 |
 
 ---
 
@@ -116,8 +115,7 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [README_ideas.md](./README_ideas.md) | Идеи и Roadmap | Будущие фичи, улучшения, рефакторинг | 2026-06-10 |
-| [README_real_terrain.md](./README_real_terrain.md) | Реальный ландшафт (Mapbox) — реализация | TerrainManager, TerrainCache, RealTerrainMesh, TerrainDialog, пресеты, geocoding | 2026-06-10 |
+| [README_ideas.md](./README_ideas.md) | Идеи и Roadmap | Будущие фичи, улучшения, рефакторинг | 2026-06-04 |
 
 ---
 
@@ -132,7 +130,6 @@
 - **Идеи в разработку:** [README_ideas.md](./README_ideas.md)
 - **3D-самолёт:** [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md)
 - **Ground Touch & Clamp (v2.6.3):** `aircraftPosition.ts` — `groundTouch`, `aircraftPosition.y ≥ -6` (`../src/components/Instruments/aircraft3d/aircraftPosition.ts`)
-- **Реальный ландшафт (Mapbox):** `TerrainManager`, `RealTerrainMesh`, `TerrainDialog` (`../src/components/Instruments/aircraft3d/terrain/`)
 - **Realtime Charts:** [../packages/realtime-charts/README.md](../packages/realtime-charts/README.md)
 - **Измерение латентности:** [../DOCS/Latency-Measurement-Methodology.md](../DOCS/Latency-Measurement-Methodology.md)
 - **tne-replay-tool (захват/реплей):** [../tne-replay-tool/README.md](../tne-replay-tool/README.md)
@@ -175,7 +172,7 @@
    - При удалении документа — удаляется строка из индекса.
    - Приватные / чувствительные данные (API-ключи, пароли) в KB не попадают.
 
-**Последнее обновление:** 2026-06-10
+**Последнее обновление:** 2026-06-08
 
 
 

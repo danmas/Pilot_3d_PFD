@@ -14,6 +14,8 @@ import type { TelemetryFrame } from '../../types';
 import { HorizonSphere } from './aircraft3d/HorizonSphere';
 import { AircraftModel } from './aircraft3d/AircraftModel';
 import { GroundDisc } from './aircraft3d/Ground';
+import { RealTerrainMesh } from './aircraft3d/terrain/RealTerrainMesh';
+import { useRealTerrain } from '../../hooks/useRealTerrain';
 import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { Trees } from './aircraft3d/Trees';
@@ -36,10 +38,6 @@ import { APP_VERSION } from '../../version';
 import { FlightModelDialog } from './aircraft3d/FlightModelDialog';
 import { type ParamsState } from './aircraft3d/flightModelParams';
 import { loadFdmParams } from './aircraft3d/flightModel';
-import { RealTerrainMesh } from './aircraft3d/terrain/RealTerrainMesh';
-import type { TerrainTile } from './aircraft3d/terrain/TerrainManager';
-import { useRealTerrain } from '../../hooks/useRealTerrain';
-import { TerrainDialog } from './aircraft3d/terrain/TerrainDialog';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -68,11 +66,15 @@ interface SceneProps {
   cameraRef: React.RefObject<CameraControls | null>;
   useImprovedFdm?: boolean;
   showGrid?: boolean;
-  showTerrain?: boolean;
-  terrainTile?: TerrainTile | null;
+  realTerrainEnabled?: boolean;
+  realTerrainData: {
+    tileData: import('./aircraft3d/terrain/TerrainManager').TerrainTileData | null;
+    loading: boolean;
+  } | null;
+  aircraftPos: { x: number; y: number; z: number };
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, showTerrain, terrainTile }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, realTerrainData, aircraftPos }) => {
   return (
     <>
       <CameraController ref={cameraRef} />
@@ -83,11 +85,24 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
     {/* HorizonSphere is fixed in world space — outside WorldGroup */}
-    <HorizonSphere />
-      {/* Ground: schematic or real terrain */}
-      {showTerrain && terrainTile ? <RealTerrainMesh tile={terrainTile} /> : <GroundDisc />}
+    {realTerrainEnabled && realTerrainData?.loading && !realTerrainData?.tileData && (
+      <GroundDisc />
+    )}
 
     <WorldGroup>
+      {/* RealTerrainMesh в WorldGroup — неподвижен относительно мира (Runway/Grid) */}
+      {realTerrainEnabled && realTerrainData?.tileData ? (
+        <RealTerrainMesh
+          tileData={realTerrainData.tileData}
+          aircraftX={aircraftPos.x}
+          aircraftY={aircraftPos.y}
+          aircraftZ={aircraftPos.z}
+          mode="realistic"
+        />
+      ) : (
+        <GroundDisc />
+      )}
+
       <Runway />
       <Clouds count={40} />
       <Trees />
@@ -108,11 +123,15 @@ interface Aircraft3DCanvasProps {
   cameraRef: React.RefObject<CameraControls | null>;
   useImprovedFdm?: boolean;
   showGrid?: boolean;
-  showTerrain?: boolean;
-  terrainTile?: TerrainTile | null;
+  realTerrainEnabled?: boolean;
+  realTerrainData: {
+    tileData: import('./aircraft3d/terrain/TerrainManager').TerrainTileData | null;
+    loading: boolean;
+  } | null;
+  aircraftPos: { x: number; y: number; z: number };
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, showTerrain, terrainTile }) => (
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, realTerrainData, aircraftPos }) => (
   <Canvas
     gl={{
       antialias: true,
@@ -124,13 +143,14 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
         console.warn('[Aircraft3D] WebGL context creation failed');
       }
     }}
+    onError={(err) => console.error('[Aircraft3D] Canvas error:', err)}
   >
     {projection === 'ortho' ? (
       <OrthographicCamera makeDefault position={CAMERA_PRESETS.chase.position} zoom={40} near={0.1} far={500} />
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
     )}
-    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} showTerrain={showTerrain} terrainTile={terrainTile} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} />
   </Canvas>
 ));
 
@@ -155,17 +175,15 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   const [showGrid, setShowGrid] = useState(() => {
     try { return localStorage.getItem('pilot-3d-pfd:showGrid') === 'true'; } catch { return false; }
   });
-  const [showTerrain, setShowTerrain] = useState(() => {
-    try { return localStorage.getItem('pilot-3d-pfd:showTerrain') === 'true'; } catch { return false; }
+  const [realTerrainEnabled, setRealTerrainEnabled] = useState(() => {
+    try { return localStorage.getItem('pilot-3d-pfd:realTerrain') === 'true'; } catch { return false; }
   });
-  const [terrainDialogOpen, setTerrainDialogOpen] = useState(false);
 
-  // Real terrain hook
-  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN as string || '';
-  const { state: terrainState } = useRealTerrain({
-    token: mapboxToken,
-    enabled: showTerrain && !!mapboxToken,
-  });
+  const realTerrain = useRealTerrain(
+    frame.Latitude as number | undefined,
+    frame.Longitude as number | undefined,
+    realTerrainEnabled
+  );
 
   /* ── Периодическая проверка groundTouch ── */
   useEffect(() => {
@@ -235,8 +253,12 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           cameraRef={cameraRef}
           useImprovedFdm={useImprovedFdm}
           showGrid={showGrid}
-          showTerrain={showTerrain}
-          terrainTile={terrainState.centerTile}
+          realTerrainEnabled={realTerrainEnabled}
+          realTerrainData={{
+            tileData: realTerrain.tileData,
+            loading: realTerrain.loading,
+          }}
+          aircraftPos={{ x: 0, y: alt ?? 0, z: 0 }}
         />
       </Suspense>
 
@@ -339,31 +361,23 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         >
           ▦
         </button>
-        {/* Terrain toggle */}
+        {/* Real terrain toggle */}
         <button
           onClick={() => {
-            const next = !showTerrain;
-            setShowTerrain(next);
-            try { localStorage.setItem('pilot-3d-pfd:showTerrain', String(next)); } catch {}
-            if (next) setTerrainDialogOpen(true); // auto-open dialog on first enable
+            const next = !realTerrainEnabled;
+            setRealTerrainEnabled(next);
+            try { localStorage.setItem('pilot-3d-pfd:realTerrain', String(next)); } catch {}
           }}
           className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
-            ${showTerrain ? 'bg-emerald-600/50 text-white font-medium' : 'bg-white/15 hover:bg-white/30 text-white/70'}`}
-          title={showTerrain ? 'Реальный ландшафт (вкл)' : 'Реальный ландшафт (выкл)'}
+            ${realTerrainEnabled
+              ? 'bg-cyan-600/50 text-white font-medium'
+              : 'bg-white/15 hover:bg-white/30 text-white/70'}
+            ${realTerrain.loading ? 'animate-pulse' : ''}`}
+          title={realTerrainEnabled ? 'Реальный ландшафт' : 'Схематичный ландшафт'}
         >
           🏔
+          {realTerrain.loading && ' ⟳'}
         </button>
-        {/* Position button (only when terrain active) */}
-        {showTerrain && (
-          <button
-            onClick={() => setTerrainDialogOpen(true)}
-            className="px-1.5 py-0.5 text-[10px] rounded bg-white/15 hover:bg-cyan-600/50
-                       text-white/90 backdrop-blur-sm transition-colors leading-none"
-            title="Выбрать место"
-          >
-            📍
-          </button>
-        )}
 
       </div>
 
@@ -402,15 +416,6 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         />
       )}
 
-      {terrainDialogOpen && (
-        <TerrainDialog
-          token={mapboxToken}
-          currentLat={terrainState.anchorLat}
-          currentLon={terrainState.anchorLon}
-          onClose={() => setTerrainDialogOpen(false)}
-        />
-      )}
-
       {/* ── TOUCHDOWN overlay ── */}
       {showTouchdown && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
@@ -424,18 +429,6 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
               LANDING DETECTED
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Terrain loading indicator */}
-      {showTerrain && terrainState.centerTile?.loading && (
-        <div className="absolute bottom-1.5 left-2 text-[10px] font-mono text-amber-400/80 pointer-events-none">
-          ⏳ Загрузка ландшафта…
-        </div>
-      )}
-      {showTerrain && terrainState.error && (
-        <div className="absolute bottom-1.5 left-2 text-[10px] font-mono text-red-400/80 pointer-events-none">
-          ⚠ {terrainState.error}
         </div>
       )}
 
