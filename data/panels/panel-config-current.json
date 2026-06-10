@@ -1,0 +1,70 @@
+{
+  "id": "root",
+  "type": "split",
+  "splitDirection": "vertical",
+  "splitRatio": 0.20384119955769958,
+  "children": [
+    {
+      "id": "178y2zv",
+      "type": "split",
+      "splitDirection": "horizontal",
+      "splitRatio": 0.5,
+      "children": [
+        {
+          "id": "4bm2mp5",
+          "type": "instrument",
+          "instrumentId": "engine-display"
+        },
+        {
+          "id": "qum0qre",
+          "type": "instrument",
+          "instrumentId": "config-display"
+        }
+      ]
+    },
+    {
+      "id": "ue9d23r",
+      "type": "split",
+      "splitDirection": "horizontal",
+      "splitRatio": 0.3038364415270918,
+      "children": [
+        {
+          "id": "2i846vt",
+          "type": "split",
+          "splitDirection": "vertical",
+          "splitRatio": 0.4762868905525667,
+          "children": [
+            {
+              "id": "x2tdshv",
+              "type": "instrument",
+              "instrumentId": "pfd"
+            },
+            {
+              "id": "qw9x1nf",
+              "type": "split",
+              "splitDirection": "horizontal",
+              "splitRatio": 0.3764045373568303,
+              "children": [
+                {
+                  "id": "dgsh1ke",
+                  "type": "instrument",
+                  "instrumentId": "aux-panel"
+                },
+                {
+                  "id": "9vxvddr",
+                  "type": "instrument",
+                  "instrumentId": "nav-display"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "n7lvxgx",
+          "type": "instrument",
+          "instrumentId": "aircraft-3d"
+        }
+      ]
+    }
+  ]
+}

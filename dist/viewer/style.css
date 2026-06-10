@@ -1,0 +1,345 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, Segoe UI, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(56, 139, 253, 0.22), transparent 34rem),
+    #0d1117;
+}
+
+button,
+input,
+select {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #161b22;
+  color: #e6edf3;
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover,
+select:hover,
+input:hover {
+  border-color: #58a6ff;
+}
+
+button.primary {
+  background: #1f6feb;
+  border-color: #388bfd;
+}
+
+pre {
+  overflow: auto;
+  max-height: 34rem;
+  margin: 0;
+  border-radius: 10px;
+  background: #010409;
+  padding: 1rem;
+  color: #c9d1d9;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 0.75rem;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  color: #8b949e;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  border-color: #58a6ff;
+  color: #e6edf3;
+  background: rgba(88, 166, 255, 0.08);
+}
+
+/* ── Tab bar ─────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid #21262d;
+}
+
+.tab {
+  padding: 0.65rem 1.25rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #8b949e;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: #e6edf3;
+}
+
+.tab.active {
+  color: #58a6ff;
+  border-bottom-color: #58a6ff;
+}
+
+/* ── Tab panels visibility ───────── */
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* ── Flight tab layout ───────────── */
+.flight-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 0.6fr);
+  gap: 1.5rem;
+}
+
+.flight-panel,
+.pfd-panel,
+.debug-panel {
+  grid-column: 1 / -1;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+}
+
+.topbar p {
+  margin: 0.25rem 0 0;
+  color: #8b949e;
+}
+
+.status-card,
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #30363d;
+  border-radius: 999px;
+  background: rgba(22, 27, 34, 0.8);
+  padding: 0.5rem 0.8rem;
+}
+
+.dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #f85149;
+  box-shadow: 0 0 0 4px rgba(248, 81, 73, 0.12);
+}
+
+.dot.ok {
+  background: #3fb950;
+  box-shadow: 0 0 0 4px rgba(63, 185, 80, 0.12);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(22rem, 0.6fr);
+  gap: 1rem;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.panel {
+  border: 1px solid #30363d;
+  border-radius: 16px;
+  background: rgba(22, 27, 34, 0.88);
+  padding: 1rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+}
+
+.hero {
+  grid-column: 1 / 2;
+}
+
+.pfd {
+  grid-column: 1 / 2;
+}
+
+.replay {
+  grid-column: 2 / 3;
+  grid-row: 1 / 3;
+}
+
+.debug {
+  grid-column: 1 / 3;
+}
+
+.mode-row,
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.9rem;
+}
+
+.panel-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-title-row h2 {
+  margin: 0;
+}
+
+.panel-title-row p {
+  margin: 0.25rem 0 0;
+}
+
+.flight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.metric {
+  min-height: 7rem;
+  border: 1px solid #30363d;
+  border-radius: 14px;
+  background: #0d1117;
+  padding: 1rem;
+}
+
+.metric span {
+  display: block;
+  color: #8b949e;
+  font-size: 0.9rem;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 0.75rem;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+  font-weight: 700;
+}
+
+.pfd-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.pfd-card {
+  min-height: 6.2rem;
+  border: 1px solid #30363d;
+  border-radius: 14px;
+  background: #0d1117;
+  padding: 0.85rem;
+}
+
+.pfd-card.wide {
+  grid-column: span 2;
+}
+
+.pfd-card span,
+.pfd-card small {
+  display: block;
+  color: #8b949e;
+}
+
+.pfd-card strong {
+  display: block;
+  margin: 0.55rem 0 0.35rem;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: clamp(1rem, 2vw, 1.45rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+#timeline {
+  width: 100%;
+  margin: 0.5rem 0 1rem;
+}
+
+.controls button {
+  min-width: 3rem;
+}
+
+.muted {
+  color: #8b949e;
+}
+
+.capture-box {
+  margin-bottom: 1rem;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  background: #0d1117;
+  padding: 0.8rem;
+}
+
+.capture-box h3 {
+  margin: 0 0 0.7rem;
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 960px) {
+  .layout,
+  .debug-grid,
+  .flight-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .flight-panel,
+  .pfd-panel,
+  .debug-panel {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .flight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pfd-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pfd-card.wide {
+    grid-column: auto;
+  }
+}

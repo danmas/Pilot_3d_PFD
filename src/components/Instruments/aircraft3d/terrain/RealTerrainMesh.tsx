@@ -6,7 +6,6 @@
  */
 
 import React, { useMemo, useRef, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { TerrainTileData } from './TerrainManager';
 
@@ -39,51 +38,59 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   const geometry = useMemo(() => {
     if (!tileData) return null;
 
-    // Геометрия: сегментированная плоскость с displacement
-    const geo = new THREE.PlaneGeometry(
-      tileData.worldUnits,
-      tileData.worldUnits,
-      Math.min(tileData.width, 256), // Ограничиваем до 256 сегментов
-      Math.min(tileData.height, 256)
-    );
+    // Геометрия: сегментированная плоскость в XZ (не через rotateX, а напрямую)
+    const segX = Math.min(tileData.width, 256);
+    const segZ = Math.min(tileData.height, 256);
+    const halfW = tileData.worldUnits / 2;
+    const geo = new THREE.BufferGeometry();
 
-    // Поворачиваем горизонтально (PlaneGeometry по умолчанию в XY, нам нужно XZ)
-    geo.rotateX(-Math.PI / 2);
+    const positions = new Float32Array((segX + 1) * (segZ + 1) * 3);
+    const uvs = new Float32Array((segX + 1) * (segZ + 1) * 2);
+    const indices: number[] = [];
 
-    // Применяем displacement из DEM
-    const positions = geo.attributes.position;
-    const vertexCount = positions.count;
+    const stepX = tileData.worldUnits / segX;
+    const stepZ = tileData.worldUnits / segZ;
 
-    // Находим центр высот для смещения
-    let sumHeight = 0;
-    for (let i = 0; i < vertexCount; i++) {
-      const u = (positions.getX(i) / tileData.worldUnits) + 0.5;
-      const v = (positions.getZ(i) / tileData.worldUnits) + 0.5;
-      const ix = Math.round(u * (tileData.width - 1));
-      const iy = Math.round(v * (tileData.height - 1));
-      const clampedIx = Math.max(0, Math.min(tileData.width - 1, ix));
-      const clampedIy = Math.max(0, Math.min(tileData.height - 1, iy));
-      const h = tileData.heights[clampedIy * tileData.width + clampedIx];
-      if (isFinite(h)) sumHeight += h;
+    let idx = 0;
+    for (let iz = 0; iz <= segZ; iz++) {
+      for (let ix = 0; ix <= segX; ix++) {
+        const x = -halfW + ix * stepX;
+        const z = -halfW + iz * stepZ;
+
+        // UV для сэмплинга heights
+        const u = ix / segX;
+        const v = iz / segZ;
+        const heightIx = Math.round(u * (tileData.width - 1));
+        const heightIz = Math.round(v * (tileData.height - 1));
+        const clampedIx = Math.max(0, Math.min(tileData.width - 1, heightIx));
+        const clampedIz = Math.max(0, Math.min(tileData.height - 1, heightIz));
+        let h = tileData.heights[clampedIz * tileData.width + clampedIx];
+        if (!isFinite(h)) h = 0;
+        const hWu = h / 40;
+
+        positions[idx * 3] = x;
+        positions[idx * 3 + 1] = hWu;
+        positions[idx * 3 + 2] = z;
+        uvs[idx * 2] = u;
+        uvs[idx * 2 + 1] = 1 - v; // flip V для текстуры
+        idx++;
+      }
     }
-    const avgHeight = sumHeight / vertexCount;
 
-    // Применяем высоты
-    for (let i = 0; i < vertexCount; i++) {
-      const u = (positions.getX(i) / tileData.worldUnits) + 0.5;
-      const v = (positions.getZ(i) / tileData.worldUnits) + 0.5;
-      const ix = Math.round(u * (tileData.width - 1));
-      const iy = Math.round(v * (tileData.height - 1));
-      const clampedIx = Math.max(0, Math.min(tileData.width - 1, ix));
-      const clampedIy = Math.max(0, Math.min(tileData.height - 1, iy));
-      let h = tileData.heights[clampedIy * tileData.width + clampedIx];
-      if (!isFinite(h)) h = avgHeight;
-
-      // Конвертируем метры в World Units
-      const hWu = h / 40;
-      positions.setY(i, hWu);
+    for (let iz = 0; iz < segZ; iz++) {
+      for (let ix = 0; ix < segX; ix++) {
+        const a = iz * (segX + 1) + ix;
+        const b = iz * (segX + 1) + ix + 1;
+        const c = (iz + 1) * (segX + 1) + ix;
+        const d = (iz + 1) * (segX + 1) + ix + 1;
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
     }
-    positions.needsUpdate = true;
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
     geo.computeVertexNormals();
 
     return geo;
@@ -147,15 +154,6 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       }
     }
   }, [opacity, mode, texture, material]);
-
-  // Анимация/обновление позиции
-  useFrame(() => {
-    if (meshRef.current) {
-      // Обновляем XZ позицию — следует за самолётом
-      meshRef.current.position.x = aircraftX;
-      meshRef.current.position.z = aircraftZ;
-    }
-  });
 
   if (!geometry) return null;
 
