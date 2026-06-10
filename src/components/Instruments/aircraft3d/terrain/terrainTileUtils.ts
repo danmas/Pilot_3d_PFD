@@ -105,17 +105,17 @@ export function sampleHeight(
 }
 
 /**
- * URL для Mapbox Terrain-RGB тайла
+ * URL для Mapbox Terrain-RGB тайла (через наш proxy)
  */
 export function terrainRgbUrl(token: string, z: number, x: number, y: number): string {
-  return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${token}`;
+  return `/api/terrain/tile/${z}/${x}/${y}?type=dem`;
 }
 
 /**
- * URL для Mapbox Satellite тайла
+ * URL для Mapbox Satellite тайла (через наш proxy)
  */
 export function satelliteUrl(token: string, z: number, x: number, y: number): string {
-  return `https://api.mapbox.com/v4/mapbox.satellite/${z}/${x}/${y}.jpg90?access_token=${token}`;
+  return `/api/terrain/tile/${z}/${x}/${y}?type=sat`;
 }
 
 /**
