@@ -1,149 +1,149 @@
 # План: Загрузка реального ландшафта из интернета
 
 **Дата:** 2026-06-10
-**Статус:** Черновик
+**Статус:** Реализовано ✅
 **Автор:** Hermes Agent
-**Связанные документы:** `README_plan_realistic_3D.md` (процедурный, откатан), `README_aircraft3d_scene.md`
+**Связанные документы:** `README_terrain_proxy.md` (серверный прокси), `README_terrain_quota.md` (квоты), `README_aircraft3d_scene.md`, `README_performance_3D.md`
 **Актуализация:** 2026-06-10
 
 ---
 
 ## Цель
 
-Загружать и отображать **реальный рельеф и спутниковые снимки** в приборе Aircraft 3D на основе географических координат самолёта. Данные подтягиваются из интернета (Mapbox API) с кэшированием для offline/replay режима.
+Загружать и отображать **реальный рельеф и спутниковые снимки** в приборе Aircraft 3D на основе географических координат самолёта. Данные подтягиваются из Mapbox через серверный прокси с дисковым кэшированием для экономии API лимита и ускорения повторной загрузки.
 
-## Источник данных
+## Архитектура (реализованная)
 
-| Тип | Сервис | Формат | Примечание |
-|-----|--------|--------|------------|
-| Высота (DEM) | Mapbox Terrain-RGB | PNG 512×512, RGB-encoded height | Декодирование: `height = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1)` |
-| Текстура | Mapbox Satellite | JPEG/PNG 512×512 XYZ тайлы | Стиль `mapbox.satellite` |
-| Координаты | TelemetryFrame | `lat`, `lon` (градусы) | Поля из field-catalog |
+```
+                               ┌──────────────────────────────┐
+                               │       Browser (R3F)          │
+                               │  ┌────────────────────────┐  │
+                               │  │ useRealTerrain hook    │  │
+                               │  │  → TerrainManager      │  │
+                               │  │    → fetch tiles       │  │
+                               │  │      from /api/terrain  │  │
+                               │  │    → decode DEM RGB     │  │
+                               │  │    → create geometry    │  │
+                               │  │    + satellite texture  │  │
+                               │  │  → RealTerrainMesh     │  │
+                               │  └────────────────────────┘  │
+                               └──────────┬───────────────────┘
+                                          │ GET /api/terrain/tile/:z/:x/:y?type=dem|sat
+                                          │ GET /api/terrain/quota
+                                          ▼
+                               ┌──────────────────────────────┐
+                               │   server.js (Express)        │
+                               │  ┌────────────────────────┐  │
+                               │  │ Static dist/           │  │
+                               │  │ Terrain API:           │  │
+                               │  │  • Cache check (disk)  │  │
+                               │  │  • Quota check         │  │
+                               │  │  • Proxy → Mapbox API  │  │
+                               │  │  • Cache write (disk)  │  │
+                               │  │  • Quota increment     │  │
+                               │  └────────────────────────┘  │
+                               └──────────┬───────────────────┘
+                                          │ (если cache miss)
+                                          ▼
+                               ┌──────────────────────────────┐
+                               │     Mapbox API               │
+                               │  • mapbox.terrain-rgb        │
+                               │  • mapbox.satellite          │
+                               └──────────────────────────────┘
+```
 
-**API Key:** Хранится в `.env.local` (`VITE_MAPBOX_TOKEN`), не коммитится.
-
-## Архитектура
-
-### Поток данных
+### Поток данных (подробно)
 
 ```
 TelemetryFrame.lat/lon
         ↓
-TerrainManager (singleton)
+useRealTerrain hook
+  — сравнивает с lastCoordsRef (избегает повторной загрузки)
+  — вызывает TerrainManager.loadTileGrid(lat, lon, gridSize)
         ↓
-┌───────────────────────┐
-│ 1. Координаты → Tile  │
-│    lat/lon → z/x/y    │
-│ 2. Проверка кэша      │
-│    IndexedDB → hit?   │
-│ 3. Fetch (если miss)  │
-│    Mapbox API → blob  │
-│ 4. Decode DEM         │
-│    RGB → Float32Array │
-│ 5. Create Three.js    │
-│    PlaneGeometry +    │
-│    displacement map   │
-│ 6. Cache to IndexedDB │
-└───────────────────────┘
+TerrainManager
+  — lat/lon → tile x/y/z (Slippy Map, zoom=14)
+  — собирает сетку gridSize×gridSize (5×5 = 25 тайлов)
+  — запускает параллельные загрузки (max 6 concurrent)
         ↓
-WorldGroup (RealTerrainMesh)
+  Для каждого тайла:
+    1. Проверка IndexedDB (клиентский кэш)
+    2. Если miss → fetch /api/terrain/tile/:z/:x/:y?type=dem
+        ↓
+        Server (server.js)
+          ├─ 1. Проверка дискового кэша (cache/terrain/z/x/y-dem.png)
+          ├─ 2. Если HIT → вернуть файл (X-Cache: HIT)
+          ├─ 3. Если MISS → проверить квоту (max 45k/мес)
+          ├─ 4. Если квота есть:
+          │     fetch → cache/ → вернуть клиенту (X-Cache: MISS)
+          │     incrementQuota(type)
+          └─ 5. Если квоты нет → 429 Too Many Requests
+        ↓
+    3. Клиент: createImageBitmap(blob) → canvas → decodeTerrainRGB
+    4. Сохранить в IndexedDB (второй уровень кэша)
+    5. Получить satellite текстуру (те же шаги, type=sat)
+    6. onTileReady(coord, data) → setTileData
+        ↓
+RealTerrainMesh
+  — useMemo: создаёт BufferGeometry из decoded высот
+  — Вычисляет min/max высоту для корректного позиционирования
+  — Создаёт CanvasTexture из satellite bitmap
+  — Позиция: (0, -6, 0) в локальных координатах WorldGroup
 ```
 
-### Ключевые модули
+## Два уровня кэширования
+
+| Уровень | Где | Хранилище | Формат | Ёмкость | Скорость |
+|---------|-----|-----------|--------|---------|----------|
+| **L1 (сервер)** | `server.js` | Диск `cache/terrain/` | PNG/JPG файлы | ~100K+ тайлов | 1-2ms |
+| **L2 (клиент)** | `TerrainCache.ts` | IndexedDB `pilot-terrain-cache` | Blob | 1000 записей (LRU) | 5-10ms |
+
+При повторном пролёте над теми же координатами:
+1. IndexedDB hit → нет запроса к серверу вообще (даже локального)
+2. IndexedDB miss → сервер проверяет дисковый кэш → HIT → без обращения к Mapbox
+
+## Ключевые модули
 
 | Модуль | Путь | Ответственность |
 |--------|------|-----------------|
+| `server.js` | `server/server.js` | Express сервер: статика + terrain прокси + квоты |
 | `terrainTileUtils.ts` | `src/components/Instruments/aircraft3d/terrain/` | Конвертация lat/lon ↔ tile x/y/z, декодирование Terrain-RGB |
 | `TerrainCache.ts` | `src/components/Instruments/aircraft3d/terrain/` | IndexedDB обёртка: get/put/clear тайлов (blob + metadata) |
-| `TerrainManager.ts` | `src/components/Instruments/aircraft3d/terrain/` | Оркестрация: запросы, кэш, LOD, создание mesh |
-| `RealTerrainMesh.tsx` | `src/components/Instruments/aircraft3d/terrain/` | R3F компонент: рендеринг terrain plane с displacement |
-| `useRealTerrain.ts` | `src/hooks/` | Hook: подписка на telemetry, управление lifecycle |
+| `TerrainManager.ts` | `src/components/Instruments/aircraft3d/terrain/` | Оркестрация: запросы к proxy, кэш, загрузка сетки тайлов |
+| `RealTerrainMesh.tsx` | `src/components/Instruments/aircraft3d/terrain/` | R3F компонент: рендеринг terrain plane из decoded высот |
+| `useRealTerrain.ts` | `src/hooks/` | Hook: подписка на телеметрию, управление lifecycle |
+| `ecosystem.config.cjs` | корень | pm2: запуск `node server/server.js` на порту 3410 |
 
-## Фазы реализации
+## Формат данных
 
-### Фаза 1: MVP — один тайл вокруг самолёта
+### Mapbox Terrain-RGB (DEM)
 
-**Цель:** Загрузить и отобразить один DEM+Satellite тайл по текущим координатам.
+```
+URL: /api/terrain/tile/:z/:x/:y?type=dem
+Формат: PNG 512×512 (в стандарте), сервер отдаёт raw
+Каждый пиксель RGB кодирует высоту:
+  height = -10000 + ((R * 256 * 256 + G * 256 + B) * 0.1)
 
-#### Шаги:
+Пример декодирования:
+  R=128, G=0, B=0 → -10000 + (128*65536 + 0*256 + 0) * 0.1 = -10000 + 838860.8 = -16139.2 м (дно океана)
+  R=0, G=128, B=0 → -10000 + (0 + 32768 + 0) * 0.1 = -10000 + 3276.8 = -6723.2 м
+  R=255, G=255, B=255 → -10000 + (16711680 + 65280 + 255) * 0.1 = 788.1 м
+```
 
-1. **Создать `terrainTileUtils.ts`**
-   - `latLonToTile(lat, lon, zoom)` → `{x, y, z}`
-   - `tileToLatLon(x, y, z)` → `{lat, lon}` (для центрирования mesh)
-   - `decodeTerrainRGB(imageData: ImageData)` → `Float32Array` (высоты в метрах)
-   - Константы: `TILE_SIZE = 512`, `DEFAULT_ZOOM = 14`
+### Mapbox Satellite (текстура)
 
-2. **Создать `TerrainCache.ts`**
-   - Open IndexedDB `pilot-terrain-cache`, store `tiles`
-   - `getTile(key: string)` → `Promise<Blob | null>`
-   - `putTile(key: string, blob: Blob, meta: {z,x,y,timestamp})` → `Promise<void>`
-   - `clearOlderThan(maxAgeMs)` — очистка устаревших записей
-   - Ключ тайла: `${source}_${z}_${x}_${y}` (например `dem_14_8932_5431`)
+```
+URL: /api/terrain/tile/:z/:x/:y?type=sat
+Формат: JPEG (сервер перекодирует в webp)
+Стиль: mapbox.satellite
+```
 
-3. **Создать `TerrainManager.ts`**
-   - Синглтон или React context
-   - Метод `requestTile(z, x, y, type: 'dem'|'sat')`:
-     - Проверка кэша → если hit, вернуть blob
-     - Если miss: fetch `https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}.pngraw?access_token=...`
-     - Сохранить в кэш → вернуть blob
-   - Rate limiting: макс 10 параллельных запросов
-   - AbortController для отмены при смене позиции
+### API endpoints (серверные)
 
-4. **Создать `RealTerrainMesh.tsx`**
-   - Props: `centerLat, centerLon, zoom, demBlob, satBlob`
-   - Использовать `useMemo` для создания геометрии:
-     - `PlaneGeometry(TILE_WORLD_SIZE, TILE_WORLD_SIZE, 256, 256)`
-     - Displacement map из decoded DEM (DataTexture)
-     - Texture map из satellite blob
-   - Позиционирование: mesh центрирован на `(0, 0, 0)` в WorldGroup (самолёт всегда в центре)
-   - Масштаб: `TILE_WORLD_SIZE = tileGroundSizeMeters(zoom) / 40` (конвертация в WU)
-
-5. **Интеграция в RealAircraft3DScene.tsx**
-   - Условный рендер: если `lat && lon && mapboxToken` → `<RealTerrainMesh />`, иначе `<GroundDisc />`
-   - Передача `lat`, `lon` из telemetry frame через props/hook
-
-6. **Тестирование Фазы 1**
-   - Визуальная проверка: рельеф соответствует реальной местности
-   - Проверка кэша: повторная загрузка того же тайла без сети
-   - FPS: ≥ 45 при одном тайле 256×256 вершин
-
-### Фаза 2: Динамическая подгрузка и LOD
-
-**Цель:** Бесшовное обновление ландшафта при движении самолёта.
-
-#### Шаги:
-
-7. **Grid of tiles (3×3 или 5×5)**
-   - Загружать соседние тайлы вокруг центрального
-   - При смещении самолёта > 30% размера тайла → сдвиг сетки
-   - Unload дальних тайлов (dispose geometry/texture)
-
-8. **LOD по высоте**
-   - Высота < 500 м AGL → zoom 14 (детально)
-   - 500–2000 м → zoom 12
-   - \> 2000 м → zoom 10 (или fallback на GroundDisc)
-   - Плавный переход между уровнями (crossfade opacity)
-
-9. **Предзагрузка**
-   - Предсказание направления движения по groundspeed/heading
-   - Pre-fetch тайлов в направлении полёта
-
-### Фаза 3: Полировка и надёжность
-
-10. **Error handling**
-    - Таймаут fetch (5 сек) → fallback на cached или GroundDisc
-    - Invalid token → предупреждение в HUD, switch to schematic
-    - Network offline → использовать только кэш
-
-11. **Настройки UI**
-    - Toggle «Реальный ландшафт» в настройках прибора
-    - Индикатор загрузки (spinner / progress bar)
-    - Статус кэша (размер, кол-во тайлов)
-
-12. **Оптимизация памяти**
-    - LRU кэш: макс 200 тайлов в памяти, 1000 в IndexedDB
-    - Dispose неиспользуемых текстур/геометрий
-    - Web Worker для декодирования DEM (не блокировать render thread)
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/terrain/tile/:z/:x/:y?type=dem\|sat` | Получить тайл (с кэшированием и квотой) |
+| GET | `/api/terrain/quota` | Статистика использования Mapbox API |
 
 ## Конвертация координат
 
@@ -171,58 +171,114 @@ function tileGroundSizeMeters(zoom: number, lat: number) {
 const tileWU = tileGroundSizeMeters(zoom, lat) / 40;
 ```
 
-### Декодирование Terrain-RGB
+### Параметры загрузки
 
-```typescript
-function decodeTerrainRGB(imageData: ImageData): Float32Array {
-  const { width, height, data } = imageData;
-  const heights = new Float32Array(width * height);
-  for (let i = 0; i < width * height; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    heights[i] = -10000 + (r * 256 * 256 + g * 256 + b) * 0.1;
-  }
-  return heights;
-}
+- **Zoom-level:** 14 (≈ 1.2 м/пиксель на широте ~45°)
+- **Grid size:** 5×5 = 25 тайлов (каждый ~512×512 пикселей, ~340×340 метров на земле)
+- **Segments:** 64×256 вершин на тайл
+- **Max concurrent:** 6 параллельных запросов
+- **Timeout:** 8 секунд на тайл
+
+## Mapbox лимиты
+
+| Параметр | Значение |
+|----------|----------|
+| Бесплатный лимит | 50,000 запросов/месяц |
+| Буфер безопасности | 10% (остановка на 45,000) |
+| Сброс квоты | 1-е число каждого месяца |
+| Стоимость 1 запроса | 1 (независимо от типа: DEM или Satellite) |
+
+> Подробно: [README_terrain_quota.md](./README_terrain_quota.md)
+
+## Этапы реализации (пройденные)
+
+### ✅ Фаза 1: Единый сервер (Express)
+
+- `server/server.js` заменяет `serve dist -l 3410`
+- Раздаёт статику + API `/api/terrain/*`
+- pm2: один процесс на порту 3410
+
+### ✅ Фаза 2: Прокси с дисковым кэшем
+
+- `GET /api/terrain/tile/:z/:x/:y?type=dem|sat`
+- Проверка кэша в `cache/terrain/z/x/y-type.png`
+- Если MISS → fetch Mapbox → запись в кэш → ответ
+- X-Cache: HIT / MISS заголовки
+
+### ✅ Фаза 3: Клиентский кэш (IndexedDB)
+
+- `TerrainCache.ts` — обёртка над IndexedDB
+- LRU: 1000 записей
+- Приоритет: L2 (IndexedDB) → L1 (диск сервера) → Mapbox
+
+### ✅ Фаза 4: Квоты
+
+- `GET /api/terrain/quota` — статистика
+- Запись в `cache/terrain-quota.json`
+- Авто-остановка при 45,000 запросов
+
+### 🔄 Фаза 5: Ленивая подгрузка по движению самолёта
+
+- В разработке: не сетка, а загрузка тайлов по мере перемещения
+- Unload дальних тайлов (dispose geometry/texture)
+
+## Переменные окружения
+
+```env
+VITE_MAPBOX_TOKEN=pk.eyJ1...     # Mapbox API токен (обязателен)
+PORT=3410                          # порт сервера (по умолчанию 3410)
 ```
 
-## Файлы для создания/изменения
+## Дебаг
 
-| Файл | Действие | Фаза |
-|------|----------|------|
-| `src/components/Instruments/aircraft3d/terrain/terrainTileUtils.ts` | Создать | 1 |
-| `src/components/Instruments/aircraft3d/terrain/TerrainCache.ts` | Создать | 1 |
-| `src/components/Instruments/aircraft3d/terrain/TerrainManager.ts` | Создать | 1 |
-| `src/components/Instruments/aircraft3d/terrain/RealTerrainMesh.tsx` | Создать | 1 |
-| `src/hooks/useRealTerrain.ts` | Создать | 1 |
-| `src/components/Instruments/RealAircraft3DScene.tsx` | Изменить | 1 |
-| `.env.local` | Создать (VITE_MAPBOX_TOKEN) | 1 |
-| `src/ui-settings.ts` | Изменить (toggle real terrain) | 3 |
+### Включение/выключение
 
-## Риски и открытые вопросы
+В localStorage браузера:
+```js
+localStorage.setItem('realTerrainEnabled', 'true');  // включить
+localStorage.setItem('realTerrainEnabled', 'false'); // выключить
+```
 
-1.  **Mapbox ToS:** Убедиться, что использование в CARLINK (возможно коммерческий продукт) разрешено. Альтернатива: self-hosted DEM + Stadia Maps.
-2.  **Latency:** Первая загрузка тайла ~200-500мс. На высоких скоростях (>500 knots) может быть заметно. Решение: предзагрузка + кэш.
-3.  **Координаты в телеметрии:** Проверить наличие `lat`/`lon` в field-catalog. Если нет — добавить парсинг из ARINC 429 labels.
-4.  **Displacement accuracy:** Terrain-RGB разрешение ~10m/pixel на z=14. Достаточно для визуализации, но не для навигации.
-5.  **IndexedDB quota:** Браузеры лимитируют ~50MB-1GB. Нужна стратегия очистки.
-6.  **Cross-origin:** Mapbox поддерживает CORS. Проблем не ожидается.
+### Проверка кэша на сервере
 
-## Критерии приёмки
+```bash
+# Размер кэша
+du -sh cache/terrain/
 
--   [ ] При наличии `lat`/`lon` и токена отображается реальный рельеф
--   [ ] Тайлы кэшируются в IndexedDB, повторная загрузка без сети работает
--   [ ] Переключение real/schematic мгновенное (<100мс)
--   [ ] FPS ≥ 45 на десктопе (GTX 1060 / M1)
--   [ ] Нет утечек памяти при длительной работе (>1 час)
--   [ ] Graceful degradation при отсутствии сети/токена
+# Количество тайлов
+find cache/terrain/ -name '*.png' | wc -l
+
+# Квота
+cat cache/terrain-quota.json
+```
+
+### Browser console
+
+```js
+// Проверка TerrainManager
+TerrainManager.isReady  // true если токен есть
+
+// Проверка загруженных тайлов
+// В useRealTerrain: setTileData(data)
+// console.log('[useRealTerrain] onTile fired:', coord);
+```
+
+## Известные ограничения
+
+1. **Mapbox ToS:** Бесплатный лимит 50k/мес. Для коммерческого использования нужен платный план.
+2. **DEM разрешение:** zoom=14 → ~1.2 м/пиксель. Достаточно для визуализации, не для навигации.
+3. **Memory:** 25 тайлов × 512×512 = ~6.5M вершин. FPS ≥ 30 на десктопе.
+4. **Спутниковые текстуры:** Mapbox satellite иногда отдаёт 404 для тайлов над океаном или слишком высоких zoom. Обрабатывается graceful — terrain остаётся без текстуры (красный).
+5. **Первая загрузка:** 25 тайлов × 2 типа = ~50 запросов. Время зависит от сети.
+6. **IndexedDB quota:** Браузеры лимитируют ~50MB–1GB. LRU 1000 записей + очистка старых.
 
 ---
 
 ## Связанная документация
 
--   [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) — Размеры сцены, World Units
--   [README_plan_realistic_3D.md](./README_plan_realistic_3D.md) — Процедурный ландшафт (откатан, но полезен как fallback)
--   [Mapbox Terrain-RGB docs](https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-dem-v1/)
--   [Slippy Map Tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames)
+- [README_terrain_proxy.md](./README_terrain_proxy.md) — Серверный прокси: server.js, кэш, алгоритм
+- [README_terrain_quota.md](./README_terrain_quota.md) — Система квот Mapbox, сброс, алерты
+- [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) — Размеры сцены, World Units
+- [README_performance_3D.md](./README_performance_3D.md) — Производительность 3D
+- [Mapbox Terrain-RGB docs](https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-dem-v1/)
+- [Slippy Map Tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames)

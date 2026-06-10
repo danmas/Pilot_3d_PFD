@@ -55,7 +55,9 @@
 | [README_ground_touch.md](./README_ground_touch.md) | Ground Touch Detection (v2.6.3) | Clamp Y≥-6, TOUCHDOWN overlay, groundTouch | 2026-06-06 |
 | [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) | Сцена Aircraft 3D: размеры, объекты, масштаб WU | TARGET_SIZE, WorldGroup, координаты, камера, World Units (1WU=40m) | 2026-06-09 |
 | [README_plan_realistic_3D.md](./README_plan_realistic_3D.md) | План: реалистичный ландшафт | Шейдерный ground, InstancedMesh, биомы, фазы реализации | 2026-06-09 |
-| [README_plan_real_terrain.md](./README_plan_real_terrain.md) | План: реальный ландшафт из интернета | Mapbox Terrain-RGB, тайлы, кэш, LOD, интеграция | 2026-06-10 |
+|| [README_plan_real_terrain.md](./README_plan_real_terrain.md) | **Реализовано ✅** — реальный ландшафт | Mapbox Terrain-RGB, серверный прокси (server.js), дисковый кэш (cache/terrain/), два уровня кэширования, lazy load grid 5×5 | 2026-06-10 |
+|| [README_terrain_proxy.md](./README_terrain_proxy.md) | **Новый** — серверный прокси Mapbox | Express API, дисковый кэш, алгоритм работы, обработка ошибок, X-Cache | 2026-06-10 |
+|| [README_terrain_quota.md](./README_terrain_quota.md) | **Новый** — система квот Mapbox | 50k лимит, автоматический сброс, буфер 10%, quota endpoint, файл terrain-quota.json | 2026-06-10 |
 
 ---
 
