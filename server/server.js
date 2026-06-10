@@ -1,8 +1,9 @@
 /**
- * server.js — Единый сервер: статика + terrain proxy API.
+ * server.js — Единый сервер: статика + terrain proxy API + лог загрузки тайлов.
  *
  * Заменяет `serve dist -p 3410` + отдельный terrain-proxy.
  * Раздаёт статику из dist/ и обрабатывает /api/terrain/*
+ * Логирует каждый запрос тайла в cache/terrain/access.log
  */
 import express from 'express';
 import path from 'path';
@@ -17,12 +18,22 @@ dotenv.config({ path: path.join(ROOT, '.env') });
 const DIST_DIR = path.join(ROOT, 'dist');
 const CACHE_DIR = path.join(ROOT, 'cache', 'terrain');
 const QUOTA_FILE = path.join(ROOT, 'cache', 'terrain-quota.json');
+const LOG_FILE = path.join(ROOT, 'cache', 'terrain', 'access.log');
 const PORT = 3410;
 
 const MAPBOX_TOKEN = process.env.VITE_MAPBOX_TOKEN || process.env.MAPBOX_TOKEN;
 if (!MAPBOX_TOKEN) {
   console.error('[server] ERROR: No VITE_MAPBOX_TOKEN in .env');
   process.exit(1);
+}
+
+// ─── Log ───
+function appendLog(entry) {
+  try {
+    const dir = path.dirname(LOG_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+  } catch {}
 }
 
 // ─── Quota ───
@@ -78,6 +89,20 @@ app.use((req, res, next) => {
 
 // ─── Terrain API ───
 
+// GET /api/terrain/logs — последние N записей лога
+app.get('/api/terrain/logs', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  try {
+    if (!fs.existsSync(LOG_FILE)) return res.json([]);
+    const data = fs.readFileSync(LOG_FILE, 'utf-8');
+    const lines = data.trim().split('\n').filter(Boolean);
+    const last = lines.slice(-limit).map(l => JSON.parse(l));
+    res.json(last);
+  } catch {
+    res.json([]);
+  }
+});
+
 // GET /api/terrain/quota
 app.get('/api/terrain/quota', (req, res) => {
   const cm = currentMonth();
@@ -99,17 +124,36 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
   const zN = parseInt(z), xN = parseInt(x), yN = parseInt(y);
   if (!isFinite(zN) || !isFinite(xN) || !isFinite(yN)) return res.status(400).json({ error: 'Invalid coords' });
 
-  // 1. Cache check
   const cached = cacheFilePath(zN, xN, yN, type);
+
+  // 1. Cache check
   if (fs.existsSync(cached)) {
     const ct = type === 'dem' ? 'image/png' : 'image/jpeg';
     res.setHeader('Content-Type', ct);
     res.setHeader('X-Cache', 'HIT');
+    // Лог: HIT — кэш
+    appendLog({
+      t: new Date().toISOString(),
+      coord: { z: zN, x: xN, y: yN },
+      type,
+      status: 'HIT',
+      quotaTotal: quota.total,
+    });
     return res.sendFile(cached);
   }
 
   // 2. Quota check
-  if (quota.total >= 45000) return res.status(429).json({ error: 'Quota near limit', quota: { used: quota.total, limit: 50000 } });
+  if (quota.total >= 45000) {
+    // Лог: QUOTA_EXCEEDED
+    appendLog({
+      t: new Date().toISOString(),
+      coord: { z: zN, x: xN, y: yN },
+      type,
+      status: 'QUOTA_EXCEEDED',
+      quotaTotal: quota.total,
+    });
+    return res.status(429).json({ error: 'Quota near limit', quota: { used: quota.total, limit: 50000 } });
+  }
 
   // 3. Proxy to Mapbox
   const url = type === 'dem'
@@ -118,7 +162,18 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
 
   try {
     const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) return res.status(resp.status).json({ error: `Mapbox: ${resp.status}` });
+    if (!resp.ok) {
+      // Лог: ERROR — Mapbox вернул ошибку
+      appendLog({
+        t: new Date().toISOString(),
+        coord: { z: zN, x: xN, y: yN },
+        type,
+        status: 'ERROR',
+        error: `Mapbox: ${resp.status}`,
+        quotaTotal: quota.total,
+      });
+      return res.status(resp.status).json({ error: `Mapbox: ${resp.status}` });
+    }
 
     const ct = resp.headers.get('content-type') || (type === 'dem' ? 'image/png' : 'image/jpeg');
     const buffer = Buffer.from(await resp.arrayBuffer());
@@ -127,13 +182,40 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
     try { fs.writeFileSync(cached, buffer); } catch {}
     incrementQuota(type);
 
+    // Лог: MISS — загружено из Mapbox
+    appendLog({
+      t: new Date().toISOString(),
+      coord: { z: zN, x: xN, y: yN },
+      type,
+      status: 'MISS',
+      quotaTotal: quota.total,
+    });
+
     console.log(`[tile] ${type} ${z}/${x}/${y} — cached (quota: ${quota.total}/50000)`);
     res.setHeader('Content-Type', ct);
     res.setHeader('X-Cache', 'MISS');
     res.send(buffer);
   } catch (err) {
-    if (err.name === 'TimeoutError') return res.status(504).json({ error: 'Mapbox timeout' });
+    if (err.name === 'TimeoutError') {
+      appendLog({
+        t: new Date().toISOString(),
+        coord: { z: zN, x: xN, y: yN },
+        type,
+        status: 'TIMEOUT',
+        error: 'Mapbox timeout',
+        quotaTotal: quota.total,
+      });
+      return res.status(504).json({ error: 'Mapbox timeout' });
+    }
     console.error(`[tile] Error ${z}/${x}/${y}:`, err.message);
+    appendLog({
+      t: new Date().toISOString(),
+      coord: { z: zN, x: xN, y: yN },
+      type,
+      status: 'ERROR',
+      error: err.message,
+      quotaTotal: quota.total,
+    });
     res.status(502).json({ error: 'Upstream failed' });
   }
 });
@@ -147,6 +229,7 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`[server] Static: ${DIST_DIR}`);
   console.log(`[server] Terrain cache: ${CACHE_DIR}`);
+  console.log(`[server] Log: ${LOG_FILE}`);
   console.log(`[server] Quota: ${quota.total}/50000 (${quota.month})`);
   console.log(`[server] Listening on http://0.0.0.0:${PORT}`);
 });

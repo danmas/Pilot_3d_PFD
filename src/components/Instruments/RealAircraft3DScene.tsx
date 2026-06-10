@@ -15,6 +15,7 @@ import { HorizonSphere } from './aircraft3d/HorizonSphere';
 import { AircraftModel } from './aircraft3d/AircraftModel';
 import { GroundDisc } from './aircraft3d/Ground';
 import { RealTerrainMesh } from './aircraft3d/terrain/RealTerrainMesh';
+import { TerrainLogPanel } from './aircraft3d/terrain/TerrainLogPanel';
 import { useRealTerrain } from '../../hooks/useRealTerrain';
 import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
@@ -275,6 +276,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         <div>ALT <span className="text-orange-400">{fmt(alt, 0)} м</span></div>
         <div className="text-[9px] mt-1 opacity-40">FDM: {useImprovedFdm ? 'Improved' : 'Direct'}</div>
       </div>
+
+      {/* Terrain log panel — под ALT справа вверху */}
+      <TerrainLogPanel />
       <div className="absolute bottom-8 left-2 text-[11px] font-mono text-white/80 leading-tight pointer-events-none">
         <div>CAS <span className="text-green-400">{fmt(cas, 0)}</span></div>
         <div>Vy{'  '}<span className="text-green-400">{fmt(vy)}</span></div>
