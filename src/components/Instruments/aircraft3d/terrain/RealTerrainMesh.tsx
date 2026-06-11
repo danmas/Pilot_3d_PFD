@@ -4,7 +4,8 @@
  * Принимает массив загруженных тайлов и создаёт PlaneGeometry для каждого
  * с displacement map из DEM + спутниковой текстурой.
  *
- * Позиционирование: каждый тайл сдвинут на свою координату в сетке.
+ * Позиционирование: все тайлы используют единый размер (worldUnits центрального тайла)
+ * и стыкуются по XZ без зазоров.
  */
 
 import React, { useMemo, useRef, useEffect } from 'react';
@@ -37,12 +38,30 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 
   console.log('[RealTerrainMesh] render, tiles count:', tiles?.length ?? 0, 'mode:', mode);
 
-  // Создаём меши для каждого тайла
   const meshes = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
     const group = new THREE.Group();
-    const material = mode === 'schematic'
+
+    // Единый размер тайла для всей сетки — берём worldUnits центрального тайла
+    // worldUnits — это размер тайла на земле в WU (без умножения на 2)
+    // Для PlaneGeometry нужна полная ширина = worldUnits * 2 (потому что тайл 2×2 WU)
+    const midIdx = Math.floor(tiles.length / 2);
+    const baseTileSize = tiles[midIdx].data.worldUnits;
+    const tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+
+    console.log('[RealTerrainMesh] baseTileSize:', baseTileSize, 'tileWU:', tileWU, 'mid coord:', tiles[midIdx].coord);
+
+    // Глобальный minElevation для ВСЕЙ сетки — чтобы тайлы стыковались без щелей
+    let globalMinElev = Infinity;
+    for (const { data } of tiles) {
+      if (data.minElevation < globalMinElev) globalMinElev = data.minElevation;
+    }
+    if (!isFinite(globalMinElev)) globalMinElev = 0;
+    console.log('[RealTerrainMesh] globalMinElev:', globalMinElev);
+
+    // Общий материал (schematic)
+    const defaultMaterial = mode === 'schematic'
       ? new THREE.MeshStandardMaterial({
           color: '#4a7c3f',
           roughness: 0.8,
@@ -51,35 +70,21 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
           opacity,
           side: THREE.DoubleSide,
         })
-      : new THREE.MeshStandardMaterial({
-          color: '#ffffff',
-          roughness: 0.7,
-          metalness: 0.0,
-          transparent: true,
-          opacity: opacity < 1 ? opacity : 1,
-          side: THREE.DoubleSide,
-        });
-
-    // Находим центр сетки для выравнивания
-    let centerX = 0, centerZ = 0;
-    if (tiles.length > 0) {
-      const mid = Math.floor(tiles.length / 2);
-      const cc = tiles[mid].coord;
-      // Центр сетки в WU
-      const wu = tiles[mid].data.worldUnits;
-      // Смещение центрального тайла
-      centerX = 0;
-      centerZ = 0;
-    }
+      : null;
 
     for (const { coord, data } of tiles) {
       const { x, y, z } = coord;
-      const wu = data.worldUnits > 0 ? data.worldUnits * 2 : 200;
-      const halfW = wu / 2;
+      const halfW = tileWU / 2;
       const segX = Math.min(data.width, 64);
       const segZ = Math.min(data.height, 256);
 
-      if (!segX || !segZ || !isFinite(wu)) continue;
+      if (!segX || !segZ || !isFinite(tileWU)) continue;
+
+      // Смещение тайла в сетке: соседние тайлы должны стыковаться строго впритык
+      const refX = tiles[midIdx].coord.x;
+      const refY = tiles[midIdx].coord.y;
+      const offsetX = (x - refX) * tileWU;
+      const offsetZ = (y - refY) * tileWU;
 
       const geo = new THREE.BufferGeometry();
 
@@ -87,25 +92,8 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       const uvs = new Float32Array((segX + 1) * (segZ + 1) * 2);
       const indices: number[] = [];
 
-      const stepX = wu / segX;
-      const stepZ = wu / segZ;
-
-      // Минимальная высота для этого тайла
-      let minH = Infinity;
-      for (let iz = 0; iz <= segZ; iz++) {
-        for (let ix = 0; ix <= segX; ix++) {
-          const u = ix / segX;
-          const v = iz / segZ;
-          const hi = Math.round(u * (data.width - 1));
-          const hj = Math.round(v * (data.height - 1));
-          const ci = Math.max(0, Math.min(data.width - 1, hi));
-          const cj = Math.max(0, Math.min(data.height - 1, hj));
-          const fi = cj * data.width + ci;
-          const hv = data.heights && fi < data.heights.length ? data.heights[fi] : 0;
-          if (isFinite(hv)) minH = Math.min(minH, hv);
-        }
-      }
-      if (!isFinite(minH)) minH = 0;
+      const stepX = tileWU / segX;
+      const stepZ = tileWU / segZ;
 
       let idx = 0;
       for (let iz = 0; iz <= segZ; iz++) {
@@ -125,7 +113,7 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
             h = data.heights[fi];
           }
           if (!isFinite(h) || isNaN(h)) h = 0;
-          const hWu = (h - minH) / 40;
+          const hWu = (h - globalMinElev) / 40;
 
           positions[idx * 3] = px;
           positions[idx * 3 + 1] = hWu;
@@ -157,47 +145,41 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
         continue;
       }
 
-      // Текстура тайла
-      let tileMaterial = material;
-      if (data.satelliteBitmap && mode === 'realistic') {
-        const tex = new THREE.CanvasTexture(
-          data.satelliteBitmap as unknown as HTMLCanvasElement
-        );
-        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-        tex.minFilter = THREE.LinearMipmapLinearFilter;
-        tex.magFilter = THREE.LinearFilter;
-        tex.generateMipmaps = true;
+      // Материал тайла
+      let tileMaterial = defaultMaterial;
+      if (mode === 'realistic') {
+        if (data.satelliteBitmap) {
+          const tex = new THREE.CanvasTexture(
+            data.satelliteBitmap as unknown as HTMLCanvasElement
+          );
+          tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+          tex.minFilter = THREE.LinearMipmapLinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          tex.generateMipmaps = true;
 
-        tileMaterial = new THREE.MeshStandardMaterial({
-          map: tex,
-          color: '#ffffff',
-          roughness: 0.7,
-          metalness: 0.0,
-          transparent: true,
-          opacity: opacity < 1 ? opacity : 1,
-          side: THREE.DoubleSide,
-        });
-      } else if (!data.satelliteBitmap && mode === 'realistic') {
-        tileMaterial = new THREE.MeshStandardMaterial({
-          color: '#ff3333',
-          roughness: 0.7,
-          metalness: 0.0,
-          transparent: true,
-          opacity: opacity < 1 ? opacity : 1,
-          side: THREE.DoubleSide,
-        });
+          tileMaterial = new THREE.MeshStandardMaterial({
+            map: tex,
+            color: '#ffffff',
+            roughness: 0.7,
+            metalness: 0.0,
+            transparent: true,
+            opacity: opacity < 1 ? opacity : 1,
+            side: THREE.DoubleSide,
+          });
+        } else {
+          tileMaterial = new THREE.MeshStandardMaterial({
+            color: '#ff3333',
+            roughness: 0.7,
+            metalness: 0.0,
+            transparent: true,
+            opacity: opacity < 1 ? opacity : 1,
+            side: THREE.DoubleSide,
+          });
+        }
       }
 
-      // Смещение тайла в сетке относительно центра
-      // Тайлы имеют размер wu в WU, шаг сетки = wu
-      const offsetX = (x - tiles[Math.floor(tiles.length / 2)].coord.x) * wu;
-      const offsetZ = (y - tiles[Math.floor(tiles.length / 2)].coord.y) * wu;
-
+      // Смещение тайла (вычислено выше, в начале цикла)
       const mesh = new THREE.Mesh(geo, tileMaterial);
-      // Позиционируем на уровне земли в локальных координатах
-      // Y = -6 + hWu (высота рельефа уже в hWu)
-      // Но тайлы уже содержат высоту в positions, так что просто ставим Y=-6
-      // и смещаем по XZ
       mesh.position.set(offsetX, -6, offsetZ);
       mesh.frustumCulled = false;
       group.add(mesh);
@@ -210,13 +192,12 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   useEffect(() => {
     return () => {
       if (groupRef.current) {
-        // Dispose всех children
         groupRef.current.children.forEach(child => {
           if (child instanceof THREE.Mesh) {
             child.geometry?.dispose();
-            if (child.material instanceof THREE.Material) {
+            if (child.material instanceof THREE.MeshStandardMaterial) {
               child.material.dispose();
-              if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) child.material.map.dispose();
+              if (child.material.map) child.material.map.dispose();
             }
           }
         });
@@ -227,20 +208,18 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   // Обновляем group при изменении meshes
   useEffect(() => {
     if (groupRef.current && meshes) {
-      // Очищаем старые меши
       while (groupRef.current.children.length > 0) {
         const child = groupRef.current.children[0];
         if (child instanceof THREE.Mesh) {
           child.geometry?.dispose();
-          if (child.material instanceof THREE.Material) {
+          if (child.material instanceof THREE.MeshStandardMaterial) {
             child.material.dispose();
-            if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) child.material.map.dispose();
+            if (child.material.map) child.material.map.dispose();
           }
         }
         groupRef.current.remove(child);
       }
 
-      // Добавляем новые
       meshes.children.forEach(child => {
         groupRef.current?.add(child);
       });
