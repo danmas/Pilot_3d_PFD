@@ -65,6 +65,7 @@ export default defineConfig(({mode}) => {
     },
     build: {
       chunkSizeWarningLimit: 1500,
+      minify: false,
     },
   };
 });

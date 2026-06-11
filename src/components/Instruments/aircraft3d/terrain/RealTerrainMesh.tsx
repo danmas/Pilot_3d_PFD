@@ -72,17 +72,18 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
         })
       : null;
 
+    const halfW = tileWU / 2;
+    const refX = tiles[midIdx].coord.x;
+    const refY = tiles[midIdx].coord.y;
+
     for (const { coord, data } of tiles) {
       const { x, y, z } = coord;
-      const halfW = tileWU / 2;
       const segX = Math.min(data.width, 64);
       const segZ = Math.min(data.height, 256);
 
       if (!segX || !segZ || !isFinite(tileWU)) continue;
 
-      // Смещение тайла в сетке: соседние тайлы должны стыковаться строго впритык
-      const refX = tiles[midIdx].coord.x;
-      const refY = tiles[midIdx].coord.y;
+      // Смещение тайла в сетке: соседние тайлы стыкуются строго впритык
       const offsetX = (x - refX) * tileWU;
       const offsetZ = (y - refY) * tileWU;
 
@@ -178,7 +179,6 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
         }
       }
 
-      // Смещение тайла (вычислено выше, в начале цикла)
       const mesh = new THREE.Mesh(geo, tileMaterial);
       mesh.position.set(offsetX, -6, offsetZ);
       mesh.frustumCulled = false;
