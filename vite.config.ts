@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 import {bridgePlugin} from './bridge-plugin';
+import {terrainProxyPlugin} from './terrain-proxy-plugin';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
@@ -32,6 +33,7 @@ export default defineConfig(({mode}) => {
       }),
       tailwindcss(),
       bridgePlugin({udpPort, config: env.UDP_CONFIG || undefined, captureDir: env.CAPTURE_DIR || 'captures', noCapture: env.NO_CAPTURE === 'true'}),
+      terrainProxyPlugin(),
       // Strip @vite/client from HTML when HMR is disabled
       {
         name: 'strip-hmr-client',
