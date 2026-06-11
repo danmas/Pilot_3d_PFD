@@ -31,7 +31,7 @@ FlightSimulator.step(0.04), 25 Hz ──────────────┤
   → Raw Data Monitor /raw
 ```
 
-Всё в одном процессе Vite dev-server. Никакого proxy, никакого CORS.
+Всё в одном процессе Vite dev-server (dev) или Express server (продакшен).
 
 ## Единый каталог параметров (field-catalog.ts)
 
@@ -89,10 +89,55 @@ UDP_PORT=14443               # UDP порт для tnparserrt (по умолча
 
 ## Запуск
 
+### Dev-режим (Vite, локальная разработка)
+
 ```powershell
 cd C:\ERV\CARLINK\CARL_AVI\WORK\Pilot\Pilot_3d_PFD
 npm install
 npm run dev
+```
+
+> **⚠️ Vite dev-server НЕ для продакшена.** Vite не всегда отдаёт корректные MIME-типы для JS-модулей (`.js` → `text/html` вместо `application/javascript`),
+> из-за чего браузер блокирует загрузку lazy-чанков с ошибкой
+> `Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html"`.
+
+### Продакшен (Express server, Linux-сервер)
+
+Сборка и запуск:
+
+```bash
+cd /root/projects-ex/Pilot_3d_PFD
+npm run build                 # → dist/
+node server/server.js         # Express: статика + terrain proxy, порт 3410
+```
+
+### Запуск через pm2 (авто-рестарт)
+
+```bash
+cd /root/projects-ex/Pilot_3d_PFD
+npm run build
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+> **Конфиг:** `ecosystem.config.cjs` запускает `node server/server.js` (Express),
+> **не** `npm run dev` (Vite). Проверить: `pm2 describe pilot-3d-pfd | grep "script path"` — должно быть `node`.
+
+**Проверка MIME-типов (продакшен):**
+
+```bash
+curl -sI http://localhost:3410/assets/LazyAircraft3DInstrument-*.js | grep Content-Type
+# Должно быть: Content-Type: application/javascript
+# Не должно быть: Content-Type: text/html
+```
+
+**Как исправить, если pm2 запускает не тот скрипт:**
+
+```bash
+pm2 stop pilot-3d-pfd
+pm2 delete pilot-3d-pfd
+cd /root/projects-ex/Pilot_3d_PFD && pm2 start ecosystem.config.cjs
+pm2 save
 ```
 
 Открыть:

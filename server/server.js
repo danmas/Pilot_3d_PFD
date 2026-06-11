@@ -221,8 +221,29 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
 });
 
 // ─── Static files (SPA fallback) ───
-app.use(express.static(DIST_DIR));
+// Serve all /assets files explicitly before the catch-all
+app.get('/assets/*', (req, res) => {
+  const filePath = path.join(DIST_DIR, req.path);
+  if (fs.existsSync(filePath)) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = {
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.svg': 'image/svg+xml',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.webp': 'image/webp',
+      '.ico': 'image/x-icon',
+      '.woff2': 'font/woff2',
+    }[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', mime);
+    return res.sendFile(filePath);
+  }
+  res.status(404).end();
+});
 app.get('*', (req, res) => {
+  // SPA fallback: only for non-file routes
   res.sendFile(path.join(DIST_DIR, 'index.html'));
 });
 
