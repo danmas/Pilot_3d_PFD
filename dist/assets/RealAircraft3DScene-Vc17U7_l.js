@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-YGC_YY5j.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-DBnlk-2m.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -55069,6 +55069,74 @@ const GroundDisc = reactExports.memo(() => {
     }
   ) });
 });
+const DEFAULT_ZOOM = 14;
+const EARTH_CIRCUMFERENCE = 40075016686e-3;
+const WU_PER_METER = 1 / 40;
+function latLonToTile(lat, lon, zoom) {
+  const n = Math.pow(2, zoom);
+  const x2 = Math.floor((lon + 180) / 360 * n);
+  const latRad = lat * Math.PI / 180;
+  const y = Math.floor(
+    (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n
+  );
+  return { x: x2, y, z: zoom };
+}
+function tileCenterLatLon(x2, y, z) {
+  const n = Math.pow(2, z);
+  const lon = x2 / n * 360 - 180 + 360 / n / 2;
+  const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y / n + 1 / n / 2))));
+  const lat = latRad * 180 / Math.PI;
+  return { lat, lon };
+}
+function tileBoundsLatLon(x2, y, z) {
+  const n = Math.pow(2, z);
+  const lonWest = x2 / n * 360 - 180;
+  const lonEast = (x2 + 1) / n * 360 - 180;
+  const latNorth = tile2lat(y, z);
+  const latSouth = tile2lat(y + 1, z);
+  return {
+    NW: { lat: latNorth, lon: lonWest },
+    NE: { lat: latNorth, lon: lonEast },
+    SE: { lat: latSouth, lon: lonEast },
+    SW: { lat: latSouth, lon: lonWest }
+  };
+}
+function tile2lat(y, z) {
+  const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
+  return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+function tileKey(coord) {
+  return `${coord.z}/${coord.x}/${coord.y}`;
+}
+function tileGroundSizeMeters(zoom, lat) {
+  return EARTH_CIRCUMFERENCE * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+}
+function tileWorldUnits(zoom, lat) {
+  return tileGroundSizeMeters(zoom, lat) * WU_PER_METER;
+}
+function decodeTerrainRGB(imageData) {
+  const { width, height, data } = imageData;
+  const heights = new Float32Array(width * height);
+  for (let i2 = 0; i2 < width * height; i2++) {
+    const r2 = data[i2 * 4];
+    const g2 = data[i2 * 4 + 1];
+    const b2 = data[i2 * 4 + 2];
+    heights[i2] = -1e4 + (r2 * 256 * 256 + g2 * 256 + b2) * 0.1;
+  }
+  return heights;
+}
+function terrainRgbUrl(token, z, x2, y) {
+  return `/api/terrain/tile/${z}/${x2}/${y}?type=dem`;
+}
+function satelliteUrl(token, z, x2, y) {
+  return `/api/terrain/tile/${z}/${x2}/${y}?type=sat`;
+}
+function tileCacheKey(source, z, x2, y) {
+  return `${source}_${z}_${x2}_${y}`;
+}
+const round1 = (n) => Math.round(n * 10) / 10;
+const round2 = (n) => Math.round(n * 100) / 100;
+const round6 = (n) => Math.round(n * 1e6) / 1e6;
 const RealTerrainMesh = ({
   tiles,
   aircraftX,
@@ -55214,6 +55282,93 @@ const RealTerrainMesh = ({
       }
     };
   }, []);
+  reactExports.useEffect(() => {
+    if (!tiles || tiles.length === 0) return;
+    const grid = tiles.map(({ coord, data }) => {
+      const bounds = tileBoundsLatLon(coord.x, coord.y, coord.z);
+      const offsetX = (coord.x - tiles[Math.floor(tiles.length / 2)].coord.x) * (data.worldUnits * 2);
+      const offsetZ = (coord.y - tiles[Math.floor(tiles.length / 2)].coord.y) * (data.worldUnits * 2);
+      const halfW = data.worldUnits;
+      return {
+        key: tileKey(coord),
+        zxy: `${coord.z}/${coord.x}/${coord.y}`,
+        worldUnits: data.worldUnits,
+        gridX: coord.x,
+        gridY: coord.y,
+        // Позиция центра в world space
+        worldCenter: { x: round2(offsetX), z: round2(offsetZ) },
+        // Углы в world space (мин/макс XZ)
+        worldBounds: {
+          minX: round2(offsetX - halfW),
+          maxX: round2(offsetX + halfW),
+          minZ: round2(offsetZ - halfW),
+          maxZ: round2(offsetZ + halfW)
+        },
+        // Углы в lat/lon
+        NW: { lat: round6(bounds.NW.lat), lon: round6(bounds.NW.lon) },
+        NE: { lat: round6(bounds.NE.lat), lon: round6(bounds.NE.lon) },
+        SE: { lat: round6(bounds.SE.lat), lon: round6(bounds.SE.lon) },
+        SW: { lat: round6(bounds.SW.lat), lon: round6(bounds.SW.lon) },
+        elev: { min: round1(data.minElevation), max: round1(data.maxElevation) }
+      };
+    });
+    grid.sort((a2, b2) => a2.gridY - b2.gridY || a2.gridX - b2.gridX);
+    console.table(grid.map((g2) => ({
+      zxy: g2.zxy,
+      gridX: g2.gridX,
+      gridY: g2.gridY,
+      N: g2.NW.lat,
+      S: g2.SE.lat,
+      W: g2.NW.lon,
+      E: g2.SE.lon,
+      wu: round2(g2.worldUnits)
+    })));
+    const uniqX = new Set(grid.map((g2) => g2.gridX));
+    const uniqY = new Set(grid.map((g2) => g2.gridY));
+    console.log(
+      "[RealTerrainMesh] tile grid:",
+      uniqX.size,
+      "×",
+      uniqY.size,
+      "=",
+      grid.length,
+      "tiles (expected 25)",
+      "\n  X range:",
+      Math.min(...uniqX),
+      "→",
+      Math.max(...uniqX),
+      "\n  Y range:",
+      Math.min(...uniqY),
+      "→",
+      Math.max(...uniqY)
+    );
+    const yRows = /* @__PURE__ */ new Map();
+    for (const g2 of grid) {
+      if (!yRows.has(g2.gridY)) yRows.set(g2.gridY, []);
+      yRows.get(g2.gridY).push(g2.gridX);
+    }
+    for (const [y, xs] of yRows) {
+      xs.sort((a2, b2) => a2 - b2);
+      for (let i2 = 1; i2 < xs.length; i2++) {
+        if (xs[i2] - xs[i2 - 1] !== 1) {
+          console.warn(`[RealTerrainMesh] ⚠ GAP at Y=${y} between X=${xs[i2 - 1]} and X=${xs[i2]}!`);
+        }
+      }
+      if (xs.length < uniqX.size) {
+        console.warn(
+          `[RealTerrainMesh] ⚠ MISSING tiles in row Y=${y}:`,
+          xs,
+          `(expected ${uniqX.size})`
+        );
+      }
+    }
+    fetch("/api/terrain/grid", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tiles: grid })
+    }).catch(() => {
+    });
+  }, [tiles]);
   reactExports.useEffect(() => {
     var _a, _b2;
     if (groupRef.current && meshes) {
@@ -55386,51 +55541,6 @@ function TerrainLogPanel() {
       ]
     }
   );
-}
-const DEFAULT_ZOOM = 14;
-const EARTH_CIRCUMFERENCE = 40075016686e-3;
-const WU_PER_METER = 1 / 40;
-function latLonToTile(lat, lon, zoom) {
-  const n = Math.pow(2, zoom);
-  const x2 = Math.floor((lon + 180) / 360 * n);
-  const latRad = lat * Math.PI / 180;
-  const y = Math.floor(
-    (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n
-  );
-  return { x: x2, y, z: zoom };
-}
-function tileCenterLatLon(x2, y, z) {
-  const n = Math.pow(2, z);
-  const lon = x2 / n * 360 - 180 + 360 / n / 2;
-  const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y / n + 1 / n / 2))));
-  const lat = latRad * 180 / Math.PI;
-  return { lat, lon };
-}
-function tileGroundSizeMeters(zoom, lat) {
-  return EARTH_CIRCUMFERENCE * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
-}
-function tileWorldUnits(zoom, lat) {
-  return tileGroundSizeMeters(zoom, lat) * WU_PER_METER;
-}
-function decodeTerrainRGB(imageData) {
-  const { width, height, data } = imageData;
-  const heights = new Float32Array(width * height);
-  for (let i2 = 0; i2 < width * height; i2++) {
-    const r2 = data[i2 * 4];
-    const g2 = data[i2 * 4 + 1];
-    const b2 = data[i2 * 4 + 2];
-    heights[i2] = -1e4 + (r2 * 256 * 256 + g2 * 256 + b2) * 0.1;
-  }
-  return heights;
-}
-function terrainRgbUrl(token, z, x2, y) {
-  return `/api/terrain/tile/${z}/${x2}/${y}?type=dem`;
-}
-function satelliteUrl(token, z, x2, y) {
-  return `/api/terrain/tile/${z}/${x2}/${y}?type=sat`;
-}
-function tileCacheKey(source, z, x2, y) {
-  return `${source}_${z}_${x2}_${y}`;
 }
 const DB_NAME = "pilot-terrain-cache";
 const DB_VERSION = 1;

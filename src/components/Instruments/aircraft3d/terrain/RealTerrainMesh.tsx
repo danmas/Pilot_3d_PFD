@@ -11,7 +11,12 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import type { TerrainTileData } from './TerrainManager';
-import type { TileCoord } from './terrainTileUtils';
+import { tileBoundsLatLon, tileKey, type TileCoord } from './terrainTileUtils';
+
+/** Rounding helpers */
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const round6 = (n: number) => Math.round(n * 1_000_000) / 1_000_000;
 
 interface RealTerrainMeshProps {
   /** Массив тайлов с координатами */
@@ -204,6 +209,90 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       }
     };
   }, []);
+
+  // Логирование сетки тайлов на сервер при каждом изменении
+  useEffect(() => {
+    if (!tiles || tiles.length === 0) return;
+
+    const grid = tiles.map(({ coord, data }) => {
+      const bounds = tileBoundsLatLon(coord.x, coord.y, coord.z);
+      const offsetX = (coord.x - tiles[Math.floor(tiles.length / 2)].coord.x) * (data.worldUnits * 2);
+      const offsetZ = (coord.y - tiles[Math.floor(tiles.length / 2)].coord.y) * (data.worldUnits * 2);
+      const halfW = data.worldUnits;
+
+      return {
+        key: tileKey(coord),
+        zxy: `${coord.z}/${coord.x}/${coord.y}`,
+        worldUnits: data.worldUnits,
+        gridX: coord.x,
+        gridY: coord.y,
+        // Позиция центра в world space
+        worldCenter: { x: round2(offsetX), z: round2(offsetZ) },
+        // Углы в world space (мин/макс XZ)
+        worldBounds: {
+          minX: round2(offsetX - halfW),
+          maxX: round2(offsetX + halfW),
+          minZ: round2(offsetZ - halfW),
+          maxZ: round2(offsetZ + halfW),
+        },
+        // Углы в lat/lon
+        NW: { lat: round6(bounds.NW.lat), lon: round6(bounds.NW.lon) },
+        NE: { lat: round6(bounds.NE.lat), lon: round6(bounds.NE.lon) },
+        SE: { lat: round6(bounds.SE.lat), lon: round6(bounds.SE.lon) },
+        SW: { lat: round6(bounds.SW.lat), lon: round6(bounds.SW.lon) },
+        elev: { min: round1(data.minElevation), max: round1(data.maxElevation) },
+      };
+    });
+
+    // Sort by gridY (north first) then gridX
+    grid.sort((a, b) => a.gridY - b.gridY || a.gridX - b.gridX);
+
+    // Console dump for easy inspection
+    console.table(grid.map(g => ({
+      zxy: g.zxy,
+      gridX: g.gridX,
+      gridY: g.gridY,
+      N: g.NW.lat,
+      S: g.SE.lat,
+      W: g.NW.lon,
+      E: g.SE.lon,
+      wu: round2(g.worldUnits),
+    })));
+
+    // Check for expected 5×5 = 25 tiles
+    const uniqX = new Set(grid.map(g => g.gridX));
+    const uniqY = new Set(grid.map(g => g.gridY));
+    console.log('[RealTerrainMesh] tile grid:', uniqX.size, '×', uniqY.size, '=',
+      grid.length, 'tiles (expected 25)',
+      '\n  X range:', Math.min(...uniqX), '→', Math.max(...uniqX),
+      '\n  Y range:', Math.min(...uniqY), '→', Math.max(...uniqY));
+
+    // Check for gaps: for each Y row, X should be contiguous
+    const yRows = new Map<number, number[]>();
+    for (const g of grid) {
+      if (!yRows.has(g.gridY)) yRows.set(g.gridY, []);
+      yRows.get(g.gridY)!.push(g.gridX);
+    }
+    for (const [y, xs] of yRows) {
+      xs.sort((a, b) => a - b);
+      for (let i = 1; i < xs.length; i++) {
+        if (xs[i] - xs[i - 1] !== 1) {
+          console.warn(`[RealTerrainMesh] ⚠ GAP at Y=${y} between X=${xs[i - 1]} and X=${xs[i]}!`);
+        }
+      }
+      if (xs.length < uniqX.size) {
+        console.warn(`[RealTerrainMesh] ⚠ MISSING tiles in row Y=${y}:`,
+          xs, `(expected ${uniqX.size})`);
+      }
+    }
+
+    // POST to server terrain log
+    fetch('/api/terrain/grid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tiles: grid }),
+    }).catch(() => {});
+  }, [tiles]);
 
   // Обновляем group при изменении meshes
   useEffect(() => {

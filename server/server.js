@@ -115,6 +115,69 @@ app.get('/api/terrain/quota', (req, res) => {
   });
 });
 
+// POST /api/terrain/grid — клиент присылает сетку загруженных тайлов, пишем в лог
+app.post('/api/terrain/grid', (req, res) => {
+  try {
+    const { tiles } = req.body || {};
+    if (!Array.isArray(tiles)) return res.status(400).json({ error: 'tiles array required' });
+
+    const summary = {
+      t: new Date().toISOString(),
+      type: 'GRID',
+      count: tiles.length,
+      grid: tiles.map(t => ({
+        k: t.key || t.zxy,
+        x: t.gridX, y: t.gridY,
+        N: `${t.NW?.lat ?? '?'},${t.NW?.lon ?? '?'}`,
+        S: `${t.SE?.lat ?? '?'},${t.SE?.lon ?? '?'}`,
+        wu: t.worldBounds,
+        elev: t.elev,
+      })),
+    };
+    appendLog(summary);
+
+    // Also print a compact table to server stdout
+    const uniqX = [...new Set(tiles.map(t => t.gridX))].sort((a, b) => a - b);
+    const uniqY = [...new Set(tiles.map(t => t.gridY))].sort((a, b) => a - b);
+    console.log(`\n[terrain-grid] ${tiles.length} tiles, X: [${uniqX[0]}..${uniqX[uniqX.length - 1]}] (${uniqX.length}), Y: [${uniqY[0]}..${uniqY[uniqY.length - 1]}] (${uniqY.length})`);
+    
+    // Check for gaps
+    for (let xi = 1; xi < uniqX.length; xi++) {
+      if (uniqX[xi] - uniqX[xi - 1] !== 1) {
+        console.warn(`[terrain-grid] ⚠ GAP in X: ${uniqX[xi - 1]} → ${uniqX[xi]}`);
+      }
+    }
+    for (let yi = 1; yi < uniqY.length; yi++) {
+      if (uniqY[yi] - uniqY[yi - 1] !== 1) {
+        console.warn(`[terrain-grid] ⚠ GAP in Y: ${uniqY[yi - 1]} → ${uniqY[yi]}`);
+      }
+    }
+
+    // Check each Y row for full X coverage
+    const byY = new Map();
+    for (const t of tiles) {
+      if (!byY.has(t.gridY)) byY.set(t.gridY, []);
+      byY.get(t.gridY).push(t.gridX);
+    }
+    for (const [y, xs] of byY) {
+      xs.sort((a, b) => a - b);
+      for (let i = 1; i < xs.length; i++) {
+        if (xs[i] - xs[i - 1] !== 1) {
+          console.warn(`[terrain-grid] ⚠ GAP at Y=${y}: X${xs[i - 1]} → X${xs[i]}`);
+        }
+      }
+      if (xs.length < uniqX.length) {
+        const missing = uniqX.filter(x => !xs.includes(x));
+        console.warn(`[terrain-grid] ⚠ MISSING at Y=${y}: X=${missing.join(',')} (have ${xs.length}/${uniqX.length})`);
+      }
+    }
+    res.json({ ok: true, count: tiles.length });
+  } catch (err) {
+    console.error('[terrain-grid] error:', err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // GET /api/terrain/tile/:z/:x/:y?type=dem|sat
 app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
   const { z, x, y } = req.params;

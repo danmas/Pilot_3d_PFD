@@ -54,6 +54,51 @@ export function tileCenterLatLon(x: number, y: number, z: number): { lat: number
 }
 
 /**
+ * Границы тайла в lat/lon:
+ *   NW, NE, SE, SW — четыре угла квадрата на земле.
+ *
+ *   ┌NW──────NE┐
+ *   │          │
+ *   │  (x,y)   │
+ *   │          │
+ *   └SW──────SE┘
+ */
+export function tileBoundsLatLon(x: number, y: number, z: number): {
+  NW: { lat: number; lon: number };
+  NE: { lat: number; lon: number };
+  SE: { lat: number; lon: number };
+  SW: { lat: number; lon: number };
+} {
+  const n = Math.pow(2, z);
+  const lonWest = (x / n) * 360 - 180;
+  const lonEast = ((x + 1) / n) * 360 - 180;
+  const latNorth = tile2lat(y, z);
+  const latSouth = tile2lat(y + 1, z);
+  return {
+    NW: { lat: latNorth, lon: lonWest },
+    NE: { lat: latNorth, lon: lonEast },
+    SE: { lat: latSouth, lon: lonEast },
+    SW: { lat: latSouth, lon: lonWest },
+  };
+}
+
+/** lng → tile x */
+function tile2lon(x: number, z: number): number {
+  return (x / Math.pow(2, z)) * 360 - 180;
+}
+
+/** Slippy Map y → lat (северный край тайла) */
+function tile2lat(y: number, z: number): number {
+  const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+
+/** Ключ для лога: "z/x/y" */
+export function tileKey(coord: TileCoord): string {
+  return `${coord.z}/${coord.x}/${coord.y}`;
+}
+
+/**
  * Размер одного тайла на земле в метрах (на заданной широте)
  */
 export function tileGroundSizeMeters(zoom: number, lat: number): number {
