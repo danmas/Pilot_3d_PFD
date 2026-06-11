@@ -40,7 +40,7 @@ type ProgressCallback = (progress: TileLoadProgress) => void;
 
 const CONFIG = {
   maxConcurrent: 6,
-  fetchTimeoutMs: 8_000,
+  fetchTimeoutMs: 15_000,
   zoom: DEFAULT_ZOOM,
   /** Радиус загрузки в тайлах от центра */
   loadRadius: 2, // 5×5 сетка (2 в каждую сторону)
@@ -65,6 +65,8 @@ class TerrainManagerImpl {
   private isLoading = false;
   /** Очередь тайлов на загрузку */
   private loadQueue: TileCoord[] = [];
+  /** Новый центр, запрошенный во время загрузки — обработаем после завершения */
+  private pendingCenter: TileCoord | null = null;
 
   init(token: string): void {
     this.token = token;
@@ -104,7 +106,7 @@ class TerrainManagerImpl {
     this.loadQueue = [];
   }
 
-  /**
+  /**     
    * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
    * Вызывается при каждом новом кадре телеметрии.
    */
@@ -122,9 +124,16 @@ class TerrainManagerImpl {
       return;
     }
 
-    this.currentCenter = center;
+    // 2. Если идёт загрузка — запоминаем новый центр, обработаем после завершения
+    if (this.isLoading) {
+      this.pendingCenter = center;
+      return;
+    }
 
-    // 2. Вычисляем нужные тайлы
+    this.currentCenter = center;
+    this.pendingCenter = null;
+
+    // 3. Вычисляем нужные тайлы
     const needed = new Set<string>();
     const neededCoords: TileCoord[] = [];
     for (let dx = -CONFIG.loadRadius; dx <= CONFIG.loadRadius; dx++) {
@@ -135,7 +144,7 @@ class TerrainManagerImpl {
       }
     }
 
-    // 3. Удаляем тайлы, вышедшие за радиус
+    // 4. Удаляем тайлы, вышедшие за радиус
     const toDelete: string[] = [];
     for (const [key] of this.loadedTiles) {
       if (!needed.has(key)) {
@@ -146,7 +155,7 @@ class TerrainManagerImpl {
       this.loadedTiles.delete(key);
     }
 
-    // 4. Определяем новые тайлы для загрузки
+    // 5. Определяем новые тайлы для загрузки
     const newTiles = neededCoords.filter(t => {
       const key = `${t.z}/${t.x}/${t.y}`;
       return !this.loadedTiles.has(key);
@@ -154,7 +163,7 @@ class TerrainManagerImpl {
 
     if (newTiles.length === 0) return;
 
-    // 5. Загружаем новые тайлы (с rate limiting)
+    // 6. Загружаем новые тайлы (с rate limiting)
     this.loadQueue = newTiles;
     this.isLoading = true;
     const total = newTiles.length;
@@ -188,6 +197,18 @@ class TerrainManagerImpl {
     await Promise.allSettled(promises);
 
     this.isLoading = false;
+
+    // 7. Если за время загрузки пришёл новый центр — перезапускаем
+    if (this.pendingCenter &&
+        (this.pendingCenter.x !== center.x || this.pendingCenter.y !== center.y)) {
+      const pending = this.pendingCenter;
+      this.pendingCenter = null;
+      // Рекурсивно, но без блокировки — запускаем асинхронно
+      this.updatePosition(
+        tileCenterLatLon(pending.x, pending.y, pending.z).lat,
+        tileCenterLatLon(pending.x, pending.y, pending.z).lon,
+      ).catch(() => {});
+    }
   }
 
   /**

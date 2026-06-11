@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-NxTn2uZ6.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-B8z2MCCJ.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -55667,6 +55667,7 @@ class TerrainManagerImpl {
     this.lastLon = 0;
     this.isLoading = false;
     this.loadQueue = [];
+    this.pendingCenter = null;
   }
   init(token) {
     var _a;
@@ -55701,7 +55702,7 @@ class TerrainManagerImpl {
     this.abortController = new AbortController();
     this.loadQueue = [];
   }
-  /**
+  /**     
    * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
    * Вызывается при каждом новом кадре телеметрии.
    */
@@ -55713,7 +55714,12 @@ class TerrainManagerImpl {
     if (this.currentCenter && this.currentCenter.x === center.x && this.currentCenter.y === center.y) {
       return;
     }
+    if (this.isLoading) {
+      this.pendingCenter = center;
+      return;
+    }
     this.currentCenter = center;
+    this.pendingCenter = null;
     const needed = /* @__PURE__ */ new Set();
     const neededCoords = [];
     for (let dx = -2; dx <= CONFIG.loadRadius; dx++) {
@@ -55766,6 +55772,15 @@ class TerrainManagerImpl {
     }
     await Promise.allSettled(promises);
     this.isLoading = false;
+    if (this.pendingCenter && (this.pendingCenter.x !== center.x || this.pendingCenter.y !== center.y)) {
+      const pending = this.pendingCenter;
+      this.pendingCenter = null;
+      this.updatePosition(
+        tileCenterLatLon(pending.x, pending.y, pending.z).lat,
+        tileCenterLatLon(pending.x, pending.y, pending.z).lon
+      ).catch(() => {
+      });
+    }
   }
   /**
    * Загрузить один тайл (DEM + Satellite)
