@@ -167,3 +167,20 @@ export { createCapturePath, createBlackboxPath, createUniquePfdrecPath };
 
 // Re-export types for convenience (avoid duplicate name issues)
 export type { CaptureStatus as CaptureManagerStatus, BlackboxStatus as BlackboxManagerStatus };
+
+/**
+ * Test helper: forcefully resets internal capture state.
+ * Closes any open streams and clears counters/paths.
+ * ONLY intended for use in unit tests.
+ */
+export function resetCaptureStateForTests(): void {
+  try { if (captureStream) captureStream.end(); } catch {}
+  try { if (blackboxStream) blackboxStream.end(); } catch {}
+  captureStream = undefined;
+  capturePath = undefined;
+  captureFrames = 0;
+  blackboxStream = undefined;
+  blackboxPath = undefined;
+  blackboxFrames = 0;
+  captureEnabled = false;
+}
