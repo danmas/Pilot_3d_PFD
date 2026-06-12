@@ -1,0 +1,151 @@
+
+> pilot-3d-pfd@2.9.7 dev
+> vite
+
+[BRIDGE] Loading decode schema from out.json...
+[BRIDGE] Found 132 slots for port 14443
+[BRIDGE] Schema validation report:
+Decode schema: 132 fields, 474 bytes/frame
+Warnings: 80
+
+⚠ WARNINGS:
+  • Slot #8 param=0346 not found in field-catalog.ts → auto-named "slot_0346_auto"
+  • Slot #9 param=0341 not found in field-catalog.ts → auto-named "slot_0341_auto"
+  • Slot #12 param=0270 not found in field-catalog.ts → auto-named "slot_0270_auto"
+  • Slot #14 param=0271 not found in field-catalog.ts → auto-named "slot_0271_auto"
+  • Slot #15 param=0270 not found in field-catalog.ts → auto-named "slot_0270_auto"
+  • Slot #16 param=0270 not found in field-catalog.ts → auto-named "slot_0270_auto"
+  • Slot #22 param=012 not found in field-catalog.ts → auto-named "slot_012_auto"
+  • Slot #27 param=007 not found in field-catalog.ts → auto-named "slot_007_auto"
+  • Slot #35 param=0270 not found in field-catalog.ts → auto-named "slot_0270_auto"
+  • Slot #36 param=0270 not found in field-catalog.ts → auto-named "slot_0270_auto"
+  • Slot #43 param=012 not found in field-catalog.ts → auto-named "slot_012_auto"
+  • Slot #45 param=063 not found in field-catalog.ts → auto-named "slot_063_auto"
+  • Slot #48 param=056 not found in field-catalog.ts → auto-named "slot_056_auto"
+  • Slot #49 param=056 not found in field-catalog.ts → auto-named "slot_056_auto"
+  • Slot #50 param=057 not found in field-catalog.ts → auto-named "slot_057_auto"
+  • Slot #51 param=057 not found in field-catalog.ts → auto-named "slot_057_auto"
+  • Slot #53 param=0154 not found in field-catalog.ts → auto-named "slot_0154_auto"
+  • Slot #56 param=055 not found in field-catalog.ts → auto-named "slot_055_auto"
+  • Slot #57 param=055 not found in field-catalog.ts → auto-named "slot_055_auto"
+  • Slot #59 param=055 not found in field-catalog.ts → auto-named "slot_055_auto"
+  • Slot #60 param=055 not found in field-catalog.ts → auto-named "slot_055_auto"
+  • Slot #61 param=055 not found in field-catalog.ts → auto-named "slot_055_auto"
+  • Slot #62 param=055 not found in field-catalog.ts → auto-named "slot_055_auto"
+  • Slot #63 param=056 not found in field-catalog.ts → auto-named "slot_056_auto"
+  • Slot #64 param=056 not found in field-catalog.ts → auto-named "slot_056_auto"
+  • Slot #65 param=056 not found in field-catalog.ts → auto-named "slot_056_auto"
+  • Slot #66 param=056 not found in field-catalog.ts → auto-named "slot_056_auto"
+  • Slot #67 param=042 not found in field-catalog.ts → auto-named "slot_042_auto"
+  • Slot #69 param=0272 not found in field-catalog.ts → auto-named "slot_0272_auto"
+  • Slot #70 param=0272 not found in field-catalog.ts → auto-named "slot_0272_auto"
+  • Slot #71 param=0272 not found in field-catalog.ts → auto-named "slot_0272_auto"
+  • Slot #115 param=0271 not found in field-catalog.ts → auto-named "slot_0271_auto"
+  • Slot #116 param=0272 not found in field-catalog.ts → auto-named "slot_0272_auto"
+  • Slot #117 param=0272 not found in field-catalog.ts → auto-named "slot_0272_auto"
+  • Slot #118 param=0272 not found in field-catalog.ts → auto-named "slot_0272_auto"
+  • Slot #119 param=0271 not found in field-catalog.ts → auto-named "slot_0271_auto"
+  • Slot #120 param=0271 not found in field-catalog.ts → auto-named "slot_0271_auto"
+  • Slot #121 param=0271 not found in field-catalog.ts → auto-named "slot_0271_auto"
+  • Slot #122 param=0271 not found in field-catalog.ts → auto-named "slot_0271_auto"
+  • Slot #124 param=046 not found in field-catalog.ts → auto-named "slot_046_auto"
+  • Catalog entry "Engine_N1_Left" (param=0346) has no matching slot in out.json → will be null
+  • Catalog entry "Engine_N1_Target_Left" (param=0341) has no matching slot in out.json → will be null
+  • Catalog entry "LG_Uplock" (param=0270) has no matching slot in out.json → will be null
+  • Catalog entry "LG_Downlock" (param=0270) has no matching slot in out.json → will be null
+  • Catalog entry "RG_Uplock" (param=0271) has no matching slot in out.json → will be null
+  • Catalog entry "RG_Downlock" (param=0271) has no matching slot in out.json → will be null
+  • Catalog entry "NG_Uplock" (param=0270) has no matching slot in out.json → will be null
+  • Catalog entry "NG_Downlock" (param=0270) has no matching slot in out.json → will be null
+  • Catalog entry "APU_OilPressure" (param=007) has no matching slot in out.json → will be null
+  • Catalog entry "ECS_TargetTemp_1" (param=012) has no matching slot in out.json → will be null
+  • Catalog entry "ECS_TargetTemp_2" (param=012) has no matching slot in out.json → will be null
+  • Catalog entry "AutopilotOn" (param=0270) has no matching slot in out.json → will be null
+  • Catalog entry "FlapsPosition" (param=063) has no matching slot in out.json → will be null
+  • Catalog entry "Spoil_Left_Center" (param=056) has no matching slot in out.json → will be null
+  • Catalog entry "Spoil_Right_Center" (param=057) has no matching slot in out.json → will be null
+  • Catalog entry "Spoil_Left_Outer" (param=056) has no matching slot in out.json → will be null
+  • Catalog entry "Spoil_Left_Inner" (param=056) has no matching slot in out.json → will be null
+  • Catalog entry "Spoil_Right_Inner" (param=057) has no matching slot in out.json → will be null
+  • Catalog entry "Airbrake_Inner_Cmd" (param=0154) has no matching slot in out.json → will be null
+  • Catalog entry "Rudder_Upper" (param=055) has no matching slot in out.json → will be null
+  • Catalog entry "Rudder_Lower" (param=055) has no matching slot in out.json → will be null
+  • Catalog entry "Rudder_Middle" (param=055) has no matching slot in out.json → will be null
+  • Catalog entry "RudderTrim" (param=042) has no matching slot in out.json → will be null
+  • Catalog entry "Elev_Right_Outer" (param=055) has no matching slot in out.json → will be null
+  • Catalog entry "Elev_Left_Outer" (param=055) has no matching slot in out.json → will be null
+  • Catalog entry "Elev_Left_Inner" (param=055) has no matching slot in out.json → will be null
+  • Catalog entry "Ail_Right_Inner" (param=056) has no matching slot in out.json → will be null
+  • Catalog entry "Ail_Left_Inner" (param=056) has no matching slot in out.json → will be null
+  • Catalog entry "Ail_Left_Outer" (param=056) has no matching slot in out.json → will be null
+  • Catalog entry "NG_WOW" (param=0272) has no matching slot in out.json → will be null
+  • Catalog entry "LG_WOW" (param=0272) has no matching slot in out.json → will be null
+  • Catalog entry "RG_WOW" (param=0272) has no matching slot in out.json → will be null
+  • Catalog entry "WOW" (param=0272) has no matching slot in out.json → will be null
+  • Catalog entry "IG_RY1_Open" (param=0271) has no matching slot in out.json → will be null
+  • Catalog entry "IG_RY2_Open" (param=0272) has no matching slot in out.json → will be null
+  • Catalog entry "IG_RY3_Open" (param=0272) has no matching slot in out.json → will be null
+  • Catalog entry "IG_K1_Open" (param=0271) has no matching slot in out.json → will be null
+  • Catalog entry "IG_K2_Open" (param=0271) has no matching slot in out.json → will be null
+  • Catalog entry "IG_Block_Fault" (param=0271) has no matching slot in out.json → will be null
+  • Catalog entry "IG_O2_1" (param=046) has no matching slot in out.json → will be null
+
+Fields from catalog: 92
+Auto-named fields:  40
+Total frame size:   474 bytes
+
+Auto-named fields (verify these!):
+  slot_0346_auto (Float, 4B)
+  slot_0341_auto (Float, 4B)
+  slot_0270_auto (Float, 4B)
+  slot_0271_auto (Float, 4B)
+  slot_0270_auto (Float, 4B)
+  slot_0270_auto (Float, 4B)
+  slot_012_auto (Float, 4B)
+  slot_007_auto (Float, 4B)
+  slot_0270_auto (Float, 4B)
+  slot_0270_auto (Float, 4B)
+  slot_012_auto (Float, 4B)
+  slot_063_auto (Float, 4B)
+  slot_056_auto (Float, 4B)
+  slot_056_auto (Float, 4B)
+  slot_057_auto (Float, 4B)
+  slot_057_auto (Float, 4B)
+  slot_0154_auto (Float, 4B)
+  slot_055_auto (Float, 4B)
+  slot_055_auto (Float, 4B)
+  slot_055_auto (Float, 4B)
+  slot_055_auto (Float, 4B)
+  slot_055_auto (Float, 4B)
+  slot_055_auto (Float, 4B)
+  slot_056_auto (Float, 4B)
+  slot_056_auto (Float, 4B)
+  slot_056_auto (Float, 4B)
+  slot_056_auto (Float, 4B)
+  slot_042_auto (Float, 4B)
+  slot_0272_auto (Float, 4B)
+  slot_0272_auto (Float, 4B)
+  slot_0272_auto (Float, 4B)
+  slot_0271_auto (Float, 4B)
+  slot_0272_auto (Float, 4B)
+  slot_0272_auto (Float, 4B)
+  slot_0272_auto (Float, 4B)
+  slot_0271_auto (Float, 4B)
+  slot_0271_auto (Float, 4B)
+  slot_0271_auto (Float, 4B)
+  slot_0271_auto (Float, 4B)
+  slot_046_auto (Float, 4B)
+[BRIDGE] ⚠ Schema VALIDATION WARNINGS — check out.json ↔ field-catalog.ts alignment
+[BRIDGE] UDP udp://0.0.0.0:14443
+[BRIDGE] schema 132 fields / 474 bytes per frame (out.json→field-catalog.ts)
+[BRIDGE] capture manual/off
+[RAW-MONITOR] UDP udp://0.0.0.0:14442
+
+  VITE v6.4.2  ready in 599 ms
+
+  ➜  Local:   http://localhost:3410/
+  ➜  Network: http://192.168.1.254:3410/
+  ➜  Network: http://192.168.56.1:3410/
+  ➜  Network: http://172.25.192.1:3410/
+  ➜  Network: http://172.26.64.1:3410/
+  ➜  press h + enter to show help

@@ -458,6 +458,10 @@
     visibility: visible;
   }
 
+  .visible\! {
+    visibility: visible !important;
+  }
+
   .absolute {
     position: absolute;
   }
@@ -472,6 +476,10 @@
 
   .static {
     position: static;
+  }
+
+  .static\! {
+    position: static !important;
   }
 
   .sticky {
@@ -716,6 +724,10 @@
     display: block;
   }
 
+  .contents {
+    display: contents;
+  }
+
   .flex {
     display: flex;
   }
@@ -726,6 +738,10 @@
 
   .hidden {
     display: none;
+  }
+
+  .hidden\! {
+    display: none !important;
   }
 
   .table {
@@ -3041,6 +3057,10 @@
 
   .filter {
     filter: var(--tw-blur, ) var(--tw-brightness, ) var(--tw-contrast, ) var(--tw-grayscale, ) var(--tw-hue-rotate, ) var(--tw-invert, ) var(--tw-saturate, ) var(--tw-sepia, ) var(--tw-drop-shadow, );
+  }
+
+  .filter\! {
+    filter: var(--tw-blur, ) var(--tw-brightness, ) var(--tw-contrast, ) var(--tw-grayscale, ) var(--tw-hue-rotate, ) var(--tw-invert, ) var(--tw-saturate, ) var(--tw-sepia, ) var(--tw-drop-shadow, ) !important;
   }
 
   .backdrop-blur-md {
