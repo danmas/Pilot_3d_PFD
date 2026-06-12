@@ -4,8 +4,14 @@
  * Принимает массив загруженных тайлов и создаёт PlaneGeometry для каждого
  * с displacement map из DEM + спутниковой текстурой.
  *
- * Позиционирование: все тайлы используют единый размер (worldUnits центрального тайла)
- * и стыкуются по XZ без зазоров.
+ * Позиционирование:
+ *   - Используется "sticky" reference (логический центр загруженной области),
+ *     который не прыгает при незначительном изменении набора тайлов.
+ *   - Все тайлы используют один и тот же tileWU (из тайла, ближайшего к стабильному ref).
+ *   - Соседние тайлы стыкуются строго впритык по XZ (offset = (tile - ref) * tileWU,
+ *     локальная геометрия от -halfW до +halfW).
+ *   - Горизонтальные швы между квадратами теперь стабильны (красные и синие углы
+ *     соседних тайлов должны совпадать).
  */
 
 import React, { useMemo, useRef, useEffect } from 'react';
@@ -30,6 +36,11 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
 
+  // Stable reference to prevent ref jumps when the set of loaded tiles changes.
+  // We only move the reference point when the previous logical center is no longer
+  // covered by the current loaded bounding box. This keeps seams stable during normal flight.
+  const stableRefRef = useRef<{x: number, y: number} | null>(null);
+
   console.log('[RealTerrainMesh] render, tiles count:', tiles?.length ?? 0, 'mode:', mode);
   if (tiles && tiles.length > 0) {
     const c0 = getTileCornersLatLon(tiles[0].coord.x, tiles[0].coord.y, tiles[0].coord.z);
@@ -41,32 +52,51 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 
     const group = new THREE.Group();
 
-    // Robust reference: use the logical center of the bounding box of loaded tiles
-    // instead of fragile midIdx (which depended on array insertion order and could be any tile).
-    // This ensures consistent anchoring even if the list is incomplete or in arbitrary order.
     const xs = tiles.map(t => t.coord.x);
     const ys = tiles.map(t => t.coord.y);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
-    const refX = Math.round((minX + maxX) / 2);
-    const refY = Math.round((minY + maxY) / 2);
 
-    // Pick worldUnits from the tile closest to the logical center (better than arbitrary mid)
+    // Candidate logical center of the current loaded set
+    let candidateRefX = Math.round((minX + maxX) / 2);
+    let candidateRefY = Math.round((minY + maxY) / 2);
+
+    // Sticky ref: keep the previous center as long as it is still inside the loaded box.
+    // This prevents the whole terrain group from shifting when peripheral tiles load/unload.
+    let effectiveRefX = candidateRefX;
+    let effectiveRefY = candidateRefY;
+    const prev = stableRefRef.current;
+    if (prev) {
+      if (prev.x >= minX && prev.x <= maxX && prev.y >= minY && prev.y <= maxY) {
+        effectiveRefX = prev.x;
+        effectiveRefY = prev.y;
+      }
+    }
+
+    // Pick the tile whose center is closest to the (stable) effective ref.
+    // We use this tile's worldUnits so that geometry size and offset step are consistent.
     let refTile = tiles[0];
     let minDist = Infinity;
     for (const t of tiles) {
-      const d = Math.abs(t.coord.x - refX) + Math.abs(t.coord.y - refY);
+      const d = Math.abs(t.coord.x - effectiveRefX) + Math.abs(t.coord.y - effectiveRefY);
       if (d < minDist) {
         minDist = d;
         refTile = t;
       }
     }
-    const baseTileSize = refTile.data.worldUnits;
-    const tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
 
-    console.log('[RealTerrainMesh] refX/refY (logical center):', refX, refY, 'tileWU:', tileWU, 'from tile:', refTile.coord);
+    const baseTileSize = refTile.data.worldUnits;
+    // IMPORTANT: use the value directly. The previous *2 was likely causing scale mismatch
+    // between the offset calculation and the actual geometry extents.
+    const tileWU = baseTileSize > 0 ? baseTileSize : 200;
+
+    // Remember the ref we actually used so it stays stable next time
+    stableRefRef.current = { x: effectiveRefX, y: effectiveRefY };
+
+    console.log('[RealTerrainMesh] effectiveRefX/refY (sticky):', effectiveRefX, effectiveRefY,
+                'tileWU:', tileWU, 'from tile:', refTile.coord, 'candidate was', candidateRefX, candidateRefY);
 
     // Глобальный minElevation для ВСЕЙ сетки — чтобы тайлы стыковались без щелей
     let globalMinElev = Infinity;
@@ -99,11 +129,11 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 
       // Смещение тайла в сетке: соседние тайлы стыкуются строго впритык
       // Slippy Map Y растёт на ЮГ, 3D-мир Z растёт на СЕВЕР → инвертируем Z
-      const offsetX = (x - refX) * tileWU;
-      const offsetZ = -(y - refY) * tileWU;
+      const offsetX = (x - effectiveRefX) * tileWU;
+      const offsetZ = -(y - effectiveRefY) * tileWU;
 
       const corners = getTileCornersLatLon(x, y, z);
-      console.log(`[RealTerrainMesh] DRAW-QUAD tile=${z}/${x}/${y} ref=${refX}/${refY} offsetX=${offsetX} offsetZ=${offsetZ} corners=${formatTileCorners(corners)}`);
+      console.log(`[RealTerrainMesh] DRAW-QUAD tile=${z}/${x}/${y} ref=${effectiveRefX}/${effectiveRefY} offsetX=${offsetX} offsetZ=${offsetZ} corners=${formatTileCorners(corners)}`);
       // Send to server log immediately (fire and forget) so user doesn't have to relay from console
       fetch('/api/terrain/log', {
         method: 'POST',
@@ -112,7 +142,7 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
           t: new Date().toISOString(),
           type: 'DRAW-QUAD',
           coord: { z, x, y },
-          ref: { x: refX, y: refY },
+          ref: { x: effectiveRefX, y: effectiveRefY },
           offset: { x: offsetX, z: offsetZ },
           corners,
           source: 'client'
