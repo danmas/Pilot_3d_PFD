@@ -1,92 +1,168 @@
 {
-  "id": "root",
+  "id": "ue9d23r",
   "type": "split",
-  "splitDirection": "vertical",
-  "splitRatio": 0.363361964362846,
+  "splitDirection": "horizontal",
+  "splitRatio": 0.7494519548826086,
   "children": [
     {
-      "id": "24zdg0o",
+      "id": "qw9x1nf",
       "type": "split",
       "splitDirection": "horizontal",
-      "splitRatio": 0.5924458354546638,
+      "splitRatio": 0.43622936198807116,
       "children": [
         {
-          "id": "90f8u4r",
-          "type": "instrument",
-          "instrumentId": "pfd"
-        },
-        {
-          "id": "0yn5izt",
-          "type": "instrument",
-          "instrumentId": "pfd2"
-        }
-      ]
-    },
-    {
-      "id": "ue9d23r",
-      "type": "split",
-      "splitDirection": "horizontal",
-      "splitRatio": 0.4884632565102688,
-      "children": [
-        {
-          "id": "2i846vt",
+          "id": "rhetji8",
           "type": "split",
           "splitDirection": "vertical",
-          "splitRatio": 0.4685813111808308,
+          "splitRatio": 0.6138421711303382,
           "children": [
             {
-              "id": "x2tdshv",
-              "type": "instrument",
-              "instrumentId": "config-display"
-            },
-            {
-              "id": "t7mi6dr",
+              "id": "zmcb7ru",
               "type": "split",
               "splitDirection": "vertical",
-              "splitRatio": 0.8103799171728259,
+              "splitRatio": 0.5,
               "children": [
                 {
-                  "id": "qw9x1nf",
+                  "id": "muk34b8",
+                  "type": "instrument",
+                  "instrumentId": "engine-display"
+                },
+                {
+                  "id": "eib0rji",
+                  "type": "instrument",
+                  "instrumentId": "pfd"
+                }
+              ]
+            },
+            {
+              "id": "jx27r6t",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.5,
+              "children": [
+                {
+                  "id": "jamcjqy",
                   "type": "instrument",
                   "instrumentId": "aux-panel"
                 },
                 {
-                  "id": "kwe6xwk",
-                  "type": "split",
-                  "splitDirection": "horizontal",
-                  "splitRatio": 0.5,
-                  "children": [
-                    {
-                      "id": "9oy86mg",
-                      "type": "instrument",
-                      "instrumentId": "airspeed"
-                    },
-                    {
-                      "id": "4csuw3o",
-                      "type": "instrument",
-                      "instrumentId": "vertical-speed"
-                    }
-                  ]
+                  "id": "2hirvut",
+                  "type": "instrument",
+                  "instrumentId": "nav-display"
                 }
               ]
             }
           ]
         },
         {
-          "id": "s3og5cv",
+          "id": "9vxvddr",
           "type": "split",
           "splitDirection": "vertical",
-          "splitRatio": 0.49271471321024624,
+          "splitRatio": 0.824574519033098,
           "children": [
             {
-              "id": "521nbr9",
-              "type": "instrument",
-              "instrumentId": "nav-display"
+              "id": "pkebcov",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.20543375478086784,
+              "children": [
+                {
+                  "id": "ngnpy0p",
+                  "type": "split",
+                  "splitDirection": "vertical",
+                  "splitRatio": 0.5,
+                  "children": [
+                    {
+                      "id": "1bve8u8",
+                      "type": "empty"
+                    },
+                    {
+                      "id": "8kox6di",
+                      "type": "instrument",
+                      "instrumentId": "airspeed"
+                    }
+                  ]
+                },
+                {
+                  "id": "tlxoc13",
+                  "type": "instrument",
+                  "instrumentId": "aircraft-3d"
+                }
+              ]
             },
             {
-              "id": "bcix5dr",
+              "id": "ftc5z1a",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.5,
+              "children": [
+                {
+                  "id": "gzhlnog",
+                  "type": "instrument",
+                  "instrumentId": "altitude"
+                },
+                {
+                  "id": "isbepf8",
+                  "type": "instrument",
+                  "instrumentId": "vertical-speed"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "19jiodm",
+      "type": "split",
+      "splitDirection": "vertical",
+      "splitRatio": 0.5880806763634979,
+      "children": [
+        {
+          "id": "1qx0nw5",
+          "type": "split",
+          "splitDirection": "horizontal",
+          "splitRatio": 0.3975573926921938,
+          "children": [
+            {
+              "id": "de00n4m",
+              "type": "split",
+              "splitDirection": "vertical",
+              "splitRatio": 0.43039093964648084,
+              "children": [
+                {
+                  "id": "cvel2cf",
+                  "type": "empty"
+                },
+                {
+                  "id": "bx7vgah",
+                  "type": "instrument",
+                  "instrumentId": "graph-g"
+                }
+              ]
+            },
+            {
+              "id": "yfid05t",
               "type": "instrument",
-              "instrumentId": "engine-display"
+              "instrumentId": "graph-alt"
+            }
+          ]
+        },
+        {
+          "id": "qaladee",
+          "type": "split",
+          "splitDirection": "vertical",
+          "splitRatio": 0.5,
+          "children": [
+            {
+              "id": "4a0zdhh",
+              "type": "instrument",
+              "instrumentId": "graph-cas"
+            },
+            {
+              "id": "ue3237n",
+              "type": "instrument",
+              "instrumentId": "graph-alt"
             }
           ]
         }

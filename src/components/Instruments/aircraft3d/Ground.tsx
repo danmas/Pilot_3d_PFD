@@ -3,9 +3,13 @@
  * Ground.tsx — бесконечная земля для 3D-сцены «Самолёт».
  *
  * Большой круглый диск (CircleGeometry), который:
- *  • Следует за самолётом (всегда под ним по XZ)
- *  • Опускается по высоте (RAltitude)
+ *  • Следит за самолётом по XZ (как WorldGroup)
+ *  • Опускается синхронно с WorldGroup — по aircraftPosition.y, а не по alt
  *  • Плавно растворяется к краям через шейдер — нет видимой границы
+ *
+ * ВАЖНО: GroundDisc НЕ внутри WorldGroup. WorldGroup сдвигает мир на
+ * -aircraftPosition, но Runway/Trees/RedTree компенсируют этот сдвиг обратно.
+ * GroundDisc должен двигаться параллельно с ними — используем ту же формулу.
  *
  * Рендерится ДО HorizonSphere (renderOrder −2), чтобы прозрачные края
  * корректно накладывались на землю сферы.
@@ -13,7 +17,6 @@
 import { useMemo, useEffect, useRef, memo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { telemetryRef } from '../../../telemetryRef';
 import { aircraftPosition } from './aircraftPosition';
 
 /* ── Shaders for seamless ground disc ── */
@@ -39,7 +42,7 @@ const GROUND_FRAG = /* glsl */ `
   }
 `;
 
-const DISC_RADIUS = 600;
+const DISC_RADIUS = 5000;
 
 export const GroundDisc: React.FC = memo(() => {
   const groupRef = useRef<THREE.Group>(null);
@@ -73,24 +76,19 @@ export const GroundDisc: React.FC = memo(() => {
     [geometry, material],
   );
 
-  /* ── Follow aircraft XZ + altitude Y ── */
+  /* ── Follow aircraft XZ + altitude Y (via aircraftPosition) ── */
   useFrame(() => {
     const g = groupRef.current;
     if (!g) return;
-    const f = telemetryRef.current;
-    if (!f) return;
 
     // Follow aircraft horizontal position
     g.position.x = aircraftPosition.x;
     g.position.z = aircraftPosition.z;
 
-    // Altitude → ground drops as aircraft climbs
-    const alt =
-      typeof f.RAltitude === 'number' && Number.isFinite(f.RAltitude)
-        ? f.RAltitude
-        : 0;
-    const targetY = -6 - alt / 150;
-    g.position.y += (targetY - g.position.y) * 0.04;
+    // Y: follow aircraftPosition.y (same as WorldGroup offset)
+    // so ground descends at the same rate as the world shifts
+    const targetY = -6 - aircraftPosition.y;
+    g.position.y += (targetY - g.position.y) * 0.06;
   });
 
   return (
@@ -99,6 +97,7 @@ export const GroundDisc: React.FC = memo(() => {
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -6, 0]}
         renderOrder={-2}
+        frustumCulled={false}
         material={material}
         geometry={geometry}
       />

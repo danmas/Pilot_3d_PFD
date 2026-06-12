@@ -19,6 +19,10 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
 import { aircraftControlsRef } from '../../../aircraftControlsRef';
+import sceneConfig from './sceneConfig.json';
+
+const SC = sceneConfig.camera;
+const PR = sceneConfig.projection;
 
 /* ──────────────── Preset camera positions ──────────────── */
 export interface CameraPreset {
@@ -26,14 +30,20 @@ export interface CameraPreset {
   target: [number, number, number];
 }
 
-export const CAMERA_PRESETS: Record<string, CameraPreset> = {
-  chase:  { position: [0, 4, 12],    target: [0, 0, 0] },  // behind & above
-  top:    { position: [0, 16, 0.5],  target: [0, 0, 0] },  // top-down
-  side:   { position: [14, 2, 0],    target: [0, 0, 0] },  // side view
-  cockpit:{ position: [0, 0.5, -1.5], target: [0, 0, -20] }, // first person
-};
+function presetsFromConfig(): Record<string, CameraPreset> {
+  const out: Record<string, CameraPreset> = {};
+  for (const [key, val] of Object.entries(SC.presets)) {
+    out[key] = {
+      position: [val.position[0], val.position[1], val.position[2]],
+      target: [val.target[0], val.target[1], val.target[2]],
+    };
+  }
+  return out;
+}
 
-export const DEFAULT_PRESET = 'chase';
+export const CAMERA_PRESETS = presetsFromConfig();
+
+export const DEFAULT_PRESET = SC.defaultPreset;
 
 /* ──────────────── Imperative handle ──────────────── */
 export interface CameraControls {
@@ -54,12 +64,12 @@ export const PROJECTION_LABELS: Record<ProjectionType, string> = {
 
 /* ──────────────── Internal state ──────────────── */
 /** Half-size of orthographic frustum (world units) */
-const ORTHO_SIZE = 12;
+const ORTHO_SIZE = SC.orthoSize;
 /** Zoom limits */
-const MIN_DIST = 3;
-const MAX_DIST = 50;
+const MIN_DIST = SC.minDist;
+const MAX_DIST = SC.maxDist;
 /** Mouse drag sensitivity (radians per pixel) */
-const DRAG_SENSITIVITY = 0.006;
+const DRAG_SENSITIVITY = SC.dragSensitivity;
 
 const CameraController = forwardRef<CameraControls>((_props, ref) => {
   const { camera, size, gl } = useThree();

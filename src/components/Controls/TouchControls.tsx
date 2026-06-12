@@ -1,13 +1,14 @@
 /**
  * TouchControls.tsx — композит джойстиков для мобильного управления самолётом.
  *
- * Левая сторона (красный): ThrottleJoystick — рыскание (X) + дельта газа (Y, пружина).
+ * Левая сторона (красный): ThrottleJoystick — рыскание (X).
  *   Горизонтальное движение → рыскание (yaw).
- *   Вертикальное движение → приращение газа (throttle 0..1, фиксируется отдельно).
+ *   Throttle — НЕ через джойстик, а тапом/свайпом по вертикальному индикатору.
  *
  * Правая сторона (синий): Joystick — крен (X) + тангаж (Y).
  *
- * Справа от левого джойстика — вертикальный индикатор положения рычага газа.
+ * Слева — вертикальный индикатор положения РУД (0..100%).
+ * Тап или свайп по нему устанавливает положение РУД.
  *
  * Передаёт значения напрямую в aircraftControlsRef (модульный ref),
  * который читается в AircraftModel.useFrame() на каждом кадре.
@@ -22,18 +23,18 @@ const MAX_PITCH = 45;  // макс тангаж ±45°
 const MAX_ROLL  = 60;  // макс крен ±60°
 const MAX_YAW   = 90;  // макс рыскание ±90°
 
-/** Чувствительность газа: сколько доли (0..1) добавлять при полном отклонении */
-const THROTTLE_SENSITIVITY = 0.003;
-
 const TouchControls: React.FC = memo(() => {
   // Локальный стейт для визуального положения джойстиков
   const [leftJoy, setLeftJoy] = useState({ x: 0, y: 0 });     // roll + pitch (синий)
-  const [rightJoy, setRightJoy] = useState({ x: 0, y: 0 });   // yaw + throttle delta (красный)
-  // Throttle — фиксированное положение 0..1, меняем только дельтой
-  const [throttle, setThrottle] = useState(0.5); // стартуем с 50%
+  const [rightJoy, setRightJoy] = useState({ x: 0, y: 0 });   // yaw (красный, только X)
+  // Throttle — фиксированное положение 0..1, устанавливается тапом по столбику
+  const [throttle, setThrottle] = useState(0.5);
 
   const [manualMsg, setManualMsg] = useState(false);
   const manualActivated = useRef(false);
+
+  // Refs for throttle indicator (touch hit area)
+  const throttleRef = useRef<HTMLDivElement>(null);
 
   const writeOverride = useCallback(
     (pitch: number, roll: number, yaw: number, throttleVal: number) => {
@@ -49,7 +50,7 @@ const TouchControls: React.FC = memo(() => {
       ref.pitch = pitch;
       ref.roll = roll;
       ref.yaw = yaw;
-      ref.throttle = throttleVal;
+      ref.throttle = throttleVal; // 0..1, положение РУД
     },
     [],
   );
@@ -75,8 +76,8 @@ const TouchControls: React.FC = memo(() => {
   const onLeftChange = useCallback(
     (x: number, y: number) => {
       setLeftJoy({ x, y });
-      const pitch = -y * MAX_PITCH;  // инвертирован
-      const roll  = -x * MAX_ROLL;  // инвертирован
+      const pitch = -y * MAX_PITCH;
+      const roll  = -x * MAX_ROLL;
       if (x === 0 && y === 0 && rightJoy.x === 0) {
         clearOverride();
       } else {
@@ -86,40 +87,74 @@ const TouchControls: React.FC = memo(() => {
     [rightJoy, throttle, writeOverride, clearOverride],
   );
 
-  // Right joystick: yaw (x) + throttle delta (y, spring) — левый на экране
+  // Right joystick: yaw (x) only — левый на экране
   const onRightChange = useCallback(
-    (x: number, dy: number) => {
-      setRightJoy({ x, y: dy });
-
-      // Throttle: приращение от вертикального смещения (пружина → дельта)
-      // dy > 0 = вверх = больше газа
-      let newThrottle = throttle;
-      if (dy !== 0) {
-        newThrottle = Math.max(0, Math.min(1, throttle + dy * THROTTLE_SENSITIVITY * 10));
-      }
-      setThrottle(newThrottle);
+    (x: number, _dy: number) => {
+      setRightJoy({ x, y: 0 });
 
       const yaw = x * MAX_YAW;
       if (x === 0 && leftJoy.x === 0 && leftJoy.y === 0) {
-        writeOverride(0, 0, 0, newThrottle);
+        writeOverride(0, 0, 0, throttle);
       } else {
-        writeOverride(leftJoy.y * MAX_PITCH, leftJoy.x * MAX_ROLL, yaw, newThrottle);
+        writeOverride(leftJoy.y * MAX_PITCH, leftJoy.x * MAX_ROLL, yaw, throttle);
       }
     },
     [leftJoy, throttle, writeOverride],
   );
 
-  // Throttle indicator: вертикальная полоса справа от левого джойстика
+  // Throttle indicator: touch to set position
+  const handleThrottleInteraction = useCallback(
+    (clientY: number) => {
+      const el = throttleRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const relY = 1 - (clientY - rect.top) / rect.height;
+      const newThrottle = Math.max(0, Math.min(1, relY));
+      setThrottle(newThrottle);
+      // Всегда через writeOverride — чтобы FDM не засыпал
+      const ref = aircraftControlsRef.current;
+      writeOverride(ref.pitch, ref.roll, ref.yaw, newThrottle);
+    },
+    [writeOverride],
+  );
+
+  const onThrottlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleThrottleInteraction(e.clientY);
+    },
+    [handleThrottleInteraction],
+  );
+
+  const onThrottlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      // Only update if pointer is pressed
+      if (e.buttons !== 1) return;
+      e.preventDefault();
+      handleThrottleInteraction(e.clientY);
+    },
+    [handleThrottleInteraction],
+  );
+
+  // Throttle indicator value
   const throttlePercent = Math.round(throttle * 100);
 
   return (
     <div className="absolute inset-0 pointer-events-none z-50">
-      {/* Left area: ThrottleJoystick + indicator */}
+      {/* Left area: ThrottleJoystick (yaw only) + throttle indicator */}
       <div className="absolute left-4 bottom-20 flex items-end gap-3 pointer-events-auto">
-        <ThrottleJoystick value={rightJoy} onChange={onRightChange} size={140} />
-        {/* Throttle indicator column */}
+        <ThrottleJoystick
+          value={{ x: rightJoy.x, y: 0 }}
+          onChange={onRightChange}
+          size={140}
+        />
+        {/* Throttle indicator column — touch to set */}
         <div
-          className="relative"
+          ref={throttleRef}
+          className="relative cursor-pointer"
+          onPointerDown={onThrottlePointerDown}
+          onPointerMove={onThrottlePointerMove}
           style={{
             width: 24,
             height: 140,
@@ -127,6 +162,8 @@ const TouchControls: React.FC = memo(() => {
             borderRadius: 6,
             border: '1px solid rgba(239, 68, 68, 0.3)',
             overflow: 'hidden',
+            userSelect: 'none',
+            touchAction: 'none',
           }}
         >
           {/* Fill bar (bottom-up) */}
@@ -139,7 +176,7 @@ const TouchControls: React.FC = memo(() => {
               height: `${throttlePercent}%`,
               background: 'linear-gradient(to top, #dc2626, #ef4444)',
               borderRadius: '0 0 5px 5px',
-              transition: 'height 0.1s ease-out',
+              transition: 'height 0.08s linear',
             }}
           />
           {/* Tick marks every 25% */}

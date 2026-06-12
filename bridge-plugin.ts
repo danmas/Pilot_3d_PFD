@@ -107,15 +107,15 @@ type RawMonitorState = {
 
 // ── constants ──────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(__dirname, "..");
-const PANEL_CONFIG_CURRENT_PATH = path.join(PROJECT_ROOT, "panel-config-current.json");
+const PROJECT_ROOT = path.resolve(__dirname);
+const PANEL_CONFIG_CURRENT_PATH = path.join(__dirname, "data", "panels", "panel-config-current.json");
+const PANELS_DIR = path.join(__dirname, "data", "panels");
 const SIMULATOR_CONFIG_PATH = path.join(PROJECT_ROOT, "simulator-config.json");
 const PANEL_MENU_PATH = path.join(__dirname, "panel-menu.json");
 const VIEWER_DIR = path.join(__dirname, "public", "viewer");
 const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
-const MODELS_JSON_PATH = path.join(__dirname, "public", "data", "aircraft3d", "models", "models.json");
 
-// Sync marker: 0x544e = "TN" (tnparserrt marker packet)
+// Sync marker
 const SYNC_MARKER = 0x544e;
 
 // ── bridge state ───────────────────────────────────────────────────
@@ -127,6 +127,7 @@ let currentFrame: CurrentFrame | null = null;
 let currentTelemetryFrame: TelemetryFrame | null = null;
 let currentPfdFrame: TelemetryFrame | null = null;
 let firstReceiveTime: number | undefined;
+let latencyFrameId = 0; // монотонный счётчик для latency measurement
 let bridgeUdpHost = "0.0.0.0";
 let bridgeUdpPort = 14443;
 let bridgeUdpActive = false;
@@ -229,17 +230,53 @@ let rawLastError: string | undefined;
 let decodeSchema: DecodeSchema | null = null;
 let decodeSchemaPort: number | null = null;
 
-function ensureDecodeSchema(): DecodeSchema {
+function ensureDecodeSchema(): DecodeSchema | null {
   if (decodeSchema && decodeSchemaPort === bridgeUdpPort) return decodeSchema;
   console.log("[BRIDGE] Loading decode schema from out.json...");
   const outPath = path.resolve(PROJECT_ROOT, "out.json");
-  const configs = loadOutJson(__dirname, outPath);
+
+  // ── Проверка наличия out.json ──
+  if (!fs.existsSync(outPath)) {
+    const errMsg =
+      "╔═══════════════════════════════════════════════════════════════╗\n" +
+      "║  ❌  Файл out.json НЕ НАЙДЕН в корне проекта!               ║\n" +
+      "║                                                               ║\n" +
+      "║  Декодирование телеметрии НЕВОЗМОЖНО без out.json.           ║\n" +
+      "║  Raw Data будет отображаться, но Decoded Parameters — ПУСТО. ║\n" +
+      "║                                                               ║\n" +
+      "║  Скопируй out.json из Windows-проекта в:                      ║\n" +
+      "║    " + outPath + "\n" +
+      "║                                                               ║\n" +
+      "║  Или настрой UDP_CONFIG в .env:                               ║\n" +
+      "║    UDP_CONFIG=/путь/к/out.json                                ║\n" +
+      "╚═══════════════════════════════════════════════════════════════╝";
+    console.error("\n" + errMsg + "\n");
+    lastError = errMsg;
+    return null;
+  }
+
+  let configs: StreamConfig[];
+  try {
+    configs = loadOutJson(__dirname, outPath);
+  } catch (err) {
+    const parseMsg = `❌ Ошибка загрузки out.json: ${err instanceof Error ? err.message : String(err)}`;
+    console.error("\n" + parseMsg + "\n");
+    lastError = parseMsg;
+    return null;
+  }
+
   const stream = findStreamForPort(configs, bridgeUdpPort);
   if (!stream) {
-    throw new Error(
-      `[BRIDGE] No stream configured for port ${bridgeUdpPort} in out.json. ` +
-      `Check the JSON for a section with "port": "${bridgeUdpPort}".`
-    );
+    const errMsg =
+      "╔══════════════════════════════════════════════════════════════════╗\n" +
+      "║  ❌  В out.json не найден stream для порта " + String(bridgeUdpPort).padEnd(30) + "║\n" +
+      "║                                                                  ║\n" +
+      "║  Проверь, что в файле есть секция с \"port\": \"" + bridgeUdpPort + "\"      ║\n" +
+      "║  и \"state\": \"on\".                                                ║\n" +
+      "╚══════════════════════════════════════════════════════════════════╝";
+    console.error("\n" + errMsg + "\n");
+    lastError = errMsg;
+    return null;
   }
   console.log(`[BRIDGE] Found ${stream.slots.length} slots for port ${bridgeUdpPort}`);
   decodeSchema = buildDecodeSchema(stream.slots, FIELD_CATALOG);
@@ -320,9 +357,14 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
         }
 
         if (!currentFrame) {
-          const decoded = decodePayload(message, schema);
-          if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, message, now);
-          publishDecodedFrame(decoded, now, captureDir);
+          if (schema) {
+            const decoded = decodePayload(message, schema);
+            if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, message, now);
+            publishDecodedFrame(decoded, now, captureDir);
+          } else {
+            if (rawUdpPort === bridgeUdpPort) feedRawData(null, message, now);
+            publishDecodedFrame(message.length > 0 ? {} : {}, now, captureDir);
+          }
           return;
         }
 
@@ -333,9 +375,14 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
         const frame = currentFrame;
         currentFrame = null;
         const payload = Buffer.concat(frame.chunks).subarray(0, frame.totalBytes);
-        const decoded = decodePayload(payload, schema);
-        if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, payload, now);
-        publishDecodedFrame(decoded, now, captureDir, frame.counter);
+        if (schema) {
+          const decoded = decodePayload(payload, schema);
+          if (rawUdpPort === bridgeUdpPort) feedRawData(decoded, payload, now);
+          publishDecodedFrame(decoded, now, captureDir, frame.counter);
+        } else {
+          if (rawUdpPort === bridgeUdpPort) feedRawData(null, payload, now);
+          publishDecodedFrame(payload.length > 0 ? {} : {}, now, captureDir, frame.counter);
+        }
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
         console.error(`[UDP ERROR] ${lastError}`);
@@ -353,7 +400,11 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
       const addr = socket.address();
       bridgeUdpActive = true;
       console.log(`[BRIDGE] UDP udp://${addr.address}:${addr.port}`);
-      console.log(`[BRIDGE] schema ${schema.mappings.length} fields / ${schema.frameBytes} bytes per frame (out.json→field-catalog.ts)`);
+      if (schema) {
+        console.log(`[BRIDGE] schema ${schema.mappings.length} fields / ${schema.frameBytes} bytes per frame (out.json→field-catalog.ts)`);
+      } else {
+        console.error(`[BRIDGE] ❌ Декодирование отключено — out.json не загружен`);
+      }
       console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
       publishStatusUpdates();
     });
@@ -474,6 +525,17 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
           if (req.method === "GET" && url.pathname === "/api/source/status") {
             sendJson(res, getSourceStatus()); return;
           }
+          if (req.method === "GET" && url.pathname === "/api/source/config") {
+            try {
+              const configPath = path.join(__dirname, "config.json");
+              if (fs.existsSync(configPath)) {
+                const raw = fs.readFileSync(configPath, "utf-8");
+                const config = JSON.parse(raw);
+                sendJson(res, config); return;
+              }
+            } catch { /* fallthrough */ }
+            sendJson(res, { udp: { host: bridgeUdpHost, port: bridgeUdpPort } }); return;
+          }
           if (req.method === "POST" && url.pathname === "/api/source/config") {
             const body = await readRequestBody(req);
             const nextHost = typeof body?.host === "string" && body.host.trim().length > 0
@@ -485,6 +547,11 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             if (!Number.isFinite(nextPort) || nextPort < 1 || nextPort > 65535) {
               sendJson(res, { error: "Invalid port" }, 400); return;
             }
+            // Сохраняем в config.json — сработает и для dev, и для build
+            try {
+              const configPath = path.join(__dirname, "config.json");
+              fs.writeFileSync(configPath, JSON.stringify({ udp: { host: nextHost, port: nextPort } }, null, 2) + "\n", "utf-8");
+            } catch { /* non-critical */ }
             reconfigureSource(nextHost, nextPort);
             sendJson(res, getSourceStatus()); return;
           }
@@ -512,12 +579,168 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             sendJson(res, menu); return;
           }
 
+          // API: Panel profiles (data/panels/)
+          const PANELS_PREFIX = "/api/panels/";
+          if (url.pathname?.startsWith(PANELS_PREFIX)) {
+            console.log("[api] panels request:", req.method, url.pathname);
+            const profileName = decodeURIComponent(url.pathname.slice(PANELS_PREFIX.length));
+
+            // GET /api/panels/ — list all profiles
+            if (req.method === "GET" && !profileName) {
+              try {
+                fs.mkdirSync(PANELS_DIR, { recursive: true });
+                const files = fs.readdirSync(PANELS_DIR).filter(f => f.endsWith(".json"));
+                console.log("[api] panels files:", files, "dir:", PANELS_DIR);
+                const profiles = files.map(f => ({
+                  name: f.replace(/\.json$/, ""),
+                  path: f,
+                  updatedAt: fs.statSync(path.join(PANELS_DIR, f)).mtime.toISOString(),
+                }));
+                console.log("[api] panels result:", JSON.stringify(profiles));
+                sendJson(res, profiles); return;
+              } catch {
+                sendJson(res, { error: "cannot list panels" }, 500); return;
+              }
+            }
+
+            // GET /api/panels/:name — load profile
+            if (req.method === "GET" && profileName) {
+              const filePath = path.join(PANELS_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "panel not found" }, 404); return;
+                }
+                const raw = fs.readFileSync(filePath, "utf8");
+                const parsed = JSON.parse(raw);
+                sendJson(res, { name: profileName, data: parsed }); return;
+              } catch {
+                sendJson(res, { error: "cannot read panel" }, 500); return;
+              }
+            }
+
+            // PUT /api/panels/:name — save profile
+            if (req.method === "PUT" && profileName) {
+              const body = await readRequestBody(req);
+              const data = body?.data;
+              if (!data || !isPanelConfigNode(data)) {
+                sendJson(res, { error: "invalid panel config" }, 400); return;
+              }
+              try {
+                fs.mkdirSync(PANELS_DIR, { recursive: true });
+                fs.writeFileSync(path.join(PANELS_DIR, profileName + ".json"), JSON.stringify(data, null, 2) + "\n", "utf8");
+                sendJson(res, { ok: true, name: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot write panel" }, 500); return;
+              }
+            }
+
+            // DELETE /api/panels/:name — delete profile
+            if (req.method === "DELETE" && profileName) {
+              const filePath = path.join(PANELS_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "panel not found" }, 404); return;
+                }
+                fs.unlinkSync(filePath);
+                sendJson(res, { ok: true, name: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot delete panel" }, 500); return;
+              }
+            }
+
+            sendJson(res, { error: "method not allowed" }, 405); return;
+          }
+
+          // API: Profiles (data/profiles/)
+          const PROFILES_DIR = path.join(__dirname, "data", "profiles");
+          const PROFILES_PREFIX = "/api/profiles/";
+          if (url.pathname?.startsWith(PROFILES_PREFIX)) {
+            console.log("[api] profiles request:", req.method, url.pathname);
+            const profileName = decodeURIComponent(url.pathname.slice(PROFILES_PREFIX.length));
+
+            // GET /api/profiles/ — list all profiles
+            if (req.method === "GET" && !profileName) {
+              try {
+                fs.mkdirSync(PROFILES_DIR, { recursive: true });
+                const files = fs.readdirSync(PROFILES_DIR).filter(f => f.endsWith(".json"));
+                const profiles = files.map(f => {
+                  const raw = fs.readFileSync(path.join(PROFILES_DIR, f), "utf8");
+                  try {
+                    const parsed = JSON.parse(raw);
+                    return {
+                      id: f.replace(/\.json$/, ""),
+                      name: parsed.name || f.replace(/\.json$/, ""),
+                      panelConfigName: parsed.panelConfigName || null,
+                      updatedAt: fs.statSync(path.join(PROFILES_DIR, f)).mtime.toISOString(),
+                    };
+                  } catch {
+                    return null;
+                  }
+                }).filter(Boolean);
+                sendJson(res, profiles); return;
+              } catch {
+                sendJson(res, { error: "cannot list profiles" }, 500); return;
+              }
+            }
+
+            // GET /api/profiles/:name — load profile
+            if (req.method === "GET" && profileName) {
+              const filePath = path.join(PROFILES_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "profile not found" }, 404); return;
+                }
+                const raw = fs.readFileSync(filePath, "utf8");
+                const parsed = JSON.parse(raw);
+                // Add current config status
+                const panelConfigName = parsed.panelConfigName || null;
+                sendJson(res, { id: profileName, name: parsed.name || profileName, panelConfigName, updatedAt: fs.statSync(filePath).mtime.toISOString() }); return;
+              } catch {
+                sendJson(res, { error: "cannot read profile" }, 500); return;
+              }
+            }
+
+            // PUT /api/profiles/:name — save profile
+            if (req.method === "PUT" && profileName) {
+              const body = await readRequestBody(req);
+              const name = typeof body?.name === "string" ? body.name : profileName;
+              const panelConfigName = typeof body?.panelConfigName === "string" ? body.panelConfigName : null;
+              try {
+                fs.mkdirSync(PROFILES_DIR, { recursive: true });
+                fs.writeFileSync(path.join(PROFILES_DIR, profileName + ".json"),
+                  JSON.stringify({ name, panelConfigName }, null, 2) + "\n", "utf8");
+                sendJson(res, { ok: true, id: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot write profile" }, 500); return;
+              }
+            }
+
+            // DELETE /api/profiles/:name — delete profile
+            if (req.method === "DELETE" && profileName) {
+              const filePath = path.join(PROFILES_DIR, profileName + ".json");
+              try {
+                if (!fs.existsSync(filePath)) {
+                  sendJson(res, { error: "profile not found" }, 404); return;
+                }
+                fs.unlinkSync(filePath);
+                sendJson(res, { ok: true, id: profileName }); return;
+              } catch {
+                sendJson(res, { error: "cannot delete profile" }, 500); return;
+              }
+            }
+
+            sendJson(res, { error: "method not allowed" }, 405); return;
+          }
+
           // API: capture
           if (req.method === "GET" && url.pathname === "/api/capture/status") {
             sendJson(res, getCaptureStatus(captureDir)); return;
           }
           if (req.method === "POST" && url.pathname === "/api/capture/start") {
-            sendJson(res, startCapture(captureDir)); return;
+            const body = await readRequestBody(req);
+            const source = body?.source || "unknown";
+            const duration = body?.duration || "capture";
+            sendJson(res, startCapture(captureDir, source, duration)); return;
           }
           if (req.method === "POST" && url.pathname === "/api/capture/stop") {
             sendJson(res, stopCapture()); return;
@@ -627,18 +850,6 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             sendJson(res, currentPfdFrame); return;
           }
 
-          // API: aircraft3d models manifest
-          if (req.method === "PUT" && url.pathname === "/api/aircraft3d/models") {
-            const body = await readRequestBody(req);
-            const models = (body as { models?: unknown }).models;
-            if (!Array.isArray(models)) {
-              sendJson(res, { error: "invalid models array" }, 400); return;
-            }
-            fs.mkdirSync(path.dirname(MODELS_JSON_PATH), { recursive: true });
-            fs.writeFileSync(MODELS_JSON_PATH, JSON.stringify({ models }, null, 2) + "\n", "utf8");
-            sendJson(res, { ok: true, count: models.length }); return;
-          }
-
           // API: raw monitor
           if (req.method === "GET" && url.pathname === "/api/raw/status") {
             sendJson(res, getRawMonitorState()); return;
@@ -733,9 +944,16 @@ function publishDecodedFrame(
   counter?: number,
 ): TelemetryFrame {
   receivedFrames += 1;
+  latencyFrameId += 1;
 
   // Добавляем расчётные поля (dec_*)
   const enriched = applyDecFormulas(decoded);
+  const tDecodedMs = Date.now();
+
+  // DIAG: latency fields
+  if (latencyFrameId === 1 || latencyFrameId % 1000 === 0) {
+    console.log(`[LATENCY] frame ${latencyFrameId} _t0_ms=${receivedAtMs} _t_decode_ms=${tDecodedMs}`);
+  }
 
   if (firstReceiveTime === undefined) firstReceiveTime = receivedAtMs;
   const timeMs = firstReceiveTime === undefined ? 0 : receivedAtMs - firstReceiveTime;
@@ -748,6 +966,9 @@ function publishDecodedFrame(
     replayTimeMs: null,
     receivedAt: new Date(receivedAtMs).toISOString(),
     source,
+    _t0_ms: receivedAtMs,
+    _t_decode_ms: tDecodedMs,
+    _frame_id: latencyFrameId,
     ...enriched,
   };
 
@@ -979,10 +1200,10 @@ function getBlackboxStatus(_dir: string): object {
   };
 }
 
-function startCapture(captureDir: string): object {
+function startCapture(captureDir: string, source = "unknown", duration = "capture"): object {
   if (captureStream) return getCaptureStatus(captureDir);
   fs.mkdirSync(captureDir, { recursive: true });
-  capturePath = createCapturePath(captureDir);
+  capturePath = createCapturePath(captureDir, source, duration);
   captureFrames = 0;
   captureStream = fs.createWriteStream(capturePath, { flags: "wx", encoding: "utf8" });
   captureEnabled = true;
@@ -1068,24 +1289,24 @@ function writeCaptureFrame(frame: TelemetryFrame, captureDir: string): void {
   captureFrames += 1;
 }
 
-function createCapturePath(dir: string, tag = "live"): string {
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  return createUniqueJsonlPath(dir, ts, tag);
+function createCapturePath(dir: string, source = "unknown", duration = "capture"): string {
+  const safeSource = source.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const safeDuration = duration.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return createUniquePfdrecPath(dir, `${safeSource}_${safeDuration}`);
 }
 
 function createBlackboxPath(dir: string): string {
   if (capturePath) {
-    const base = path.basename(capturePath, ".jsonl").replace(/_live(\_\d{3})?$/, "");
-    return createUniqueJsonlPath(dir, base, "sim_blackbox");
+    const base = path.basename(capturePath, ".pfdrec");
+    return createUniquePfdrecPath(dir, `${base}_sim_blackbox`);
   }
-  return createCapturePath(dir, "sim_blackbox");
+  return createCapturePath(dir, "unknown", "sim_blackbox");
 }
 
-function createUniqueJsonlPath(dir: string, base: string, tag: string): string {
-  const safeTag = tag.replace(/[^a-zA-Z0-9_-]/g, "_");
+function createUniquePfdrecPath(dir: string, base: string): string {
   for (let i = 0; i < 1000; i++) {
     const suffix = i === 0 ? "" : `_${String(i).padStart(3, "0")}`;
-    const p = path.join(dir, `${base}_${safeTag}${suffix}.jsonl`);
+    const p = path.join(dir, `${base}${suffix}.pfdrec`);
     if (!fs.existsSync(p)) return p;
   }
   throw new Error("Cannot allocate unique capture file name");
@@ -1105,8 +1326,8 @@ function runSimulatorProfile(
 
   fs.mkdirSync(captureDir, { recursive: true });
   const presetTag = preset?.id ?? "custom_initial";
-  const telemetryPath = createCapturePath(captureDir, `profile_${profile.id}_${presetTag}_telemetry`);
-  const blackboxOutputPath = createCapturePath(captureDir, `profile_${profile.id}_${presetTag}_blackbox`);
+  const telemetryPath = createCapturePath(captureDir, `profile_${profile.id}`, `${presetTag}_telemetry`);
+  const blackboxOutputPath = createCapturePath(captureDir, `profile_${profile.id}`, `${presetTag}_blackbox`);
   const telemetryLines: string[] = [];
   const blackboxLines: string[] = [];
 
@@ -1154,8 +1375,8 @@ function runSimulatorProfile(
     preset,
     initialConfig,
     frames: steps,
-    telemetryRecordingId: path.basename(telemetryPath, ".jsonl"),
-    blackboxRecordingId: path.basename(blackboxOutputPath, ".jsonl"),
+    telemetryRecordingId: path.basename(telemetryPath, ".pfdrec"),
+    blackboxRecordingId: path.basename(blackboxOutputPath, ".pfdrec"),
     telemetryPath,
     blackboxPath: blackboxOutputPath,
     schema: {
@@ -1195,8 +1416,8 @@ function controlsForProfile(profileId: string, t: number, currentThrottle: numbe
 function listRecordings(dir: string): Recording[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
-    .filter(f => f.endsWith(".jsonl") && !f.includes("_blackbox"))
-    .map(f => { const fp = path.join(dir, f); const s = fs.statSync(fp); return { id: f.replace(/\.jsonl$/i, ""), fileName: f, path: fp, bytes: s.size, modifiedAt: s.mtime.toISOString() }; })
+    .filter(f => f.endsWith(".pfdrec") && !f.includes("_blackbox"))
+    .map(f => { const fp = path.join(dir, f); const s = fs.statSync(fp); return { id: f.replace(/\.pfdrec$/i, ""), fileName: f, path: fp, bytes: s.size, modifiedAt: s.mtime.toISOString() }; })
     .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
 }
 

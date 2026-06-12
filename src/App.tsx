@@ -14,12 +14,29 @@ import { TelemetryProvider } from './context/TelemetryContext';
 import { UI_SETTINGS } from './ui-settings';
 import { telemetryRef } from './telemetryRef';
 import { aircraftControlsRef } from './aircraftControlsRef';
+import {
+  getProfiles as getPanelProfiles,
+  saveProfile as savePanelProfile,
+  loadProfile as loadPanelProfile,
+  saveCurrentProfile as saveCurrentPanelProfile,
+  CURRENT_PROFILE_ID,
+} from './stores/panelStore';
+import {
+  getProfiles as getServerProfiles,
+  loadProfile as loadServerProfile,
+  saveProfile as saveServerProfile,
+} from './stores/profileStore';
+import type { PanelProfile } from './stores/profileStore';
+import { LatencyOverlay, addSample } from './components/LatencyMonitor';
+import { ChartsView } from '../packages/realtime-charts/src/views/charts-view.jsx';
+import { FIELD_CATALOG } from '../field-catalog';
+import { APP_VERSION } from './version';
 
 const Aircraft3DInstrument = React.lazy(() => import('./components/Instruments/LazyAircraft3DInstrument'));
 
 type DataMode = 'sample' | 'live' | 'replay';
 type ConnStatus = 'disconnected' | 'connecting' | 'receiving' | 'waiting';
-type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings' | 'aircraft3d';
+type ViewPage = 'hub' | 'pfd' | 'rawMonitor' | 'panelBuilder' | 'settings' | 'aircraft3d' | 'charts';
 
 type SourceStatus = {
   udpHost: string;
@@ -104,6 +121,11 @@ export default function App() {
   const [profileRunResult, setProfileRunResult] = useState<SimulatorProfileRunResult | null>(null);
   const [activeProfileReplay, setActiveProfileReplay] = useState<ActiveProfileReplay | null>(null);
 
+  // ── Profile state ──
+  const [profiles, setProfiles] = useState<PanelProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('default');
+  const [profilesLoading, setProfilesLoading] = useState(true);
+
   const frameRef = useRef(frameIndex);
   const eventSourceRef = useRef<EventSource | null>(null);
   const pressedKeys = useRef<Set<string>>(new Set());
@@ -158,9 +180,28 @@ export default function App() {
     es.addEventListener('pfd-frame', (event) => {
       try {
         const data: TelemetryFrame = JSON.parse(event.data);
+        const browserRecvMs = performance.timeOrigin + performance.now();
         telemetryRef.current = data;
         setFrame(data); setLiveSeq(data.seq ?? null);
         setConnStatus('receiving'); setError(null);
+
+        // Latency measurement: schedule rAF for T₁ (paint time)
+        // Skip if tab is in background — rAF is throttled/frozen there
+        if (document.visibilityState === 'hidden') return;
+        const t0 = typeof data._t0_ms === 'number' ? data._t0_ms : 0;
+        const tDecode = typeof data._t_decode_ms === 'number' ? data._t_decode_ms : 0;
+        const frameId = typeof data._frame_id === 'number' ? data._frame_id : 0;
+        requestAnimationFrame(() => {
+          const tPaintMs = performance.timeOrigin + performance.now();
+          addSample({
+            frame_id: frameId,
+            t_recv_ms: t0,
+            t_decoded_ms: tDecode,
+            t_paint_ms: tPaintMs,
+            processing_ms: tDecode - t0,
+            display_ms: tPaintMs - t0,
+          });
+        });
       } catch { setError('Failed to parse pfd-frame'); }
     });
     es.addEventListener('status', (event) => {
@@ -262,6 +303,51 @@ export default function App() {
       void loadSimulatorConfig();
     }
   }, [currentView, loadSimulatorConfig]);
+
+  // ── Load profiles on mount ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await getServerProfiles();
+        if (cancelled) return;
+        setProfiles(list);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setProfilesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Switch profile ──
+  const handleProfileChange = useCallback(async (profileId: string) => {
+    if (profileId === selectedProfileId) return;
+    // 1. Save current panel config to current
+    try {
+      const rootNode = (window as any).__panelBuilderRootNode;
+      if (rootNode) {
+        const json = JSON.stringify(rootNode, null, 2);
+        await saveCurrentPanelProfile(json);
+      }
+    } catch { /* ignore */ }
+
+    // 2. Load new profile
+    const profile = await loadServerProfile(profileId);
+    if (!profile) return;
+
+    // 3. If profile has a panel config linked, load it
+    if (profile.panelConfigName) {
+      const panelJson = await loadPanelProfile(profile.panelConfigName);
+      if (panelJson) {
+        // Trigger panel reload in PanelBuilder on next open
+        (window as any).__pendingPanelLoad = JSON.parse(panelJson);
+      }
+    }
+
+    setSelectedProfileId(profileId);
+  }, [selectedProfileId]);
 
   // ---- Flight Simulator & Recordings Poll ----
   const loadRecordings = useCallback(async () => {
@@ -481,7 +567,12 @@ export default function App() {
 
   const handleStartCapture = async () => {
     try {
-      const res = await fetch('/api/capture/start', { method: 'POST' });
+      const source = sourceStatus?.source || 'unknown';
+      const res = await fetch('/api/capture/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, duration: 'capture' }),
+      });
       if (res.ok) {
         const data = await res.json();
         setIsRecording(data.active);
@@ -615,7 +706,7 @@ export default function App() {
   };
 
   const connStatusColor = { disconnected: 'bg-red-500', connecting: 'bg-yellow-500', waiting: 'bg-yellow-500', receiving: 'bg-green-500' }[connStatus];
-  const connStatusLabel = { disconnected: 'disconnected', connecting: 'connecting...', waiting: 'waiting UDP', receiving: 'receiving UDP' }[connStatus];
+  const connStatusLabel = { disconnected: 'disconnected', connecting: 'connecting...', waiting: `waiting UDP (${sourceStatus?.udpPort ?? '?'})`, receiving: `UDP (${sourceStatus?.udpPort ?? '?'})` }[connStatus];
 
   // ═══════════════════════════════════════════════ HUB VIEW
   if (currentView === 'hub') {
@@ -664,8 +755,8 @@ export default function App() {
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">3D Aircraft</h2>
               <p className="text-white/50 text-sm leading-relaxed">
-                Full-screen 3D aircraft instrument:<br />
-                GLB models, projection modes, orbit camera.
+                Flight visualization:<br />
+                pitch, roll, heading, speed, altitude.
               </p>
               <div className="flex items-center gap-2 mt-4 text-sky-400 text-sm font-medium">
                 <Zap className="w-4 h-4" /> Open 3D &rarr;
@@ -747,15 +838,35 @@ export default function App() {
                 <Zap className="w-4 h-4" /> Open Settings &rarr;
               </div>
             </button>
+
+            {/* Charts Card */}
+            <button
+              onClick={() => setCurrentView('charts')}
+              className="group relative bg-gradient-to-br from-teal-900/40 to-cyan-900/40 border border-teal-500/20 rounded-2xl p-8 text-left hover:border-teal-400/50 hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-teal-500/10"
+            >
+              <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-teal-400 group-hover:animate-pulse" />
+              <div className="p-3 bg-teal-500/20 rounded-xl w-fit mb-5">
+                <Activity className="w-8 h-8 text-teal-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Realtime Charts</h2>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Stacked &amp; Overlay telemetry plots,<br />
+                realtime decimated line charts.
+              </p>
+              <div className="flex items-center gap-2 mt-4 text-teal-400 text-sm font-medium">
+                <Zap className="w-4 h-4" /> Open Charts &rarr;
+              </div>
+            </button>
           </div>
 
           {/* Bottom info */}
           <div className="flex items-center justify-center gap-6 text-white/30 text-xs">
             <span className="flex items-center gap-1.5">
-              <Gauge className="w-3.5 h-3.5" /> source: udp://{sourceStatus?.udpHost ?? '...'}:{sourceStatus?.udpPort ?? '...'}
+              <Gauge className="w-3.5 h-3.5" /> UDP ({sourceStatus?.udpPort ?? '...'})
             </span>
             <span>{sourceStatus?.schema ?? 'telemetry-frame.v1'}</span>
             <span>{sourceStatus?.active ? 'active' : 'inactive'}</span>
+            <span className="text-white/25">v{APP_VERSION}</span>
           </div>
         </div>
       </div>
@@ -794,6 +905,39 @@ export default function App() {
   // ═══════════════════════════════════════════════ RAW MONITOR VIEW
   if (currentView === 'rawMonitor') {
     return <RawMonitor onBack={() => setCurrentView('hub')} />;
+  }
+
+  // ═══════════════════════════════════════════════ CHARTS VIEW
+  if (currentView === 'charts') {
+    // Use monotonic performance.now() as epoch source for chart time.
+    // No frame.timeMs offset — sample loop would cause time to jump backward.
+    const epochMs = performance.timeOrigin + performance.now();
+    return (
+      <div className="h-screen w-screen bg-[#0a0a0f] flex flex-col">
+        {/* Minimal header */}
+        <div className="shrink-0 flex items-center gap-3 bg-black/60 px-4 py-2 border-b border-white/10">
+          <button
+            onClick={() => setCurrentView('hub')}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+            title="Back to Hub"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="p-1.5 bg-teal-500/20 text-teal-400 rounded-lg">
+            <Activity className="w-5 h-5" />
+          </div>
+          <h1 className="text-white font-medium text-base tracking-tight">Realtime Charts</h1>
+          <span className="text-white/30 text-xs ml-auto">stacked / overlay &middot; telemetry-frame.v1</span>
+        </div>
+        <div className="flex-1 min-h-0">
+          <ChartsView
+            frame={frame}
+            epochMs={epochMs}
+            catalog={FIELD_CATALOG}
+          />
+        </div>
+      </div>
+    );
   }
 
   // ═══════════════════════════════════════════════ PANEL BUILDER VIEW
@@ -948,6 +1092,29 @@ export default function App() {
             <div>
               <h1 className="text-white font-medium text-lg tracking-tight">Flight Display</h1>
               <p className="text-white/50 text-sm">saved PanelBuilder layout &middot; telemetry-frame.v1</p>
+            </div>
+
+            {/* ── Profile selector ── */}
+            <div className="h-4 w-[1px] bg-white/10" />
+            <div className="flex items-center gap-1">
+              <select
+                className="bg-white/10 border border-white/10 text-xs text-white rounded px-2 py-1.5 max-w-[160px] cursor-pointer outline-none focus:border-blue-500"
+                value={selectedProfileId}
+                onChange={(e) => void handleProfileChange(e.target.value)}
+                disabled={profilesLoading}
+              >
+                {profilesLoading ? (
+                  <option value="">Loading...</option>
+                ) : profiles.length === 0 ? (
+                  <option value="">No profiles</option>
+                ) : (
+                  profiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.panelConfigName ? ` (${p.panelConfigName})` : ''}
+                    </option>
+                  ))
+                )}
+              </select>
             </div>
           </div>
 
@@ -1321,6 +1488,7 @@ export default function App() {
             </div>
           )}
         </div>
+        <LatencyOverlay />
       </div>
     </div>
   );

@@ -18,6 +18,17 @@ interface Props<TData = unknown> {
   ) => React.ReactNode;
 }
 
+interface PanelMoveSource {
+  widgetId: string;
+  clearSource: () => void;
+}
+
+declare global {
+  interface Window {
+    __panelMoveSource?: PanelMoveSource;
+  }
+}
+
 const newId = () => Math.random().toString(36).substring(2, 9);
 
 export const PanelCanvas = <TData,>({
@@ -30,15 +41,44 @@ export const PanelCanvas = <TData,>({
 }: Props<TData>) => {
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  // Ref для очистки источника (всегда свежий)
+  const clearRef = useRef<() => void>(() => {});
+  clearRef.current = () => onChange({ ...node, type: 'empty', widgetId: undefined });
+
+  // ── Drop handler ───────────────────────────────────────────────────
   usePanelCanvasTouchDrop(canvasRef, (widgetId: string) => {
     if (node.type === 'empty' || (node.type === 'widget' && !node.widgetId)) {
       onChange({ ...node, type: 'widget', widgetId });
     } else if (node.type === 'widget' && node.widgetId) {
-      // Replace existing widget on touch drop
       onChange({ ...node, widgetId });
+    }
+
+    // Если перетащили из другой ячейки — очистить источник
+    // setTimeout(0): сначала React закоммитит onChange цели,
+    // иначе clearSource() перетрёт состояние корня и цель потеряет прибор.
+    if (window.__panelMoveSource) {
+      const moveSource = window.__panelMoveSource;
+      window.__panelMoveSource = undefined;
+      setTimeout(() => moveSource.clearSource(), 0);
     }
   });
 
+  // ── HTML5 DnD источник (аналогично Sidebar) ───────────────────────
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('panelkit/widgetId', node.widgetId!);
+    e.dataTransfer.setData('instrumentId', node.widgetId!);
+    e.dataTransfer.effectAllowed = 'copyMove';
+    window.__panelMoveSource = {
+      widgetId: node.widgetId!,
+      clearSource: () => clearRef.current(),
+    };
+  };
+
+  const handleDragEnd = () => {
+    window.__panelMoveSource = undefined;
+  };
+
+  // ── Split view ─────────────────────────────────────────────────────
   if (node.type === 'split' && node.children) {
     return (
       <SplitContainer
@@ -77,30 +117,44 @@ export const PanelCanvas = <TData,>({
     });
   };
 
+  const isWidget = node.type === 'widget' && !!node.widgetId;
+  // 3D-сцена использует мышь для вращения/зума — не перетаскиваем
+  const isDraggable = isWidget && node.widgetId !== 'aircraft-3d';
+
   return (
     <div
       ref={canvasRef}
       data-drop-zone="true"
-      data-drop-widget={node.type === 'widget' && node.widgetId ? '' : undefined}
+      data-drop-widget={isWidget ? '' : undefined}
+      draggable={isDraggable}
+      onDragStart={isDraggable ? handleDragStart : undefined}
+      onDragEnd={isDraggable ? handleDragEnd : undefined}
       className={`w-full h-full relative group flex flex-col items-center justify-center
         ${
           node.type === 'empty'
             ? 'border-2 border-dashed border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40 cursor-pointer'
             : 'bg-[#161719] border border-[#2d2e30]'
-        }`}
+        }
+        ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       <div className="absolute top-1 right-1 hidden group-hover:flex space-x-1 z-20 bg-[#161719] rounded-sm p-1 shadow-lg border border-[#2d2e30]">
         <button
           className="p-1 hover:bg-[#252628] rounded-sm text-gray-400 hover:text-white transition-colors"
           title="Split Vertically (Left/Right)"
-          onClick={() => handleSplit('vertical')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSplit('vertical');
+          }}
         >
           <LayoutPanelLeft size={14} />
         </button>
         <button
           className="p-1 hover:bg-[#252628] rounded-sm text-gray-400 hover:text-white transition-colors"
           title="Split Horizontally (Top/Bottom)"
-          onClick={() => handleSplit('horizontal')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSplit('horizontal');
+          }}
         >
           <LayoutPanelTop size={14} />
         </button>
@@ -109,7 +163,10 @@ export const PanelCanvas = <TData,>({
           <button
             className="p-1 hover:bg-red-900/50 rounded-sm text-red-500 hover:text-red-400 transition-colors ml-1"
             title="Remove Panel"
-            onClick={onRemoveNode}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveNode();
+            }}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -129,7 +186,7 @@ export const PanelCanvas = <TData,>({
         )}
       </div>
 
-      {node.type === 'widget' && node.widgetId ? (
+      {isWidget ? (
         <div className="w-full h-full">
           {renderWidget(
             node,

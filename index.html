@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pilot 3D PFD</title>
     <style>
+      html, body, #root { height: 100%; overflow: hidden; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         background: #0a0a0f;
@@ -108,7 +109,7 @@
 
     <div id="boot-screen">
       <div class="logo">Pilot 3D PFD</div>
-      <div class="version">v2.4.3</div>
+      <div class="version" id="boot-version">v—</div>
       <div class="spinner"></div>
       <div class="status" id="boot-status">Initializing...</div>
       <div class="steps" id="boot-steps">
@@ -201,6 +202,11 @@
       window.__bootBridgeReady = function() {
         window.__bootStatus('bridge', 'done', 'Ready');
       };
+    </script>
+
+    <script type="module">
+      import { APP_VERSION } from '/src/version.ts';
+      document.getElementById('boot-version').textContent = 'v' + APP_VERSION;
     </script>
 
     <script type="module" src="/src/main.tsx"></script>

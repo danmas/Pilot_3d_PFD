@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head><title>WebGL Diagnostic</title></head>
+<body style="background:#111;color:#0f0;font-family:monospace;padding:20px">
+<h2>WebGL Diagnostic</h2>
+<div id="out"></div>
+<script>
+const out = document.getElementById('out');
+function log(msg) {
+  out.innerHTML += '<div>' + msg + '</div>';
+}
+
+// Check WebGL
+const canvas = document.createElement('canvas');
+let gl = null;
+try {
+  gl = canvas.getContext('webgl2', { failIfMajorPerformanceCaveat: false });
+  if (gl) {
+    const info = gl.getParameter(gl.RENDERER) + ' | ' + gl.getParameter(gl.VENDOR);
+    log('✅ WebGL2 OK: ' + info);
+    const ext = gl.getExtension('WEBGL_lose_context');
+    log('   Max textures: ' + gl.getParameter(gl.MAX_TEXTURE_SIZE));
+    log('   Max viewport: ' + gl.getParameter(gl.MAX_VIEWPORT_DIMS));
+  } else {
+    log('❌ WebGL2 failed, trying WebGL1...');
+    gl = canvas.getContext('webgl', { failIfMajorPerformanceCaveat: false });
+    if (gl) {
+      const info = gl.getParameter(gl.RENDERER) + ' | ' + gl.getParameter(gl.VENDOR);
+      log('✅ WebGL1 OK: ' + info);
+    } else {
+      log('❌ No WebGL at all');
+      log('👉 Проверь настройки браузера: chrome://gpu');
+    }
+  }
+} catch(e) {
+  log('❌ Exception: ' + e.message);
+}
+
+// Check user agent
+log('UA: ' + navigator.userAgent);
+</script>
+</body>
+</html>

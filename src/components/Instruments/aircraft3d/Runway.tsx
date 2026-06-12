@@ -3,12 +3,12 @@
  * Runway.tsx — ВПП с разметкой для 3D-сцены «Самолёт».
  *
  * Бетонная полоса с кромочными линиями, осевой разметкой и пороговыми полосами.
- * Остаётся неподвижной в мировых координатах (внутри WorldGroup) —
- * самолёт улетает от неё, что создаёт ощущение реального полёта.
+ * Внутри WorldGroup — компенсация только по Y, чтобы оставаться на земле.
  *
  * Все геометрии и материалы — общие (useMemo), для экономии draw-calls.
  */
-import { useMemo, useEffect, memo } from 'react';
+import { useMemo, useRef, useEffect, memo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 export const Runway: React.FC = memo(() => {
@@ -47,13 +47,23 @@ export const Runway: React.FC = memo(() => {
   // Threshold stripe X-offsets
   const threshX = [-6, -4, -2, 0, 2, 4, 6];
 
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    const grp = groupRef.current;
+    if (grp) {
+      grp.position.y = 0; // компенсация не нужна — WorldGroup уже сдвигает весь мир
+    }
+  });
+
   return (
-    <group>
+    <group ref={groupRef}>
       {/* Runway surface */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -5.97, 0]}
         receiveShadow
+        frustumCulled={false}
         material={runwayMat}
         geometry={runwayGeom}
       />
@@ -64,6 +74,7 @@ export const Runway: React.FC = memo(() => {
           key={x}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[x, -5.95, 0]}
+          frustumCulled={false}
           material={markMat}
           geometry={edgeGeom}
         />
@@ -75,6 +86,7 @@ export const Runway: React.FC = memo(() => {
           key={z}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, -5.95, z]}
+          frustumCulled={false}
           material={markMat}
           geometry={dashGeom}
         />
@@ -86,6 +98,7 @@ export const Runway: React.FC = memo(() => {
           key={`n${x}`}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[x, -5.95, -245]}
+          frustumCulled={false}
           material={markMat}
           geometry={threshGeom}
         />
@@ -97,6 +110,7 @@ export const Runway: React.FC = memo(() => {
           key={`f${x}`}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[x, -5.95, 245]}
+          frustumCulled={false}
           material={markMat}
           geometry={threshGeom}
         />

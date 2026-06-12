@@ -1,0 +1,62 @@
+{
+  "camera": {
+    "orthoSize": 12,
+    "minDist": 3,
+    "maxDist": 500,
+    "dragSensitivity": 0.006,
+    "defaultPreset": "chase",
+    "presets": {
+      "chase":  { "position": [0, 4, 12],    "target": [0, 0, 0] },
+      "top":    { "position": [0, 16, 0.5],  "target": [0, 0, 0] },
+      "side":   { "position": [14, 2, 0],    "target": [0, 0, 0] },
+      "cockpit":{ "position": [0, 0.5, -1.5], "target": [0, 0, -20] }
+    }
+  },
+  "projection": {
+    "perspective": { "fov": 50, "near": 0.5, "far": 500 },
+    "wide":        { "fov": 80, "near": 0.5, "far": 500 },
+    "ortho":       { "frustumHalf": 12, "near": 0.5, "far": 500 }
+  },
+  "horizon": {
+    "radius": 200
+  },
+  "ground": {
+    "discRadius": 5000,
+    "y": -6
+  },
+  "grid": {
+    "size": 2000,
+    "divisions": 200,
+    "y": -6,
+    "color": "#00ff88",
+    "opacity": 0.25
+  },
+  "clouds": {
+    "poolSize": 6,
+    "spawnIntervalSec": 5,
+    "cullDist": 350,
+    "spawnAheadMin": 100,
+    "spawnAheadMax": 250,
+    "lateralMin": 30,
+    "lateralMax": 110,
+    "altMin": 20,
+    "altMax": 75,
+    "maxPuffs": 4
+  },
+  "trees": {
+    "count": 2000,
+    "areaRadius": 4000,
+    "cullDist": 3500,
+    "trunkHeight": 1.4,
+    "trunkTopRadius": 0.05,
+    "trunkBottomRadius": 0.12,
+    "crownRadius": 1.0,
+    "crownHeight": 2.5
+  },
+  "aircraft": {
+    "targetSize": 8
+  },
+  "velocityVector": {
+    "arrowLength": 3.0
+  }
+}
