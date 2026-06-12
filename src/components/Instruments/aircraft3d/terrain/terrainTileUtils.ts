@@ -124,3 +124,34 @@ export function satelliteUrl(token: string, z: number, x: number, y: number): st
 export function tileCacheKey(source: 'dem' | 'sat', z: number, x: number, y: number): string {
   return `${source}_${z}_${x}_${y}`;
 }
+
+/**
+ * Получить 4 угла тайла в lat/lon (порядок: NW, NE, SE, SW).
+ * Полезно для логов и анализа покрытия.
+ */
+export function getTileCornersLatLon(x: number, y: number, z: number): Array<{ lat: number; lon: number }> {
+  const n = Math.pow(2, z);
+  const lonLeft = (x / n) * 360 - 180;
+  const lonRight = ((x + 1) / n) * 360 - 180;
+
+  // Для Y (slippy, y растёт на юг)
+  const latTopRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y / n))));
+  const latTop = (latTopRad * 180) / Math.PI;
+
+  const latBottomRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * ((y + 1) / n))));
+  const latBottom = (latBottomRad * 180) / Math.PI;
+
+  return [
+    { lat: latTop, lon: lonLeft },      // NW
+    { lat: latTop, lon: lonRight },     // NE
+    { lat: latBottom, lon: lonRight },  // SE
+    { lat: latBottom, lon: lonLeft },   // SW
+  ];
+}
+
+/**
+ * Форматирует координаты углов для лога (коротко).
+ */
+export function formatTileCorners(corners: Array<{ lat: number; lon: number }>): string {
+  return corners.map(c => `(${c.lat.toFixed(6)},${c.lon.toFixed(6)})`).join(' ');
+}

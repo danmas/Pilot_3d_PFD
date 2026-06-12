@@ -81,11 +81,14 @@ const app = express();
 // CORS
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
+
+// Parse JSON for client logs
+app.use(express.json({ limit: '100kb' }));
 
 // ─── Terrain API ───
 
@@ -100,6 +103,21 @@ app.get('/api/terrain/logs', (req, res) => {
     res.json(last);
   } catch {
     res.json([]);
+  }
+});
+
+// POST /api/terrain/log — accept client-side scene load events (with corners)
+app.post('/api/terrain/log', (req, res) => {
+  try {
+    const entry = {
+      ...req.body,
+      t: req.body.t || new Date().toISOString(),
+      source: 'client',
+    };
+    appendLog(entry);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: 'bad log entry' });
   }
 });
 

@@ -14,11 +14,21 @@ import { useState, useEffect, useRef } from 'react';
 
 export interface TerrainLogEntry {
   t: string;           // ISO timestamp
-  coord: { z: number; x: number; y: number };
-  type: 'dem' | 'sat';
-  status: 'HIT' | 'MISS' | 'ERROR' | 'TIMEOUT' | 'QUOTA_EXCEEDED';
+  coord?: { z: number; x: number; y: number };
+  type?: 'dem' | 'sat' | string;
+  status?: 'HIT' | 'MISS' | 'ERROR' | 'TIMEOUT' | 'QUOTA_EXCEEDED' | string;
   error?: string;
   quotaTotal?: number;
+  source?: string;
+  event?: string;      // for client events
+  corners?: Array<{ lat: number; lon: number }>;
+  center?: { z: number; x: number; y: number };
+  needed?: Array<{ z: number; x: number; y: number }>;
+  newToLoad?: number;
+  stillMissing?: number;
+  coords?: Array<{ z: number; x: number; y: number }>;
+  ref?: { x: number; y: number };
+  offset?: { x: number; z: number };
 }
 
 const MAX_VISIBLE = 30;
@@ -139,6 +149,32 @@ export function TerrainLogPanel() {
           <div className="p-1 space-y-px">
             {displayLogs.map((entry, i) => {
               const time = entry.t ? entry.t.slice(11, 23) : '';
+              const isClient = entry.source === 'client' || (entry.type && ['LOADED-INTO-SCENE', 'UPDATE-POSITION', 'REMOVED-FROM-SCENE', 'DRAW-QUAD', 'COVERAGE-GAPS', 'RETRY-FAILED'].includes(entry.type));
+
+              if (isClient) {
+                const color = 'text-blue-400';
+                const label = entry.type || 'CLIENT';
+                let summary = '';
+                if (entry.coord) summary += `${entry.coord.z}/${entry.coord.x}/${entry.coord.y} `;
+                if (entry.center) summary += `center ${entry.center.z}/${entry.center.x}/${entry.center.y} `;
+                if (entry.corners && entry.corners.length) {
+                  const c = entry.corners[0];
+                  summary += `corner~${c.lat.toFixed(4)},${c.lon.toFixed(4)} `;
+                }
+                if (entry.stillMissing !== undefined) summary += `missing:${entry.stillMissing} `;
+                if (entry.ref) summary += `ref:${entry.ref.x}/${entry.ref.y} `;
+                return (
+                  <div key={i} className={`font-mono text-[9px] leading-tight ${color} truncate`}>
+                    <span className="text-white/30">{time}</span>{' '}
+                    <span className="font-semibold">{label}</span>{' '}
+                    <span className="text-white/50">{summary}</span>
+                    {entry.corners && entry.corners.length > 1 && (
+                      <span className="text-white/30 ml-1">(+{entry.corners.length-1} corners)</span>
+                    )}
+                  </div>
+                );
+              }
+
               const c = entry.coord;
               const color = LOG_COLORS[entry.status] || 'text-white/40';
               const label = STATUS_LABELS[entry.status] || entry.status;
@@ -151,7 +187,7 @@ export function TerrainLogPanel() {
                   <span className="text-white/30">{time}</span>{' '}
                   <span className="font-semibold">{label}</span>{' '}
                   <span className="text-white/50">{entry.type}</span>{' '}
-                  <span className="text-white/40">{c.z}/{c.x}/{c.y}</span>
+                  <span className="text-white/40">{c ? `${c.z}/${c.x}/${c.y}` : ''}</span>
                   {entry.error && (
                     <span className="text-yellow-300/60 ml-1">({entry.error})</span>
                   )}

@@ -58,7 +58,10 @@ export function useRealTerrain(
     TerrainManager.onTile((coord, data) => {
       // Просто инвалидируем — всё равно читаем getAllTiles() по таймеру
       const all = TerrainManager.getAllTiles();
-      setTiles([...all]);
+      // Sort spatially (by y then x) so that the array is in predictable raster order.
+      // This makes midIdx / ref calculations in the mesh much more stable.
+      const sorted = [...all].sort((a, b) => (a.coord.y - b.coord.y) || (a.coord.x - b.coord.x));
+      setTiles(sorted);
     });
   }, []);
 
@@ -94,7 +97,8 @@ export function useRealTerrain(
       try {
         await TerrainManager.updatePosition(currentLat, currentLon);
         const all = TerrainManager.getAllTiles();
-        setTiles([...all]);
+        const sorted = [...all].sort((a, b) => (a.coord.y - b.coord.y) || (a.coord.x - b.coord.x));
+        setTiles(sorted);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {

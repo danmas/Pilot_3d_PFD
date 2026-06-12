@@ -28,7 +28,7 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene, drag-n-drop ячеек (v2.8.5), FDM телеметрия (v2.8.8) | 2026-06-08 |
+| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene, drag-n-drop ячеек (v2.8.5), FDM телеметрия (v2.8.8), bridge/ модули (capture + sse-publisher + udp + raw + sim + http-api extraction 2026-06-12) | 2026-06-12 |
 | [README_INDEX.md](./README_INDEX.md) | **Этот файл** | Оглавление БЗ проекта | 2026-06-07 |
 
 ---
@@ -96,7 +96,8 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [../README.md](../README.md) | Главный README проекта | Сборка, запуск, зависимости, pm2, порты, KB-индекс | 2026-06-07 |
+| [../README.md](../README.md) | Главный README проекта | Сборка, запуск, зависимости, pm2, порты, KB-индекс, bridge/ modules (2026-06-12) | 2026-06-12 |
+| [../bridge/capture.ts](../bridge/capture.ts) + [../bridge/sse-publisher.ts](../bridge/sse-publisher.ts) | Модули для рефакторинга bridge-plugin (P0-2) | Capture/blackbox manager + SSE publisher (clients, handlers, broadcast) | 2026-06-12 |
 | [../packages/realtime-charts/README.md](../packages/realtime-charts/README.md) | Realtime Charts | Stacked & Overlay chart, реалтайм-визуализация | 2026-06-05 |
 | [../packages/realtime-charts/README_chart_plan_1_sol_1.md](../packages/realtime-charts/README_chart_plan_1_sol_1.md) | План чартов — решение 1 | Архитектура stacked/overlay | 2026-06-05 |
 | [../packages/realtime-charts/README_chart_sol_2.md](../packages/realtime-charts/README_chart_sol_2.md) | План чартов — решение 2 | Альтернативная архитектура | 2026-06-05 |
@@ -183,7 +184,7 @@
    - При удалении документа — удаляется строка из индекса.
    - Приватные / чувствительные данные (API-ключи, пароли) в KB не попадают.
 
-**Последнее обновление:** 2026-06-12
+**Последнее обновление:** 2026-06-12 (P0-1 тесты + P0-2 рефакторинг: все 7 bridge/* модулей включая http-api; main README + roadmap обновлены; dev-сервер на 3410 запущен и слушает после правок извлечения)
 
 
 

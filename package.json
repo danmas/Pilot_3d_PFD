@@ -1,15 +1,18 @@
 {
   "name": "pilot-3d-pfd",
   "private": true,
-  "version": "2.9.7",
+  "version": "2.10.1",
   "type": "module",
   "description": "Merged 3D Flight Viewer + PFD — bridge, viewer, and KPI in one project. Single npm run dev starts UDP bridge, SSE streams, HTTP API, capture and React PFD on port 3410.",
   "scripts": {
-    "dev": "vite",
+    "predev": "node scripts/kill-port.js 3410",
+    "dev": "vite --strictPort",
     "build": "node prebuild.mjs && vite build && node -e \"const v=require('./package.json').version; const fs=require('fs'); fs.writeFileSync('.last-built-version', v)\"",
     "preview": "vite preview",
-    "clean": "rm -rf dist captures",
-    "lint": "tsc --noEmit"
+    "clean": "node -e \"const fs=require('fs'); fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('captures',{recursive:true,force:true}); console.log('cleaned dist/ captures/')\"",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -35,6 +38,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "vitest": "^3.1.3"
   }
 }

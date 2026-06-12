@@ -138,7 +138,7 @@ const app = express();
 // CORS для фронтенда
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') {
     res.sendStatus(204);
@@ -146,6 +146,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Parse JSON for client-side logs
+app.use(express.json({ limit: '100kb' }));
 
 // GET /api/terrain/logs — последние N записей лога
 app.get('/api/terrain/logs', (req, res) => {
@@ -159,6 +162,24 @@ app.get('/api/terrain/logs', (req, res) => {
   } catch {
     res.json([]);
   }
+});
+
+// POST /api/terrain/log — receive client scene events (with tile corners)
+// ALWAYS succeed (200) — logs are best-effort for analysis only; must never cause
+// visible errors or aborts in browser console. Client sends fire-and-forget.
+app.post('/api/terrain/log', (req, res) => {
+  try {
+    const body = req.body || {};
+    const entry = {
+      ...body,
+      t: body.t || new Date().toISOString(),
+      source: 'client',
+    };
+    appendLog(entry);
+  } catch (e) {
+    // swallow any bad payload; do not fail the request
+  }
+  res.json({ ok: true });
 });
 
 // GET /api/terrain/quota — статистика запросов
@@ -233,11 +254,17 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
     : mapboxSatUrl(zNum, xNum, yNum, MAPBOX_TOKEN);
 
   try {
-    const response = await fetch(url, {
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
+    let response;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      response = await fetch(url, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (response.ok) break;
+      if (attempt === 0 && response.status >= 500) {
+        // retry once on transient server errors from Mapbox
+        await new Promise(r => setTimeout(r, 200));
+        continue;
+      }
       return res.status(response.status).json({
         error: `Mapbox API error: ${response.status} ${response.statusText}`,
       });

@@ -298,7 +298,9 @@ event: status       → { port, active, receivedPackets, receivedFrames, ... }
 | `field-catalog.ts` | Справочник имён, типов, ARINC param. **НЕ раскладка, НЕ порядок.** |
 | `decoding.ts` | Загрузка out.json, сопоставление по ARINC param, декодирование, `dec_*` формулы, валидация |
 | `simulator.ts` | Серверный FDM для PFD, telemetry payload и blackbox snapshot |
-| `bridge-plugin.ts` | Vite-плагин: UDP-сокет (14443), симулятор, SSE, capture, blackbox, replay API |
+| `bridge-plugin.ts` | Vite-плагин (тонкий): регистрация middleware + запуск. Логика вынесена в `bridge/`. |
+| `bridge/capture.ts` | Capture + blackbox manager (extracted P0-2) |
+| `bridge/sse-publisher.ts` | SSE clients/handlers/broadcast для /events, /pfd, /raw (extracted P0-2) |
 | `panel-config-current.json` | Текущая компоновка Panel Builder (автосохранение) |
 | `panel-menu.json` | Конфигурация меню «···» в Panel Builder |
 | `src/types.ts` | `TelemetryFrame` тип для фронтенда |
@@ -400,36 +402,37 @@ useFrame((_state, delta) => {
 
 ---
 
-## Состояние проекта, анализ и рекомендации (добавлено 2026-06-12)
+## Состояние проекта, анализ и рекомендации (обновлено 2026-06-12)
 
 На основе детального анализа кодовой базы, документации, архитектуры и инфраструктуры (см. также свежие документы в `KB/`):
 
 **Сильные стороны (кратко):**
-- Отличная культура документации (KB с жёсткими правилами, 18+ актуальных README, детальные описания архитектуры, декодирования, физики и terrain).
+- Отличная культура документации (KB с жёсткими правилами, 20+ актуальных README, детальные описания архитектуры, декодирования, физики и terrain).
 - Цельная и продуманная модель данных (`telemetry-frame.v1`, разделение `out.json` / `field-catalog.ts`, `dec_*` расчёты).
 - Мощный «всё-в-одном» dev-опыт через Vite-плагин (`bridge-plugin.ts`).
 - Реалистичный встроенный FDM-симулятор, система профилей, capture/replay + blackbox.
 - Продвинутый 3D (несколько моделей включая отечественные, touch-джойстики, real terrain с кэшем + квотами Mapbox).
 - Зрелый Panel Builder (межъячеечный DnD, профили, JSON-меню).
+- **Новые улучшения (2026-06-12):** Добавлена полноценная тестовая инфраструктура (Vitest), покрытие ключевых модулей (decoding, simulator FDM, capture roundtrip). Полная декомпозиция монолита `bridge-plugin.ts` по плану P0-2 — вынесены 7 модулей в `bridge/`: capture.ts, sse-publisher.ts, raw-monitor.ts, udp-listener.ts, simulator-integration.ts, http-api.ts (роуты /api/* делегированы). Dev-сервер успешно запущен (`npm run dev` на 3410, bridge listeners 14443+14442 активны, HTTP middleware + SSE работают). Небольшие правки после извлечения (dupe exports, типы) — исправлены, esbuild проходит.
 
-**Ключевые наблюдения и ограничения:**
-- **Тестирование:** практически отсутствует (только `tsc --noEmit` + тесты внутри `packages/realtime-charts`). Это главный риск для такого сложного ядра (декодирование + физика + capture).
-- **Монолитность:** `bridge-plugin.ts` (66+ КБ) содержит слишком много ответственности (UDP + simulator + SSE + capture + API). Трудно тестировать и эволюционировать изолированно.
-- **Продакшен:** Отдельный Express-сервер работает, но есть нюансы с MIME-типами, pm2, интеграцией terrain-proxy (порт 3409 + Mapbox token + квоты 50k). Требует аккуратной эксплуатации.
-- **Пакеты:** `packages/realtime-charts` имеет собственный `node_modules` и пока слабо интегрирован (хотя `ChartsView` уже импортируется в `App.tsx`).
-- **Внешние зависимости:** Сильная привязка к актуальному `out.json` (и `tn3.tcfg`) от tnparserrt. `@google/genai` присутствует, но активного использования в коде почти нет.
-- **Другое:** Нет CI в видимой конфигурации. Есть артефакты (`captures/`, `tmp/`, вложенные node_modules). Часть идей по 3D (реалистичный ландшафт, масштаб горизонта) задокументированы, но ещё в работе.
+**Ключевые наблюдения и ограничения (актуально на 2026-06-12):**
+- **Тестирование:** Базовое покрытие добавлено (тесты в `tests/`: decoding 7 тестов, simulator 6, capture roundtrip 5). Всё ещё отсутствуют интеграционные тесты на publishDecodedFrame + моки сокетов/SSE и полные replay из реальных .pfdrec. Главный риск снижен, но работа продолжается.
+- **Монолитность:** `bridge-plugin.ts` (66+ КБ) — в процессе рефакторинга. Уже вынесены capture и SSE. Осталось: UDP listener, simulator integration, HTTP API, raw-monitor, status/pipeline. План — тонкий Vite-плагин + отдельные модули в `bridge/`.
+- **Продакшен:** Без изменений — всё те же нюансы с MIME, pm2, terrain на 3409. Сервер в dev-режиме работает стабильно.
+- **Пакеты/зависимости:** Без изменений.
+- **Другое:** Нет CI. Артефакты присутствуют. Сервер запущен и слушает (bridge активен, UDP на 14442/14443).
 
-**Что рекомендуется в первую очередь:** см. новый документ **[KB/README_roadmap.md](./KB/README_roadmap.md)** (приоритизированный план на P0/P1/P2).
+**Что рекомендуется в первую очередь:** Продолжить P0-2 (рефакторинг bridge-plugin.ts). См. **[KB/README_roadmap.md](./KB/README_roadmap.md)** (чекбоксы и статус).
 
 **Полный отчёт оценки:** [KB/README_project_assessment.md](./KB/README_project_assessment.md)
 
-Проект в хорошей форме, активно развивается (документация обновлялась в июне 2026) и имеет сильный фундамент. Основные усилия стоит направить на тестирование, модульность glue-слоя и операционную устойчивость деплоя.
+Проект в хорошей форме, активно развивается. Основные усилия — на модульность glue-слоя и тесты.
 
-### Быстрые ссылки на документацию (2026-06-12)
+### Быстрые ссылки на документацию (обновлено 2026-06-12)
 - Главная архитектура: [KB/README_architecture.md](./KB/README_architecture.md)
 - Декодирование и телеметрия: [KB/README_decoding.md](./KB/README_decoding.md)
 - Физика и симулятор: [KB/README_flight_physics.md](./KB/README_flight_physics.md), [KB/README_simulator_realisation.md](./KB/README_simulator_realisation.md)
-- 3D и terrain (недавно реализован): [KB/README_terrain_proxy.md](./KB/README_terrain_proxy.md), [KB/README_terrain_quota.md](./KB/README_terrain_quota.md)
-- Идеи и визуальные улучшения: [KB/README_ideas.md](./KB/README_ideas.md)
+- 3D и terrain: [KB/README_terrain_proxy.md](./KB/README_terrain_proxy.md), [KB/README_terrain_quota.md](./KB/README_terrain_quota.md)
+- Идеи: [KB/README_ideas.md](./KB/README_ideas.md)
+- План и прогресс: [KB/README_roadmap.md](./KB/README_roadmap.md) (P0-1 тестирование завершено, P0-2 рефакторинг в процессе)
 
