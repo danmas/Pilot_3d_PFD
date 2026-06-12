@@ -293,6 +293,10 @@ src/
 │   ├── PanelKit/               ← drag-n-drop конструктор панелей
 │   └── PanelBuilder/           ← обёртка PanelKit + AviationWidget
 └── index.html / boot-screen.html
+
+bridge/
+├── capture.ts                  ← Capture + blackbox manager (extracted 2026-06-12, P0-2)
+└── sse-publisher.ts            ← SSE clients/handlers/broadcast (extracted 2026-06-12, P0-2)
 ```
 
 ---
@@ -304,3 +308,5 @@ src/
 3. **Manual mode навсегда.** Первое касание джойстика → telemetryLocked, которое не сбрасывается. Возврат к sample/live — перезагрузка страницы.
 4. **Heading hold.** При отпускании джойстика самолёт продолжает лететь по последнему курсу без возврата к телеметрии.
 5. **Хуки React — строго безусловные.** Все useRef/useEffect должны быть на одном уровне, до любых условных return. Нарушение → «Rendered more hooks than during the previous render».
+
+**Обновление 2026-06-12:** В рамках P0-2 рефакторинга добавлены `bridge/capture.ts` и `bridge/sse-publisher.ts` (см. обновлённую файловую структуру выше). Сервер dev-режима запущен и работает. Прогресс задокументирован в roadmap.

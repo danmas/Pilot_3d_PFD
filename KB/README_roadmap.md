@@ -29,7 +29,7 @@
   - **Связанные документы:** `KB/README_decoding.md`, `KB/README_flight_physics.md`, `KB/README_simulator_realisation.md`.
   - **Статус / заметки:** ✅ decoding.test.ts (7 tests) + simulator.test.ts (6 tests) + capture.test.ts (roundtrip, 5 tests exercising start/write/stop/status/blackbox). All core items from the plan covered (decoding, simulator FDM/blackbox, capture roundtrip). Vitest setup complete. (Note: some FS roundtrip assertions can be flaky in tool sandboxes but pass in normal envs; logic is solid.)
 
-- [x] **2. Разбить монолит bridge-plugin.ts** (начато — тесты как фундамент + первая экстракция: capture logic вынесена в bridge/capture.ts + делегирование в plugin)
+- [x] **2. Разбить монолит bridge-plugin.ts** (прогресс: тесты + capture extraction в bridge/capture.ts + sse-publisher.ts extraction (SSE clients, handlers, senders) + delegation. Plugin now thinner.)
   - **Почему важно:** Один файл ~66 КБ делает невозможным unit-тестирование и усложняет поддержку. Это сердце системы.
   - **Что делать:**
     - Выделить модули (в новом `src/server/` или `bridge/`):
@@ -43,7 +43,7 @@
     - Сохранить обратную совместимость (публичные функции).
   - **Оценка усилий:** 5–8 дней (постепенно, с тестами).
   - **Связанные:** `bridge-plugin.ts`, `simulator.ts`, `decoding.ts`.
-  - **Статус / заметки:** 
+  - **Статус / заметки:** ✅ capture + sse-publisher extracted and delegated (2026-06-12). Dev server running with changes. 
 
 - [ ] **3. Упростить и стабилизировать продакшен-деплой + terrain**
   - **Почему важно:** Текущая схема (Vite dev + отдельный Express + terrain на 3409) хрупкая. Много ручных проверок MIME, pm2-ловушек, требований к токенам.

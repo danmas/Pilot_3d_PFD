@@ -43,6 +43,18 @@ import {
   createCapturePath,
 } from "./bridge/capture";
 
+import {
+  handleSse,
+  handlePfdSse,
+  handleRawSse,
+  sendSse,
+  sendPfdSse,
+  sendRawSse,
+  sseClients,
+  pfdSseClients,
+  rawSseClients,
+} from "./bridge/sse-publisher";
+
 // ── types ──────────────────────────────────────────────────────────
 
 type CurrentFrame = {
@@ -129,9 +141,8 @@ const DEFAULT_CAPTURE_DIR = path.join(__dirname, "captures");
 const SYNC_MARKER = 0x544e;
 
 // ── bridge state ───────────────────────────────────────────────────
-const sseClients = new Set<http.ServerResponse>();
-const pfdSseClients = new Set<http.ServerResponse>();
-const rawSseClients = new Set<http.ServerResponse>();
+// SSE clients now managed in ./bridge/sse-publisher.ts
+// (imported for size reporting in status)
 
 let currentFrame: CurrentFrame | null = null;
 let currentTelemetryFrame: TelemetryFrame | null = null;
@@ -987,54 +998,9 @@ function publishDecodedFrame(
   return frame;
 }
 
-// ── SSE ────────────────────────────────────────────────────────────
-function handleSse(res: http.ServerResponse): void {
-  res.writeHead(200, { "Cache-Control": "no-cache", "Content-Type": "text/event-stream; charset=utf-8", Connection: "keep-alive", "X-Accel-Buffering": "no" });
-  res.write("\n");
-  sseClients.add(res);
-  sendSseTo(res, "status", getStatus());
-  if (currentTelemetryFrame) sendSseTo(res, "frame", currentTelemetryFrame);
-  res.on("close", () => sseClients.delete(res));
-}
-
-function handlePfdSse(res: http.ServerResponse): void {
-  res.writeHead(200, { "Cache-Control": "no-cache", "Content-Type": "text/event-stream; charset=utf-8", Connection: "keep-alive", "X-Accel-Buffering": "no" });
-  res.write("\n");
-  pfdSseClients.add(res);
-  sendSseTo(res, "status", getPfdStatus());
-  if (currentPfdFrame) sendSseTo(res, "pfd-frame", currentPfdFrame);
-  res.on("close", () => pfdSseClients.delete(res));
-}
-
-function sendSse(event: string, data: unknown): void {
-  for (const c of sseClients) sendSseTo(c, event, data);
-}
-function sendPfdSse(event: string, data: unknown): void {
-  for (const c of pfdSseClients) sendSseTo(c, event, data);
-}
-function sendSseTo(res: http.ServerResponse, event: string, data: unknown): void {
-  res.write(`event: ${event}\n`);
-  res.write(`data: ${JSON.stringify(data)}\n\n`);
-}
-
-// ── raw SSE ────────────────────────────────────────────────────────
-function handleRawSse(res: http.ServerResponse): void {
-  res.writeHead(200, { "Cache-Control": "no-cache", "Content-Type": "text/event-stream; charset=utf-8", Connection: "keep-alive", "X-Accel-Buffering": "no" });
-  res.write("\n");
-  rawSseClients.add(res);
-  console.log(`[RAW-MONITOR] SSE client connected, total clients: ${rawSseClients.size}`);
-  sendSseTo(res, "status", getRawStatus());
-  if (rawLastDecoded) sendSseTo(res, "raw-frame", { decoded: rawLastDecoded, hex: rawLastHex });
-  res.on("close", () => {
-    rawSseClients.delete(res);
-    console.log(`[RAW-MONITOR] SSE client disconnected, remaining clients: ${rawSseClients.size}`);
-  });
-}
-
-function sendRawSse(event: string, data: unknown): void {
-  // [SILENCED] console.log(`[RAW-MONITOR] SSE broadcast "${event}" to ${rawSseClients.size} clients`);
-  for (const c of rawSseClients) sendSseTo(c, event, data);
-}
+// ── SSE (delegated to ./bridge/sse-publisher.ts) ─────────────────────
+// Old functions and client sets removed. Imported handles and senders used.
+// Client sets re-exported from module for .size in status getters.
 
 // ── status ─────────────────────────────────────────────────────────
 function getStatus(): object {
