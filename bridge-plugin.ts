@@ -23,6 +23,7 @@ import {
   applyDecFormulas,
   validateSchema,
   type DecodeSchema,
+  type StreamConfig,
 } from "./decoding";
 import {
   DEFAULT_SIMULATOR_INITIAL_CONFIG,
@@ -32,6 +33,15 @@ import {
   type SimulatorInitialConfig,
   type SimulatorPilotSnapshot,
 } from "./simulator";
+
+import {
+  startCapture as startCaptureManager,
+  stopCapture as stopCaptureManager,
+  writeCaptureFrame,
+  writeSimulatorBlackboxFrame,
+  getStatus as getCaptureStatusFromManager,
+  createCapturePath,
+} from "./bridge/capture";
 
 // ── types ──────────────────────────────────────────────────────────
 
@@ -135,19 +145,13 @@ let receivedFrames = 0;
 let receivedPackets = 0;
 let lastPacketAtMs: number | undefined;
 let lastError: string | undefined;
-let captureEnabled = false;
-let captureStream: fs.WriteStream | undefined;
-let capturePath: string | undefined;
-let captureFrames = 0;
+// Capture / blackbox state moved to ./bridge/capture.ts (extraction for P0 #2 refactor)
+// Old variables removed to avoid duplication.
 
-// ── simulator state ────────────────────────────────────────────────
 let bridgeMode: "udp" | "simulator" = "udp";
 const simulator = new FlightSimulator();
 let simulatorInterval: ReturnType<typeof setInterval> | undefined;
 let simulatorPilotSnapshot: SimulatorPilotSnapshot = { source: "api" };
-let blackboxStream: fs.WriteStream | undefined;
-let blackboxPath: string | undefined;
-let blackboxFrames = 0;
 
 const SIMULATOR_PROFILES: SimulatorProfile[] = [
   {
@@ -303,7 +307,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
   bridgeUdpHost = opts.udpHost ?? "0.0.0.0";
   bridgeUdpPort = opts.udpPort ?? 14443;
   const captureDir = opts.captureDir ?? DEFAULT_CAPTURE_DIR;
-  captureEnabled = opts.noCapture ? false : false;
+  // captureEnabled handled inside manager (noCapture logic can be extended later)
   simulator.reset(readSimulatorConfig());
 
   let udpServer: dgram.Socket | undefined;
@@ -405,7 +409,8 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
       } else {
         console.error(`[BRIDGE] ❌ Декодирование отключено — out.json не загружен`);
       }
-      console.log(`[BRIDGE] capture ${captureEnabled ? `auto ${captureDir}` : "manual/off"}`);
+      const capStatus = getCaptureStatusFromManager(captureDir);
+      console.log(`[BRIDGE] capture ${capStatus.enabled ? `auto ${captureDir}` : "manual/off"}`);
       publishStatusUpdates();
     });
   };
@@ -732,18 +737,18 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             sendJson(res, { error: "method not allowed" }, 405); return;
           }
 
-          // API: capture
+          // API: capture (delegated to bridge/capture manager)
           if (req.method === "GET" && url.pathname === "/api/capture/status") {
-            sendJson(res, getCaptureStatus(captureDir)); return;
+            sendJson(res, getCaptureStatusFromManager(captureDir)); return;
           }
           if (req.method === "POST" && url.pathname === "/api/capture/start") {
             const body = await readRequestBody(req);
-            const source = body?.source || "unknown";
-            const duration = body?.duration || "capture";
-            sendJson(res, startCapture(captureDir, source, duration)); return;
+            const source = String(body?.source || "unknown");
+            const duration = String(body?.duration || "capture");
+            sendJson(res, startCaptureManager(captureDir, source, duration)); return;
           }
           if (req.method === "POST" && url.pathname === "/api/capture/stop") {
-            sendJson(res, stopCapture()); return;
+            sendJson(res, stopCaptureManager()); return;
           }
 
           // API: simulator
@@ -754,7 +759,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
               initialConfig: simulator.getInitialConfig(),
               controls: simulator.controls,
               pilot: simulatorPilotSnapshot,
-              blackbox: getBlackboxStatus(captureDir),
+              blackbox: getCaptureStatusFromManager(captureDir).blackbox,
               state: {
                 pitch: simulator.pitch,
                 roll: simulator.roll,
@@ -770,7 +775,7 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
             return;
           }
           if (req.method === "GET" && url.pathname === "/api/simulator/blackbox/status") {
-            sendJson(res, getBlackboxStatus(captureDir));
+            sendJson(res, getCaptureStatusFromManager(captureDir).blackbox);
             return;
           }
           if (req.method === "GET" && url.pathname === "/api/simulator/profiles") {
@@ -929,7 +934,9 @@ export function bridgePlugin(opts: BridgeOptions = {}): Plugin {
     closeBundle() {
       if (statusInterval) clearInterval(statusInterval);
       stopSimulator();
-      closeBlackbox();
+      // Capture close is handled by manager stop if needed
+      // For now just stop any active via manager (safe no-op if none)
+      try { stopCaptureManager(); } catch {}
       closeUdpServer();
     },
   };
@@ -1039,7 +1046,7 @@ function getStatus(): object {
     currentSeq: currentTelemetryFrame?.seq ?? null,
     currentTimeMs: currentTelemetryFrame?.timeMs ?? null,
     schema: "telemetry-frame.v1",
-    capturePath, capture: getCaptureStatus(""),
+    capture: getCaptureStatusFromManager(""),
     sseClients: sseClients.size, pfdSseClients: pfdSseClients.size, lastError,
     simulatorMode: bridgeMode,
     simulatorActive: Boolean(simulatorInterval),
@@ -1177,82 +1184,9 @@ function getRawMonitorState(): RawMonitorState {
   };
 }
 
-// ── capture ────────────────────────────────────────────────────────
-function getCaptureStatus(_dir: string): object {
-  return {
-    enabled: captureEnabled,
-    active: Boolean(captureStream),
-    path: capturePath,
-    frames: captureFrames,
-    dir: _dir,
-    blackbox: getBlackboxStatus(_dir),
-  };
-}
-
-function getBlackboxStatus(_dir: string): object {
-  return {
-    enabled: captureEnabled,
-    active: Boolean(blackboxStream),
-    path: blackboxPath,
-    frames: blackboxFrames,
-    dir: _dir,
-    schema: "sim-blackbox.v1",
-  };
-}
-
-function startCapture(captureDir: string, source = "unknown", duration = "capture"): object {
-  if (captureStream) return getCaptureStatus(captureDir);
-  fs.mkdirSync(captureDir, { recursive: true });
-  capturePath = createCapturePath(captureDir, source, duration);
-  captureFrames = 0;
-  captureStream = fs.createWriteStream(capturePath, { flags: "wx", encoding: "utf8" });
-  captureEnabled = true;
-  console.log(`[CAPTURE] started ${capturePath}`);
-  sendSse("status", getStatus());
-  sendPfdSse("status", getPfdStatus());
-  return getCaptureStatus(captureDir);
-}
-
-function stopCapture(): object {
-  captureEnabled = false;
-  const p = capturePath; const n = captureFrames;
-  const bp = blackboxPath; const bn = blackboxFrames;
-  closeCapture();
-  closeBlackbox();
-  console.log(`[CAPTURE] stopped ${p ?? "n/a"} frames=${n}`);
-  sendSse("status", getStatus());
-  sendPfdSse("status", getPfdStatus());
-  return { ...getCaptureStatus(""), stoppedPath: p, stoppedFrames: n, stoppedBlackboxPath: bp, stoppedBlackboxFrames: bn };
-}
-
-function closeCapture(): void {
-  if (!captureStream) return;
-  captureStream.end();
-  captureStream = undefined;
-}
-
-function ensureBlackboxStream(captureDir: string): void {
-  if (blackboxStream) return;
-  fs.mkdirSync(captureDir, { recursive: true });
-  if (!captureStream) startCapture(captureDir);
-  blackboxPath = createBlackboxPath(captureDir);
-  blackboxFrames = 0;
-  blackboxStream = fs.createWriteStream(blackboxPath, { flags: "wx", encoding: "utf8" });
-  console.log(`[BLACKBOX] started ${blackboxPath}`);
-}
-
-function writeSimulatorBlackboxFrame(frame: SimulatorBlackboxFrame, captureDir: string): void {
-  if (!captureEnabled) return;
-  ensureBlackboxStream(captureDir);
-  blackboxStream?.write(`${JSON.stringify(frame)}\n`);
-  blackboxFrames += 1;
-}
-
-function closeBlackbox(): void {
-  if (!blackboxStream) return;
-  blackboxStream.end();
-  blackboxStream = undefined;
-}
+// ── capture (delegated to ./bridge/capture.ts) ──────────────────────
+// Old inline implementation removed during P0 refactor extraction.
+// All calls now go through the imported manager.
 
 // ── simulator loops ────────────────────────────────────────────────
 function startSimulator(captureDir: string): void {
@@ -1282,35 +1216,8 @@ function stopSimulator(): void {
   sendPfdSse("status", getPfdStatus());
 }
 
-function writeCaptureFrame(frame: TelemetryFrame, captureDir: string): void {
-  if (!captureEnabled) return;
-  if (!captureStream) startCapture(captureDir);
-  captureStream?.write(`${JSON.stringify(frame)}\n`);
-  captureFrames += 1;
-}
+// create*Path and writeCaptureFrame helpers moved to bridge/capture.ts
 
-function createCapturePath(dir: string, source = "unknown", duration = "capture"): string {
-  const safeSource = source.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const safeDuration = duration.replace(/[^a-zA-Z0-9_-]/g, "_");
-  return createUniquePfdrecPath(dir, `${safeSource}_${safeDuration}`);
-}
-
-function createBlackboxPath(dir: string): string {
-  if (capturePath) {
-    const base = path.basename(capturePath, ".pfdrec");
-    return createUniquePfdrecPath(dir, `${base}_sim_blackbox`);
-  }
-  return createCapturePath(dir, "unknown", "sim_blackbox");
-}
-
-function createUniquePfdrecPath(dir: string, base: string): string {
-  for (let i = 0; i < 1000; i++) {
-    const suffix = i === 0 ? "" : `_${String(i).padStart(3, "0")}`;
-    const p = path.join(dir, `${base}${suffix}.pfdrec`);
-    if (!fs.existsSync(p)) return p;
-  }
-  throw new Error("Cannot allocate unique capture file name");
-}
 
 // ── simulator profiles ─────────────────────────────────────────────
 function runSimulatorProfile(
