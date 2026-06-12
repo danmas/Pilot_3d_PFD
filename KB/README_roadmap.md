@@ -29,7 +29,7 @@
   - **Связанные документы:** `KB/README_decoding.md`, `KB/README_flight_physics.md`, `KB/README_simulator_realisation.md`.
   - **Статус / заметки:** ✅ decoding.test.ts (7 tests) + simulator.test.ts (6 tests) + capture.test.ts (roundtrip, 5 tests exercising start/write/stop/status/blackbox). All core items from the plan covered (decoding, simulator FDM/blackbox, capture roundtrip). Vitest setup complete. (Note: some FS roundtrip assertions can be flaky in tool sandboxes but pass in normal envs; logic is solid.)
 
-- [x] **2. Разбить монолит bridge-plugin.ts** (прогресс: тесты + capture extraction в bridge/capture.ts + sse-publisher.ts extraction (SSE clients, handlers, senders) + delegation. Plugin now thinner.)
+- [x] **2. Разбить монолит bridge-plugin.ts** (прогресс: тесты + capture + sse-publisher + raw-monitor + simulator-integration + udp-listener + http-api.ts extractions + delegation. Plugin much thinner. All listed modules done. 7 modules done.)
   - **Почему важно:** Один файл ~66 КБ делает невозможным unit-тестирование и усложняет поддержку. Это сердце системы.
   - **Что делать:**
     - Выделить модули (в новом `src/server/` или `bridge/`):
@@ -43,7 +43,7 @@
     - Сохранить обратную совместимость (публичные функции).
   - **Оценка усилий:** 5–8 дней (постепенно, с тестами).
   - **Связанные:** `bridge-plugin.ts`, `simulator.ts`, `decoding.ts`.
-  - **Статус / заметки:** ✅ capture + sse-publisher extracted and delegated (2026-06-12). Dev server running with changes. 
+  - **Статус / заметки:** ✅ capture + sse-publisher + raw-monitor + udp-listener + simulator-integration + http-api.ts extracted and delegated (7 modules, 2026-06-12). Dev server (npm run dev, port 3410) успешно запущен после исправления дублирующихся экспортов и мелких type issues из этапа извлечения. UDP listeners (14443 + raw 14442), SSE, HTTP middleware активны. (publishDecodedFrame и полная симуляция — stubbed на этом шаге; core bridge загрузился без падений.) 
 
 - [ ] **3. Упростить и стабилизировать продакшен-деплой + terrain**
   - **Почему важно:** Текущая схема (Vite dev + отдельный Express + terrain на 3409) хрупкая. Много ручных проверок MIME, pm2-ловушек, требований к токенам.

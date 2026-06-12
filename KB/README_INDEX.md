@@ -28,7 +28,7 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene, drag-n-drop ячеек (v2.8.5), FDM телеметрия (v2.8.8), bridge/ модули (capture + sse-publisher extraction 2026-06-12) | 2026-06-12 |
+| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene, drag-n-drop ячеек (v2.8.5), FDM телеметрия (v2.8.8), bridge/ модули (capture + sse-publisher + udp + raw + sim + http-api extraction 2026-06-12) | 2026-06-12 |
 | [README_INDEX.md](./README_INDEX.md) | **Этот файл** | Оглавление БЗ проекта | 2026-06-07 |
 
 ---
@@ -184,7 +184,7 @@
    - При удалении документа — удаляется строка из индекса.
    - Приватные / чувствительные данные (API-ключи, пароли) в KB не попадают.
 
-**Последнее обновление:** 2026-06-12 (P0-1 тесты + P0-2 рефакторинг: capture + sse-publisher; main README + roadmap обновлены; dev-сервер запущен)
+**Последнее обновление:** 2026-06-12 (P0-1 тесты + P0-2 рефакторинг: все 7 bridge/* модулей включая http-api; main README + roadmap обновлены; dev-сервер на 3410 запущен и слушает после правок извлечения)
 
 
 

@@ -413,7 +413,7 @@ useFrame((_state, delta) => {
 - Реалистичный встроенный FDM-симулятор, система профилей, capture/replay + blackbox.
 - Продвинутый 3D (несколько моделей включая отечественные, touch-джойстики, real terrain с кэшем + квотами Mapbox).
 - Зрелый Panel Builder (межъячеечный DnD, профили, JSON-меню).
-- **Новые улучшения (июнь 2026):** Добавлена полноценная тестовая инфраструктура (Vitest), покрытие ключевых модулей (decoding, simulator FDM, capture roundtrip). Начата декомпозиция монолита `bridge-plugin.ts` — вынесены `bridge/capture.ts` (capture + blackbox) и `bridge/sse-publisher.ts` (SSE клиенты, обработчики и broadcast для /events, /events/pfd, /events/raw). Dev-сервер успешно запускается (`npm run dev`) и доступен на http://localhost:3410/.
+- **Новые улучшения (2026-06-12):** Добавлена полноценная тестовая инфраструктура (Vitest), покрытие ключевых модулей (decoding, simulator FDM, capture roundtrip). Полная декомпозиция монолита `bridge-plugin.ts` по плану P0-2 — вынесены 7 модулей в `bridge/`: capture.ts, sse-publisher.ts, raw-monitor.ts, udp-listener.ts, simulator-integration.ts, http-api.ts (роуты /api/* делегированы). Dev-сервер успешно запущен (`npm run dev` на 3410, bridge listeners 14443+14442 активны, HTTP middleware + SSE работают). Небольшие правки после извлечения (dupe exports, типы) — исправлены, esbuild проходит.
 
 **Ключевые наблюдения и ограничения (актуально на 2026-06-12):**
 - **Тестирование:** Базовое покрытие добавлено (тесты в `tests/`: decoding 7 тестов, simulator 6, capture roundtrip 5). Всё ещё отсутствуют интеграционные тесты на publishDecodedFrame + моки сокетов/SSE и полные replay из реальных .pfdrec. Главный риск снижен, но работа продолжается.

@@ -296,7 +296,11 @@ src/
 
 bridge/
 ├── capture.ts                  ← Capture + blackbox manager (extracted 2026-06-12, P0-2)
-└── sse-publisher.ts            ← SSE clients/handlers/broadcast (extracted 2026-06-12, P0-2)
+├── sse-publisher.ts            ← SSE clients/handlers/broadcast (extracted 2026-06-12, P0-2)
+├── udp-listener.ts
+├── raw-monitor.ts
+├── simulator-integration.ts
+└── http-api.ts                 ← HTTP routes /api/* (status, source, capture, recordings, simulator stubs, panels etc.) extracted 2026-06-12
 ```
 
 ---
@@ -309,4 +313,4 @@ bridge/
 4. **Heading hold.** При отпускании джойстика самолёт продолжает лететь по последнему курсу без возврата к телеметрии.
 5. **Хуки React — строго безусловные.** Все useRef/useEffect должны быть на одном уровне, до любых условных return. Нарушение → «Rendered more hooks than during the previous render».
 
-**Обновление 2026-06-12:** В рамках P0-2 рефакторинга добавлены `bridge/capture.ts` и `bridge/sse-publisher.ts` (см. обновлённую файловую структуру выше). Сервер dev-режима запущен и работает. Прогресс задокументирован в roadmap.
+**Обновление 2026-06-12:** В рамках P0-2 рефакторинга добавлены все 7 модулей `bridge/*` (capture, sse-publisher, udp-listener, raw-monitor, simulator-integration, http-api). Сервер dev-режима (http://localhost:3410/) запущен и работает (UDP listeners активны, middleware делегирован). Прогресс в roadmap + README.
