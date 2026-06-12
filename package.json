@@ -1,7 +1,7 @@
 {
   "name": "pilot-3d-pfd",
   "private": true,
-  "version": "2.10.0",
+  "version": "2.10.1",
   "type": "module",
   "description": "Merged 3D Flight Viewer + PFD — bridge, viewer, and KPI in one project. Single npm run dev starts UDP bridge, SSE streams, HTTP API, capture and React PFD on port 3410.",
   "scripts": {
