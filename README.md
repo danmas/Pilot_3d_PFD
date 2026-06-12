@@ -7,7 +7,7 @@
 | Компонент | URL | Описание |
 |---|---|---|
 | **PFD (КПИ)** | `http://localhost:3410/` | React PFD: авиагоризонт, ленты скорости/высоты, вариометр |
-|| **Panel Builder** | Hub → «Panel Builder» | Конструктор приборной панели: drag-and-drop из сайдбара и между ячейками, split, save/load |
+| **Panel Builder** | Hub → «Panel Builder» | Конструктор приборной панели: drag-and-drop, split, save/load |
 | **Viewer (диагностика)** | `http://localhost:3410/viewer/` | Live/replay, capture, отладка telemetry-frame.v1 |
 | **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443), hex+decoded, piggyback-режим |
 | **Bridge (UDP → HTTP)** | порт 14443 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
@@ -24,14 +24,14 @@ FlightSimulator.step(0.04), 25 Hz ──────────────┤
   → SSE /events (telemetry-frame.v1)
   → SSE /events/pfd (PFD subset)
   → SSE /events/raw (raw-frame — сырые данные)
-  → capture *.pfdrec + simulator *_sim_blackbox.pfdrec
+  → capture *_live.jsonl + simulator *_sim_blackbox.jsonl
   → HTTP API /api/*
   → React PFD app (port 3410)
   → diagnostic viewer /viewer/
   → Raw Data Monitor /raw
 ```
 
-Всё в одном процессе Vite dev-server (dev) или Express server (продакшен).
+Всё в одном процессе Vite dev-server. Никакого proxy, никакого CORS.
 
 ## Единый каталог параметров (field-catalog.ts)
 
@@ -46,7 +46,7 @@ FlightSimulator.step(0.04), 25 Hz ──────────────┤
 > **Важно:** порядок байт в бинарном потоке НЕ определяется `field-catalog.ts`.
 > Единственный источник порядка байт — **`out.json`** (читается модулем `decoding.ts` при старте).
 > Сопоставление слотов с каталогом — по ARINC param, а не по индексу.
-> Подробнее — [KB/README_decoding.md](./KB/README_decoding.md).
+> Подробнее — [README_decoding.md](./README_decoding.md).
 
 ### Расчётные поля (dec_ префикс)
 
@@ -89,55 +89,10 @@ UDP_PORT=14443               # UDP порт для tnparserrt (по умолча
 
 ## Запуск
 
-### Dev-режим (Vite, локальная разработка)
-
 ```powershell
 cd C:\ERV\CARLINK\CARL_AVI\WORK\Pilot\Pilot_3d_PFD
 npm install
 npm run dev
-```
-
-> **⚠️ Vite dev-server НЕ для продакшена.** Vite не всегда отдаёт корректные MIME-типы для JS-модулей (`.js` → `text/html` вместо `application/javascript`),
-> из-за чего браузер блокирует загрузку lazy-чанков с ошибкой
-> `Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html"`.
-
-### Продакшен (Express server, Linux-сервер)
-
-Сборка и запуск:
-
-```bash
-cd /root/projects-ex/Pilot_3d_PFD
-npm run build                 # → dist/
-node server/server.js         # Express: статика + terrain proxy, порт 3410
-```
-
-### Запуск через pm2 (авто-рестарт)
-
-```bash
-cd /root/projects-ex/Pilot_3d_PFD
-npm run build
-pm2 start ecosystem.config.cjs
-pm2 save
-```
-
-> **Конфиг:** `ecosystem.config.cjs` запускает `node server/server.js` (Express),
-> **не** `npm run dev` (Vite). Проверить: `pm2 describe pilot-3d-pfd | grep "script path"` — должно быть `node`.
-
-**Проверка MIME-типов (продакшен):**
-
-```bash
-curl -sI http://localhost:3410/assets/LazyAircraft3DInstrument-*.js | grep Content-Type
-# Должно быть: Content-Type: application/javascript
-# Не должно быть: Content-Type: text/html
-```
-
-**Как исправить, если pm2 запускает не тот скрипт:**
-
-```bash
-pm2 stop pilot-3d-pfd
-pm2 delete pilot-3d-pfd
-cd /root/projects-ex/Pilot_3d_PFD && pm2 start ecosystem.config.cjs
-pm2 save
 ```
 
 Открыть:
@@ -168,7 +123,7 @@ pm2 save
 
 Симулятор реализован на сервере в `simulator.ts` и запускается из `bridge-plugin.ts` с фиксированным шагом `0.04 s` (`25 Hz`). Кадры симулятора проходят через тот же `publishDecodedFrame()` / `applyDecFormulas()` / SSE / capture pipeline, что и реальные UDP-данные.
 
-Для анализа модели есть отдельный blackbox-формат `sim-blackbox.v1`: действия пилота, сглаженные controls, internal state FDM, силы/коэффициенты (`Cl`, `Cd`, `lift`, `drag`, `thrust`) и ускорения. При ручной симуляции рядом с обычным `*.pfdrec` создаётся `*_sim_blackbox.pfdrec`.
+Для анализа модели есть отдельный blackbox-формат `sim-blackbox.v1`: действия пилота, сглаженные controls, internal state FDM, силы/коэффициенты (`Cl`, `Cd`, `lift`, `drag`, `thrust`) и ускорения. При ручной симуляции рядом с обычным `*_live.jsonl` создаётся `*_sim_blackbox.jsonl`.
 
 Scripted profiles запускаются из UI (`Live` → `Scripted Profiles`) или через API. Они выполняются offline на отдельном экземпляре `FlightSimulator` и не трогают текущий live-полёт. В UI после запуска созданный telemetry-файл сразу открывается как Replay: приборы переходят на начальный кадр профиля и проигрывают весь сценарий.
 
@@ -192,29 +147,14 @@ Initial presets:
 | `high_altitude_25000_250` | `25000 ft`, `250 kt`, `throttle 0.72`, `pitch 4°` |
 | `approach_1500_140` | `1500 ft`, `140 kt`, `throttle 0.5`, `pitch 4°` |
 
-Подробно: [KB/README_flight_physics.md](./KB/README_flight_physics.md).
+Подробно: [README_flight_physics.md](./README_flight_physics.md).
 
-**FDM телеметрия (v2.8.8+):** Симулятор публикует 28 полей в `TelemetryFrame`:
-- Положение: `PitchAngle`, `RollAngle`, `MagneticHeading`
-- Скорости: `CAS` (kt), `TAS` (kt), `Vy` (fpm), `MachNumber`
-- Высоты: `dec_BaroAltFt`, `dec_RadioAltFt`
-- Управление: `FCU_Roll_Left`, `FCU_Pitch_Left`, `RudderPosition`
-- Двигатели: `N1_Actual`, `N2_Actual` (N1 idle = 20%), `EGT` (от газа)
-- Аэродинамика: `AoA`, `NormalG`, угловые скорости
-- Координаты: `Latitude`, `Longitude`, `TrueHeading`
-
-**Подключаемые модели (pluggable FDM):** [KB/README_pluggable_fdm.md](./KB/README_pluggable_fdm.md).
+**Подключаемые модели (pluggable FDM):** [README_pluggable_fdm.md](./README_pluggable_fdm.md).
 Архитектурный анализ проведён, спецификация готова. Реализация отложена — текущая модель работает стабильно.
 
 ## Panel Builder
 
-Конструктор компоновки приборов (Hub → «Panel Builder»). Подробнее — [src/components/PanelKit/README_PantlKit.md](./src/components/PanelKit/README_PantlKit.md).
-
-### Drag-and-drop между ячейками
-
-Начиная с **v2.8.5**, приборы можно перетаскивать не только из сайдбара на холст, но и **между ячейками панели** (move-семантика: исходная ячейка очищается). Работает на десктопе (HTML5 DnD) и на тач-устройствах.
-
-Исключение: 3D Aircraft (`Aircraft3DInstrument`) не участвует в drag-n-drop между ячейками (v2.8.6) — мышь занята вращением сцены.
+Конструктор компоновки приборов (Hub → «Panel Builder»). Подробнее — [KB/README_Panel_builder](../KB/README_Panel_builder).
 
 ### Конфигурация панели
 
@@ -400,10 +340,9 @@ aircraftControlsRef.ts  ← module-level ref { active, pitch, roll, yaw }
 AircraftModel.tsx → useFrame() проверяет override.active
 ```
 
-- `aircraftControlsRef.ts` — общий модуль с ref'ом `{ active: false, pitch: 0, roll: 0, yaw: 0, throttle: 0 }`
+- `aircraftControlsRef.ts` — общий модуль с ref'ом `{ active: false, pitch: 0, roll: 0, yaw: 0 }`
 - `Joystick.tsx` — 140px круглый джойстик, touch + mouse drag от центра
 - `RudderSlider.tsx` — 36×200px вертикальный слайдер, touch + mouse drag
-- **`ThrottleJoystick.tsx`** — РУД (красный столбик), touch + mouse drag. **v2.8.10:** всегда вызывает `writeOverride` (не только при изменении газа) — иначе после касания синего джойстика РУД не обновлял `active`, и обороты засыпали.
 - `TouchControls.tsx` — overlay `inset-0 z-50 pointer-events-none`
 - `AircraftModel.tsx` — в `useFrame()`: если `override.active === true`, берёт pitch/roll/yaw из ref'а вместо телеметрии
 
@@ -458,4 +397,39 @@ useFrame((_state, delta) => {
 #### ❌ CapsuleGeometry — может не поддерживаться на старых WebGL
 
 Заменена на `CylinderGeometry` + две `SphereGeometry` для фюзеляжа. Сегменты цилиндров уменьшены с 12 до 8 для лёгкости.
+
+---
+
+## Состояние проекта, анализ и рекомендации (добавлено 2026-06-12)
+
+На основе детального анализа кодовой базы, документации, архитектуры и инфраструктуры (см. также свежие документы в `KB/`):
+
+**Сильные стороны (кратко):**
+- Отличная культура документации (KB с жёсткими правилами, 18+ актуальных README, детальные описания архитектуры, декодирования, физики и terrain).
+- Цельная и продуманная модель данных (`telemetry-frame.v1`, разделение `out.json` / `field-catalog.ts`, `dec_*` расчёты).
+- Мощный «всё-в-одном» dev-опыт через Vite-плагин (`bridge-plugin.ts`).
+- Реалистичный встроенный FDM-симулятор, система профилей, capture/replay + blackbox.
+- Продвинутый 3D (несколько моделей включая отечественные, touch-джойстики, real terrain с кэшем + квотами Mapbox).
+- Зрелый Panel Builder (межъячеечный DnD, профили, JSON-меню).
+
+**Ключевые наблюдения и ограничения:**
+- **Тестирование:** практически отсутствует (только `tsc --noEmit` + тесты внутри `packages/realtime-charts`). Это главный риск для такого сложного ядра (декодирование + физика + capture).
+- **Монолитность:** `bridge-plugin.ts` (66+ КБ) содержит слишком много ответственности (UDP + simulator + SSE + capture + API). Трудно тестировать и эволюционировать изолированно.
+- **Продакшен:** Отдельный Express-сервер работает, но есть нюансы с MIME-типами, pm2, интеграцией terrain-proxy (порт 3409 + Mapbox token + квоты 50k). Требует аккуратной эксплуатации.
+- **Пакеты:** `packages/realtime-charts` имеет собственный `node_modules` и пока слабо интегрирован (хотя `ChartsView` уже импортируется в `App.tsx`).
+- **Внешние зависимости:** Сильная привязка к актуальному `out.json` (и `tn3.tcfg`) от tnparserrt. `@google/genai` присутствует, но активного использования в коде почти нет.
+- **Другое:** Нет CI в видимой конфигурации. Есть артефакты (`captures/`, `tmp/`, вложенные node_modules). Часть идей по 3D (реалистичный ландшафт, масштаб горизонта) задокументированы, но ещё в работе.
+
+**Что рекомендуется в первую очередь:** см. новый документ **[KB/README_roadmap.md](./KB/README_roadmap.md)** (приоритизированный план на P0/P1/P2).
+
+**Полный отчёт оценки:** [KB/README_project_assessment.md](./KB/README_project_assessment.md)
+
+Проект в хорошей форме, активно развивается (документация обновлялась в июне 2026) и имеет сильный фундамент. Основные усилия стоит направить на тестирование, модульность glue-слоя и операционную устойчивость деплоя.
+
+### Быстрые ссылки на документацию (2026-06-12)
+- Главная архитектура: [KB/README_architecture.md](./KB/README_architecture.md)
+- Декодирование и телеметрия: [KB/README_decoding.md](./KB/README_decoding.md)
+- Физика и симулятор: [KB/README_flight_physics.md](./KB/README_flight_physics.md), [KB/README_simulator_realisation.md](./KB/README_simulator_realisation.md)
+- 3D и terrain (недавно реализован): [KB/README_terrain_proxy.md](./KB/README_terrain_proxy.md), [KB/README_terrain_quota.md](./KB/README_terrain_quota.md)
+- Идеи и визуальные улучшения: [KB/README_ideas.md](./KB/README_ideas.md)
 
