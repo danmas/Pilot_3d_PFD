@@ -12,6 +12,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import type { TerrainTileData } from './TerrainManager';
 import type { TileCoord } from './terrainTileUtils';
+import { getTileCornersLatLon, formatTileCorners } from './terrainTileUtils';
 
 interface RealTerrainMeshProps {
   /** Массив тайлов с координатами */
@@ -30,20 +31,42 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   const groupRef = useRef<THREE.Group>(null);
 
   console.log('[RealTerrainMesh] render, tiles count:', tiles?.length ?? 0, 'mode:', mode);
+  if (tiles && tiles.length > 0) {
+    const c0 = getTileCornersLatLon(tiles[0].coord.x, tiles[0].coord.y, tiles[0].coord.z);
+    console.log('[RealTerrainMesh] first tile in list corners example:', formatTileCorners(c0));
+  }
 
   const meshes = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
     const group = new THREE.Group();
 
-    // Единый размер тайла для всей сетки — берём worldUnits центрального тайла
-    // worldUnits — это размер тайла на земле в WU (без умножения на 2)
-    // Для PlaneGeometry нужна полная ширина = worldUnits * 2 (потому что тайл 2×2 WU)
-    const midIdx = Math.floor(tiles.length / 2);
-    const baseTileSize = tiles[midIdx].data.worldUnits;
+    // Robust reference: use the logical center of the bounding box of loaded tiles
+    // instead of fragile midIdx (which depended on array insertion order and could be any tile).
+    // This ensures consistent anchoring even if the list is incomplete or in arbitrary order.
+    const xs = tiles.map(t => t.coord.x);
+    const ys = tiles.map(t => t.coord.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const refX = Math.round((minX + maxX) / 2);
+    const refY = Math.round((minY + maxY) / 2);
+
+    // Pick worldUnits from the tile closest to the logical center (better than arbitrary mid)
+    let refTile = tiles[0];
+    let minDist = Infinity;
+    for (const t of tiles) {
+      const d = Math.abs(t.coord.x - refX) + Math.abs(t.coord.y - refY);
+      if (d < minDist) {
+        minDist = d;
+        refTile = t;
+      }
+    }
+    const baseTileSize = refTile.data.worldUnits;
     const tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
 
-    console.log('[RealTerrainMesh] baseTileSize:', baseTileSize, 'tileWU:', tileWU, 'mid coord:', tiles[midIdx].coord);
+    console.log('[RealTerrainMesh] refX/refY (logical center):', refX, refY, 'tileWU:', tileWU, 'from tile:', refTile.coord);
 
     // Глобальный minElevation для ВСЕЙ сетки — чтобы тайлы стыковались без щелей
     let globalMinElev = Infinity;
@@ -66,8 +89,6 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       : null;
 
     const halfW = tileWU / 2;
-    const refX = tiles[midIdx].coord.x;
-    const refY = tiles[midIdx].coord.y;
 
     for (const { coord, data } of tiles) {
       const { x, y, z } = coord;
@@ -80,6 +101,23 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       // Slippy Map Y растёт на ЮГ, 3D-мир Z растёт на СЕВЕР → инвертируем Z
       const offsetX = (x - refX) * tileWU;
       const offsetZ = -(y - refY) * tileWU;
+
+      const corners = getTileCornersLatLon(x, y, z);
+      console.log(`[RealTerrainMesh] DRAW-QUAD tile=${z}/${x}/${y} ref=${refX}/${refY} offsetX=${offsetX} offsetZ=${offsetZ} corners=${formatTileCorners(corners)}`);
+      // Send to server log immediately (fire and forget) so user doesn't have to relay from console
+      fetch('/api/terrain/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          t: new Date().toISOString(),
+          type: 'DRAW-QUAD',
+          coord: { z, x, y },
+          ref: { x: refX, y: refY },
+          offset: { x: offsetX, z: offsetZ },
+          corners,
+          source: 'client'
+        })
+      }).catch(() => {});
 
       const geo = new THREE.BufferGeometry();
 

@@ -59,7 +59,10 @@ export default defineConfig(({mode}) => {
       // HMR: when DISABLE_HMR=true, disable server-side HMR entirely.
       hmr: process.env.DISABLE_HMR === 'true' ? false : {},
       // Disable file watching when DISABLE_HMR is true to save CPU.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: process.env.DISABLE_HMR === 'true' ? null : {
+        // Ignore cache (terrain quota, access logs, etc.) to prevent spam page reloads during terrain testing
+        ignored: ['**/cache/**', '**/node_modules/**', '**/.git/**'],
+      },
       port: port,
       host: '0.0.0.0',
       proxy: {
