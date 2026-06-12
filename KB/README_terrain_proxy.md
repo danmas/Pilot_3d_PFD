@@ -1,21 +1,40 @@
 # Terrain Proxy: серверный кэш Mapbox
 
-**Дата:** 2026-06-10
+**Дата:** 2026-06-11
 **Статус:** Реализовано ✅
 **Автор:** Hermes Agent
 **Назначение:** Документация серверного прокси для terrain тайлов Mapbox
-**Актуализация:** 2026-06-10
+**Актуализация:** 2026-06-11
 
 ---
 
 ## Обзор
 
-`server.js` — единый Express сервер, который:
-1. Раздаёт статику из `dist/` (SPA fallback)
-2. Проксирует запросы к Mapbox API с дисковым кэшированием
-3. Считает квоту запросов к Mapbox
+Два серверных файла:
 
-Заменяет предыдущую связку `serve dist -l 3410` + отдельный terrain-proxy.
+| Файл | Порт | Режим | Назначение |
+|------|------|-------|------------|
+| `server/server.js` | 3410 | production (pm2) | Единый сервер: статика dist/ + terrain API + SPA fallback |
+| `server/terrain-proxy.js` | 3409 | development (npm run dev) | Отдельный прокси для Vite dev server |
+
+В production `server.js` заменяет Vite и terrain-proxy одним процессом.
+В development `npm run dev` запускает только Vite, а `terrain-proxy.js` запускается отдельно.
+
+### Development setup
+
+```bash
+# 1. Запустить terrain-proxy на порту 3409 (отдельный терминал)
+node server/terrain-proxy.js
+
+# 2. Vite проксирует /api/terrain/* → http://localhost:3409
+#    Настроено в vite.config.ts:
+#      proxy: { '/api/terrain': { target: 'http://localhost:3409' } }
+
+# 3. npm run dev — Vite на 3410, проксирует terrain-запросы на 3409
+npm run dev
+```
+
+**Важно:** terrain-proxy читает токен из `.env` (не `.env.local`). Токен должен быть в обоих файлах.
 
 ## Файл
 
@@ -147,7 +166,26 @@ module.exports = {
 
 ## Связь с frontend
 
-Клиентский `terrainTileUtils.ts` генерирует URL:
+### Эндпоинты
+
+| Метод | URL | Описание |
+|-------|-----|----------|
+| GET | `/api/terrain/tile/:z/:x/:y?type=dem\|sat` | Прокси-тайл |
+| GET | `/api/terrain/quota` | Статистика квоты |
+| GET | `/api/terrain/logs?limit=N` | Последние N записей лога (макс 500) |
+
+### Лог загрузок
+
+Каждый запрос тайла пишется в `cache/terrain/access.log` (JSON lines):
+```json
+{"t":"2026-06-11T...","coord":{"z":14,"x":8506,"y":5838},"type":"sat","status":"HIT","quotaTotal":51}
+```
+
+Статусы: `HIT` (кэш), `MISS` (загружен из Mapbox), `TIMEOUT`, `ERROR`, `QUOTA_EXCEEDED`.
+
+Клиентский `TerrainLogPanel.tsx` показывает лог через `GET /api/terrain/logs?limit=40`.
+
+### URL-схема
 ```typescript
 // DEM тайл через наш proxy
 function terrainRgbUrl(token, z, x, y): string {

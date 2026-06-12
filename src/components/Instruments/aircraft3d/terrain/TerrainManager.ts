@@ -200,21 +200,32 @@ class TerrainManagerImpl {
     const { x, y, z } = tile;
 
     try {
-      // 1. DEM тайл
+      // 1. DEM тайл — пробуем IndexedDB, при ошибке декодирования перезапрашиваем
       const demKey = tileCacheKey('dem', z, x, y);
       let demBlob = await getTile(demKey);
+      let demImage: ImageBitmap | null = null;
+
+      if (demBlob) {
+        try {
+          demImage = await createImageBitmap(demBlob);
+        } catch {
+          // Битый кэш — удаляем и перезапрашиваем
+          console.warn(`[TerrainManager] Stale IndexedDB dem ${z}/${x}/${y}, re-fetching`);
+          demBlob = null;
+        }
+      }
 
       if (!demBlob) {
         const response = await fetch(terrainRgbUrl(this.token, z, x, y), {
           signal,
-          cache: 'force-cache',
         });
         if (!response.ok) throw new Error(`DEM fetch failed: ${response.status}`);
         demBlob = await response.blob();
         putTile(demKey, demBlob, { source: 'dem', z, x, y }).catch(() => {});
+        demImage = await createImageBitmap(demBlob);
       }
 
-      const demImage = await createImageBitmap(demBlob);
+      if (!demImage) throw new Error('DEM decode failed');
       const imgW = demImage.width > 0 ? demImage.width : 256;
       const imgH = demImage.height > 0 ? demImage.height : 256;
 
@@ -244,7 +255,6 @@ class TerrainManagerImpl {
         if (!satBlob) {
           const response = await fetch(satelliteUrl(this.token, z, x, y), {
             signal,
-            cache: 'force-cache',
           });
           if (response.ok) {
             satBlob = await response.blob();
@@ -253,7 +263,20 @@ class TerrainManagerImpl {
         }
 
         if (satBlob) {
-          satelliteBitmap = await createImageBitmap(satBlob);
+          try {
+            satelliteBitmap = await createImageBitmap(satBlob);
+          } catch {
+            console.warn(`[TerrainManager] Stale IndexedDB sat ${z}/${x}/${y}, re-fetching`);
+            // Re-fetch from network
+            const response = await fetch(satelliteUrl(this.token, z, x, y), {
+              signal,
+            });
+            if (response.ok) {
+              const freshBlob = await response.blob();
+              putTile(satKey, freshBlob, { source: 'sat', z, x, y }).catch(() => {});
+              satelliteBitmap = await createImageBitmap(freshBlob);
+            }
+          }
         }
       } catch (satErr) {
         console.warn(`[TerrainManager] satellite ${z}/${x}/${y} failed:`, satErr);

@@ -62,6 +62,12 @@ export default defineConfig(({mode}) => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       port: port,
       host: '0.0.0.0',
+      proxy: {
+        '/api/terrain': {
+          target: 'http://localhost:3409',
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       chunkSizeWarningLimit: 1500,

@@ -16,10 +16,6 @@ import type { TileCoord } from './terrainTileUtils';
 interface RealTerrainMeshProps {
   /** Массив тайлов с координатами */
   tiles: Array<{ coord: TileCoord; data: TerrainTileData }> | null;
-  /** Параметры самолёта для позиционирования */
-  aircraftX: number;
-  aircraftY: number;
-  aircraftZ: number;
   /** Прозрачность */
   opacity?: number;
   /** Режим */
@@ -28,9 +24,6 @@ interface RealTerrainMeshProps {
 
 const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   tiles,
-  aircraftX,
-  aircraftY,
-  aircraftZ,
   opacity = 1,
   mode = 'realistic',
 }) => {
@@ -84,8 +77,9 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       if (!segX || !segZ || !isFinite(tileWU)) continue;
 
       // Смещение тайла в сетке: соседние тайлы стыкуются строго впритык
+      // Slippy Map Y растёт на ЮГ, 3D-мир Z растёт на СЕВЕР → инвертируем Z
       const offsetX = (x - refX) * tileWU;
-      const offsetZ = (y - refY) * tileWU;
+      const offsetZ = -(y - refY) * tileWU;
 
       const geo = new THREE.BufferGeometry();
 
@@ -120,7 +114,7 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
           positions[idx * 3 + 1] = hWu;
           positions[idx * 3 + 2] = pz;
           uvs[idx * 2] = u;
-          uvs[idx * 2 + 1] = 1 - v;
+          uvs[idx * 2 + 1] = v;
           idx++;
         }
       }

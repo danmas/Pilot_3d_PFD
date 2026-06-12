@@ -2,3 +2,4 @@ node_modules/
 public/data/**
 tmp/
 .env.local
+captures/

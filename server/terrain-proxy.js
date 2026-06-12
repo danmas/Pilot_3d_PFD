@@ -26,6 +26,7 @@ dotenv.config({ path: path.join(ROOT, '.env') });
 
 const CACHE_DIR = path.join(ROOT, 'cache', 'terrain');
 const QUOTA_FILE = path.join(ROOT, 'cache', 'terrain-quota.json');
+const LOG_FILE = path.join(ROOT, 'cache', 'terrain', 'access.log');
 const PORT = parseInt(process.env.TERRAIN_PROXY_PORT || '3409', 10);
 
 // Создаём папки кэша
@@ -73,6 +74,15 @@ function saveQuota() {
   } catch (e) {
     console.error('[terrain-proxy] Failed to save quota:', e.message);
   }
+}
+
+// ─── Log ───
+function appendLog(entry) {
+  try {
+    const dir = path.dirname(LOG_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
+  } catch {}
 }
 
 function incrementQuota(type) {
@@ -137,6 +147,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// GET /api/terrain/logs — последние N записей лога
+app.get('/api/terrain/logs', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  try {
+    if (!fs.existsSync(LOG_FILE)) return res.json([]);
+    const data = fs.readFileSync(LOG_FILE, 'utf-8');
+    const lines = data.trim().split('\n').filter(Boolean);
+    const last = lines.slice(-limit).map(l => JSON.parse(l));
+    res.json(last);
+  } catch {
+    res.json([]);
+  }
+});
+
 // GET /api/terrain/quota — статистика запросов
 app.get('/api/terrain/quota', (req, res) => {
   const now = new Date();
@@ -184,6 +208,13 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
     const contentType = type === 'dem' ? 'image/png' : 'image/jpeg';
     res.setHeader('Content-Type', contentType);
     res.setHeader('X-Cache', 'HIT');
+    appendLog({
+      t: new Date().toISOString(),
+      coord: { z: zNum, x: xNum, y: yNum },
+      type,
+      status: 'HIT',
+      quotaTotal: quota.total,
+    });
     return res.sendFile(cached);
   }
 
@@ -221,14 +252,38 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
 
     console.log(`[terrain-proxy] ${type} ${z}/${x}/${y} — cached (quota: ${quota.total}/50000)`);
 
+    appendLog({
+      t: new Date().toISOString(),
+      coord: { z: zNum, x: xNum, y: yNum },
+      type,
+      status: 'MISS',
+      quotaTotal: quota.total,
+    });
+
     res.setHeader('Content-Type', contentType);
     res.setHeader('X-Cache', 'MISS');
     res.send(buffer);
   } catch (err) {
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+      appendLog({
+        t: new Date().toISOString(),
+        coord: { z: zNum, x: xNum, y: yNum },
+        type,
+        status: 'TIMEOUT',
+        error: 'Mapbox timeout',
+        quotaTotal: quota.total,
+      });
       return res.status(504).json({ error: 'Mapbox timeout' });
     }
     console.error(`[terrain-proxy] Error fetching ${type} ${z}/${x}/${y}:`, err.message);
+    appendLog({
+      t: new Date().toISOString(),
+      coord: { z: zNum, x: xNum, y: yNum },
+      type,
+      status: 'ERROR',
+      error: err.message,
+      quotaTotal: quota.total,
+    });
     res.status(502).json({ error: 'Upstream fetch failed' });
   }
 });

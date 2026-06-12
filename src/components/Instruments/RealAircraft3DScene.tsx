@@ -92,13 +92,10 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
     )}
 
     <WorldGroup>
-      {/* RealTerrainMesh в WorldGroup — массив тайлов, lazy загрузка */}
+      {/* RealTerrainMesh внутри WorldGroup — движется вместе с землёй (ВПП, сетка, деревья) */}
       {realTerrainEnabled && realTerrainData?.tiles && realTerrainData.tiles.length > 0 ? (
         <RealTerrainMesh
           tiles={realTerrainData.tiles}
-          aircraftX={aircraftPos.x}
-          aircraftY={aircraftPos.y}
-          aircraftZ={aircraftPos.z}
           mode="realistic"
         />
       ) : (
