@@ -71,7 +71,7 @@ interface SceneProps {
   realTerrainEnabled?: boolean;
   satelliteEnabled: boolean;
   realTerrainData: {
-    tileData: import('./aircraft3d/terrain/TerrainManager').TerrainTileData | null;
+    tiles: Array<{ coord: import('./aircraft3d/terrain/terrainTileUtils').TileCoord; data: import('./aircraft3d/terrain/TerrainManager').TerrainTileData }>;
     loading: boolean;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
@@ -88,15 +88,15 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
     {/* HorizonSphere is fixed in world space — outside WorldGroup */}
-    {realTerrainEnabled && realTerrainData?.loading && !realTerrainData?.tileData && (
+    {realTerrainEnabled && realTerrainData?.loading && (!realTerrainData?.tiles || realTerrainData.tiles.length === 0) && (
       <GroundDisc />
     )}
 
     <WorldGroup>
       {/* RealTerrainMesh внутри WorldGroup — движется вместе с землёй (ВПП, сетка, деревья) */}
-      {realTerrainEnabled && realTerrainData?.tileData ? (
+      {realTerrainEnabled && realTerrainData?.tiles && realTerrainData.tiles.length > 0 ? (
         <RealTerrainMesh
-          tiles={realTerrainData.tileData ? [{ coord: { z: 14, x: 0, y: 0 }, data: realTerrainData.tileData }] : []}
+          tiles={realTerrainData.tiles}
           mode={satelliteEnabled ? 'realistic' : 'schematic'}
         />
       ) : (
@@ -126,7 +126,7 @@ interface Aircraft3DCanvasProps {
   realTerrainEnabled?: boolean;
   satelliteEnabled: boolean;
   realTerrainData: {
-    tileData: import('./aircraft3d/terrain/TerrainManager').TerrainTileData | null;
+    tiles: Array<{ coord: import('./aircraft3d/terrain/terrainTileUtils').TileCoord; data: import('./aircraft3d/terrain/TerrainManager').TerrainTileData }>;
     loading: boolean;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
@@ -261,7 +261,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           realTerrainEnabled={realTerrainEnabled}
           satelliteEnabled={satelliteEnabled}
           realTerrainData={{
-            tileData: realTerrain.tiles && realTerrain.tiles.length > 0 ? realTerrain.tiles[0].data : null,
+            tiles: realTerrain.tiles,
             loading: realTerrain.loading,
           }}
           aircraftPos={{ x: 0, y: alt ?? 0, z: 0 }}

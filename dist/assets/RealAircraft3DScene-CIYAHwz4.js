@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-fk9triaL.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-D_OHexCx.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -57372,12 +57372,12 @@ const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled
     /* @__PURE__ */ jsxRuntimeExports.jsx("ambientLight", { intensity: 0.5 }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("directionalLight", { position: [10, 20, -10], intensity: 1 }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("directionalLight", { position: [-5, 10, 5], intensity: 0.3 }),
-    realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.loading) && !(realTerrainData == null ? void 0 : realTerrainData.tileData) && /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
+    realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.loading) && (!(realTerrainData == null ? void 0 : realTerrainData.tiles) || realTerrainData.tiles.length === 0) && /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(WorldGroup, { children: [
-      realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.tileData) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.tiles) && realTerrainData.tiles.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
         RealTerrainMesh,
         {
-          tiles: realTerrainData.tileData ? [{ coord: { z: 14, x: 0, y: 0 }, data: realTerrainData.tileData }] : [],
+          tiles: realTerrainData.tiles,
           mode: satelliteEnabled ? "realistic" : "schematic"
         }
       ) : /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
@@ -57521,7 +57521,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         realTerrainEnabled,
         satelliteEnabled,
         realTerrainData: {
-          tileData: realTerrain.tiles && realTerrain.tiles.length > 0 ? realTerrain.tiles[0].data : null,
+          tiles: realTerrain.tiles,
           loading: realTerrain.loading
         },
         aircraftPos: { x: 0, y: alt ?? 0, z: 0 }
