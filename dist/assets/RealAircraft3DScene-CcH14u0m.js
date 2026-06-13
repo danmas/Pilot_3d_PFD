@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-CV2Kdjdq.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-LHUmYaX8.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -54734,6 +54734,7 @@ const AircraftModel = reactExports.memo(({
   const headingAccumRef = reactExports.useRef(0);
   const improvedState = reactExports.useRef(createImprovedState());
   const improvedInit = reactExports.useRef(false);
+  const speedMemRef = reactExports.useRef(250);
   useFrame((_state, delta) => {
     var _a, _b2;
     const g2 = groupRef.current;
@@ -54847,13 +54848,13 @@ const AircraftModel = reactExports.memo(({
           Heading1: headingDeg,
           MagneticHeading: headingDeg,
           // Air data
-          CAS: 250,
+          CAS: Math.round(speedMemRef.current),
           BaroAltitude: altFt,
           dec_BaroAltFt: altFt,
           RadioAltitude: radioAltFt,
           dec_RadioAltFt: radioAltFt,
           StandardAltitude: altFt,
-          SpeedSelect: 250,
+          SpeedSelect: Math.round(speedMemRef.current),
           Vy: pitchDeg * 500,
           RAltitude: radioAltFt,
           // Angle of attack
@@ -54887,8 +54888,13 @@ const AircraftModel = reactExports.memo(({
         };
         (_b2 = override.onTelemetryUpdate) == null ? void 0 : _b2.call(override, telemetryRef.current);
       }
-      const cas = 250;
-      const speedWU = cas * 0.5144 / 40;
+      const simpleParams = loadFdmParams().params;
+      const throttleVal = override.active ? override.throttle ?? 0.5 : 0.5;
+      const baseSpeed = 80;
+      const speedRange = 340;
+      const cas = baseSpeed + throttleVal * simpleParams.throttleToThrustFactor * speedRange / 2;
+      speedMemRef.current += (Math.min(cas, 420) - speedMemRef.current) * 0.03;
+      const speedWU = speedMemRef.current * 0.5144 / 40;
       const dt = Math.min(delta, 0.1);
       const hRad = -headingDeg * DEG$1;
       const pRad = pitchDeg * DEG$1;

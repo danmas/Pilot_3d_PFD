@@ -14,6 +14,7 @@ import {
   type ImprovedState,
 } from './flightModel';
 import { loadFdmParams } from './flightModel';
+import type { FlightModelParams } from './flightModelParams';
 
 const DEG = Math.PI / 180;
 
@@ -40,6 +41,8 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
   const improvedState = useRef<ImprovedState>(createImprovedState());
   /** Флаг инициализации improved */
   const improvedInit = useRef(false);
+  /** Плавная скорость для Simple FDM */
+  const speedMemRef = useRef(250);
 
   useFrame((_state, delta) => {
     const g = groupRef.current;
@@ -186,13 +189,13 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
           Heading1: headingDeg,
           MagneticHeading: headingDeg,
           // Air data
-          CAS: 250,
+          CAS: Math.round(speedMemRef.current),
           BaroAltitude: altFt,
           dec_BaroAltFt: altFt,
           RadioAltitude: radioAltFt,
           dec_RadioAltFt: radioAltFt,
           StandardAltitude: altFt,
-          SpeedSelect: 250,
+          SpeedSelect: Math.round(speedMemRef.current),
           Vy: pitchDeg * 500,
           RAltitude: radioAltFt,
           // Angle of attack
@@ -227,9 +230,14 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
         override.onTelemetryUpdate?.(telemetryRef.current);
       }
 
-      // Always move forward
-      const cas = 250;
-      const speedWU = cas * 0.5144 / 40;
+      // Always move forward — speed depends on throttle × factor
+      const simpleParams = loadFdmParams().params;
+      const throttleVal = override.active ? (override.throttle ?? 0.5) : 0.5;
+      const baseSpeed = 80;
+      const speedRange = 340;
+      const cas = baseSpeed + throttleVal * simpleParams.throttleToThrustFactor * speedRange / 2;
+      speedMemRef.current += (Math.min(cas, 420) - speedMemRef.current) * 0.03;
+      const speedWU = speedMemRef.current * 0.5144 / 40;
       const dt = Math.min(delta, 0.1);
       const hRad = -headingDeg * DEG;
       const pRad = pitchDeg * DEG;
