@@ -43,6 +43,9 @@ export interface FlightModelParams {
 
   /** Чувствительность джойстика (0..1, 0.05 = очень плавно, 1 = мгновенный отклик) */
   joystickSensitivity: number;
+
+  /** Коэффициент влияния РУД на тягу (1.0 = стандарт, больше = сильнее реакция газа на скорость) */
+  throttleToThrustFactor: number;
 }
 
 /* ─── Пресеты ─── */
@@ -69,6 +72,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.05,
+    throttleToThrustFactor: 1.0,
   },
 
   slow: {
@@ -91,6 +95,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.02,
+    throttleToThrustFactor: 1.0,
   },
 
   fast: {
@@ -113,6 +118,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.08,
+    throttleToThrustFactor: 1.0,
   },
 
   custom: { ...({
@@ -131,6 +137,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.05,
+    throttleToThrustFactor: 1.0,
   }) },
 };
 

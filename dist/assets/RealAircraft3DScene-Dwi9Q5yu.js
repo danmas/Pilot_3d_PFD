@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-xD2Sl2Ol.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-fk9triaL.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -54430,7 +54430,8 @@ const CONFIG_PRESETS = {
     stallSinkRate: 50,
     altitudeScale: 0.05,
     groundY: -6,
-    joystickSensitivity: 0.05
+    joystickSensitivity: 0.05,
+    throttleToThrustFactor: 1
   },
   slow: {
     elevatorRate: 40,
@@ -54447,7 +54448,8 @@ const CONFIG_PRESETS = {
     stallSinkRate: 30,
     altitudeScale: 0.05,
     groundY: -6,
-    joystickSensitivity: 0.02
+    joystickSensitivity: 0.02,
+    throttleToThrustFactor: 1
   },
   fast: {
     elevatorRate: 150,
@@ -54464,7 +54466,8 @@ const CONFIG_PRESETS = {
     stallSinkRate: 80,
     altitudeScale: 0.05,
     groundY: -6,
-    joystickSensitivity: 0.08
+    joystickSensitivity: 0.08,
+    throttleToThrustFactor: 1
   },
   custom: { ...{
     elevatorRate: 80,
@@ -54481,7 +54484,8 @@ const CONFIG_PRESETS = {
     stallSinkRate: 50,
     altitudeScale: 0.05,
     groundY: -6,
-    joystickSensitivity: 0.05
+    joystickSensitivity: 0.05,
+    throttleToThrustFactor: 1
   } }
 };
 function createDefaultParamsState() {
@@ -54623,7 +54627,7 @@ function tickImprovedFdm(delta, state2, outFrame) {
   const rud = state2._rudder_smoothed;
   const thr = state2._throttle_smoothed;
   const drag = p2.dragCoeff * state2.speed * state2.speed;
-  const thrust = thr * p2.thrustMax;
+  const thrust = thr * p2.thrustMax * p2.throttleToThrustFactor;
   state2.speed += (thrust - drag) * dt;
   if (state2.speed < 0) state2.speed = 0;
   const isStall = state2.speed < p2.stallSpeed;
@@ -55069,26 +55073,105 @@ const GroundDisc = reactExports.memo(() => {
     }
   ) });
 });
+const DEFAULT_ZOOM = 14;
+const EARTH_CIRCUMFERENCE = 40075016686e-3;
+const WU_PER_METER = 1 / 40;
+function latLonToTile(lat, lon, zoom) {
+  const n = Math.pow(2, zoom);
+  const x2 = Math.floor((lon + 180) / 360 * n);
+  const latRad = lat * Math.PI / 180;
+  const y = Math.floor(
+    (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n
+  );
+  return { x: x2, y, z: zoom };
+}
+function tileCenterLatLon(x2, y, z) {
+  const n = Math.pow(2, z);
+  const lon = x2 / n * 360 - 180 + 360 / n / 2;
+  const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y / n + 1 / n / 2))));
+  const lat = latRad * 180 / Math.PI;
+  return { lat, lon };
+}
+function tileGroundSizeMeters(zoom, lat) {
+  return EARTH_CIRCUMFERENCE * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+}
+function tileWorldUnits(zoom, lat) {
+  return tileGroundSizeMeters(zoom, lat) * WU_PER_METER;
+}
+function decodeTerrainRGB(imageData) {
+  const { width, height, data } = imageData;
+  const heights = new Float32Array(width * height);
+  for (let i2 = 0; i2 < width * height; i2++) {
+    const r2 = data[i2 * 4];
+    const g2 = data[i2 * 4 + 1];
+    const b2 = data[i2 * 4 + 2];
+    heights[i2] = -1e4 + (r2 * 256 * 256 + g2 * 256 + b2) * 0.1;
+  }
+  return heights;
+}
+function terrainRgbUrl(token, z, x2, y) {
+  return `/api/terrain/tile/${z}/${x2}/${y}?type=dem`;
+}
+function satelliteUrl(token, z, x2, y) {
+  return `/api/terrain/tile/${z}/${x2}/${y}?type=sat`;
+}
+function tileCacheKey(source, z, x2, y) {
+  return `${source}_${z}_${x2}_${y}`;
+}
+function getTileCornersLatLon(x2, y, z) {
+  const n = Math.pow(2, z);
+  const lonLeft = x2 / n * 360 - 180;
+  const lonRight = (x2 + 1) / n * 360 - 180;
+  const latTopRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y / n))));
+  const latTop = latTopRad * 180 / Math.PI;
+  const latBottomRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * ((y + 1) / n))));
+  const latBottom = latBottomRad * 180 / Math.PI;
+  return [
+    { lat: latTop, lon: lonLeft },
+    // NW
+    { lat: latTop, lon: lonRight },
+    // NE
+    { lat: latBottom, lon: lonRight },
+    // SE
+    { lat: latBottom, lon: lonLeft }
+    // SW
+  ];
+}
 const RealTerrainMesh = ({
   tiles,
   opacity = 1,
-  mode = "realistic"
+  mode = "realistic",
+  centerTile
 }) => {
   const groupRef = reactExports.useRef(null);
   console.log("[RealTerrainMesh] render, tiles count:", (tiles == null ? void 0 : tiles.length) ?? 0, "mode:", mode);
   const meshes = reactExports.useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
     const group = new Group();
-    const midIdx = Math.floor(tiles.length / 2);
-    const baseTileSize = tiles[midIdx].data.worldUnits;
-    const tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
-    console.log("[RealTerrainMesh] baseTileSize:", baseTileSize, "tileWU:", tileWU, "mid coord:", tiles[midIdx].coord);
+    let refX;
+    let refY;
+    let tileWU;
+    if (centerTile) {
+      refX = centerTile.x;
+      refY = centerTile.y;
+      const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
+      const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
+      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    } else {
+      const xs = tiles.map((t2) => t2.coord.x).sort((a2, b2) => a2 - b2);
+      const ys = tiles.map((t2) => t2.coord.y).sort((a2, b2) => a2 - b2);
+      refX = xs[Math.floor(xs.length / 2)];
+      refY = ys[Math.floor(ys.length / 2)];
+      const midIdx = Math.floor(tiles.length / 2);
+      const baseTileSize = tiles[midIdx].data.worldUnits;
+      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    }
+    console.log("[RealTerrainMesh] tileWU:", tileWU, "refX:", refX, "refY:", refY, "centerTile:", centerTile);
     let globalMinElev = Infinity;
     for (const { data } of tiles) {
       if (data.minElevation < globalMinElev) globalMinElev = data.minElevation;
     }
     if (!isFinite(globalMinElev)) globalMinElev = 0;
-    console.log("[RealTerrainMesh] globalMinElev:", globalMinElev);
     const defaultMaterial = mode === "schematic" ? new MeshStandardMaterial({
       color: "#4a7c3f",
       roughness: 0.8,
@@ -55098,15 +55181,13 @@ const RealTerrainMesh = ({
       side: DoubleSide
     }) : null;
     const halfW = tileWU / 2;
-    const refX = tiles[midIdx].coord.x;
-    const refY = tiles[midIdx].coord.y;
     for (const { coord, data } of tiles) {
       const { x: x2, y, z } = coord;
       const segX = Math.min(data.width, 64);
       const segZ = Math.min(data.height, 256);
       if (!segX || !segZ || !isFinite(tileWU)) continue;
       const offsetX = (x2 - refX) * tileWU;
-      const offsetZ = -(y - refY) * tileWU;
+      const offsetZ = (y - refY) * tileWU;
       const geo = new BufferGeometry();
       const positions = new Float32Array((segX + 1) * (segZ + 1) * 3);
       const uvs = new Float32Array((segX + 1) * (segZ + 1) * 2);
@@ -55135,7 +55216,7 @@ const RealTerrainMesh = ({
           positions[idx * 3 + 1] = hWu;
           positions[idx * 3 + 2] = pz2;
           uvs[idx * 2] = u;
-          uvs[idx * 2 + 1] = v;
+          uvs[idx * 2 + 1] = 1 - v;
           idx++;
         }
       }
@@ -55194,11 +55275,11 @@ const RealTerrainMesh = ({
       group.add(mesh);
     }
     return group;
-  }, [tiles, opacity, mode]);
+  }, [tiles, opacity, mode, centerTile]);
   reactExports.useEffect(() => {
     return () => {
       if (groupRef.current) {
-        groupRef.current.children.forEach((child) => {
+        [...groupRef.current.children].forEach((child) => {
           var _a;
           if (child instanceof Mesh) {
             (_a = child.geometry) == null ? void 0 : _a.dispose();
@@ -55225,7 +55306,7 @@ const RealTerrainMesh = ({
         }
         groupRef.current.remove(child);
       }
-      meshes.children.forEach((child) => {
+      [...meshes.children].forEach((child) => {
         var _a2;
         (_a2 = groupRef.current) == null ? void 0 : _a2.add(child);
       });
@@ -55299,7 +55380,7 @@ function TerrainLogPanel() {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "button",
       {
-        className: "absolute top-2 right-2 mt-[72px] text-[10px] text-white/40 hover:text-white/70\r\n                   bg-black/30 backdrop-blur-sm rounded px-1.5 py-0.5 z-10",
+        className: "absolute top-2 right-2 mt-[72px] text-[10px] text-white/40 hover:text-white/70\n                   bg-black/30 backdrop-blur-sm rounded px-1.5 py-0.5 z-10",
         onClick: () => setVisible(true),
         title: "Показать логи terrain",
         children: "📋"
@@ -55343,6 +55424,32 @@ function TerrainLogPanel() {
             style: { maxHeight: "245px", scrollbarWidth: "thin" },
             children: displayLogs.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[10px] font-mono text-white/20 p-2 italic", children: "No terrain requests yet" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-1 space-y-px", children: displayLogs.map((entry, i2) => {
               const time = entry.t ? entry.t.slice(11, 23) : "";
+              const isClient = entry.source === "client" || entry.type && ["LOADED-INTO-SCENE", "UPDATE-POSITION", "REMOVED-FROM-SCENE", "DRAW-QUAD", "COVERAGE-GAPS", "RETRY-FAILED"].includes(entry.type);
+              if (isClient) {
+                const color2 = "text-blue-400";
+                const label2 = entry.type || "CLIENT";
+                let summary = "";
+                if (entry.coord) summary += `${entry.coord.z}/${entry.coord.x}/${entry.coord.y} `;
+                if (entry.center) summary += `center ${entry.center.z}/${entry.center.x}/${entry.center.y} `;
+                if (entry.corners && entry.corners.length) {
+                  const c22 = entry.corners[0];
+                  summary += `corner~${c22.lat.toFixed(4)},${c22.lon.toFixed(4)} `;
+                }
+                if (entry.stillMissing !== void 0) summary += `missing:${entry.stillMissing} `;
+                if (entry.ref) summary += `ref:${entry.ref.x}/${entry.ref.y} `;
+                return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `font-mono text-[9px] leading-tight ${color2} truncate`, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white/30", children: time }),
+                  " ",
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-semibold", children: label2 }),
+                  " ",
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white/50", children: summary }),
+                  entry.corners && entry.corners.length > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-white/30 ml-1", children: [
+                    "(+",
+                    entry.corners.length - 1,
+                    " corners)"
+                  ] })
+                ] }, i2);
+              }
               const c2 = entry.coord;
               const color = LOG_COLORS[entry.status] || "text-white/40";
               const label = STATUS_LABELS[entry.status] || entry.status;
@@ -55357,13 +55464,7 @@ function TerrainLogPanel() {
                     " ",
                     /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white/50", children: entry.type }),
                     " ",
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-white/40", children: [
-                      c2.z,
-                      "/",
-                      c2.x,
-                      "/",
-                      c2.y
-                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-white/40", children: c2 ? `${c2.z}/${c2.x}/${c2.y}` : "" }),
                     entry.error && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-yellow-300/60 ml-1", children: [
                       "(",
                       entry.error,
@@ -55383,51 +55484,6 @@ function TerrainLogPanel() {
       ]
     }
   );
-}
-const DEFAULT_ZOOM = 14;
-const EARTH_CIRCUMFERENCE = 40075016686e-3;
-const WU_PER_METER = 1 / 40;
-function latLonToTile(lat, lon, zoom) {
-  const n = Math.pow(2, zoom);
-  const x2 = Math.floor((lon + 180) / 360 * n);
-  const latRad = lat * Math.PI / 180;
-  const y = Math.floor(
-    (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n
-  );
-  return { x: x2, y, z: zoom };
-}
-function tileCenterLatLon(x2, y, z) {
-  const n = Math.pow(2, z);
-  const lon = x2 / n * 360 - 180 + 360 / n / 2;
-  const latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y / n + 1 / n / 2))));
-  const lat = latRad * 180 / Math.PI;
-  return { lat, lon };
-}
-function tileGroundSizeMeters(zoom, lat) {
-  return EARTH_CIRCUMFERENCE * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
-}
-function tileWorldUnits(zoom, lat) {
-  return tileGroundSizeMeters(zoom, lat) * WU_PER_METER;
-}
-function decodeTerrainRGB(imageData) {
-  const { width, height, data } = imageData;
-  const heights = new Float32Array(width * height);
-  for (let i2 = 0; i2 < width * height; i2++) {
-    const r2 = data[i2 * 4];
-    const g2 = data[i2 * 4 + 1];
-    const b2 = data[i2 * 4 + 2];
-    heights[i2] = -1e4 + (r2 * 256 * 256 + g2 * 256 + b2) * 0.1;
-  }
-  return heights;
-}
-function terrainRgbUrl(token, z, x2, y) {
-  return `/api/terrain/tile/${z}/${x2}/${y}?type=dem`;
-}
-function satelliteUrl(token, z, x2, y) {
-  return `/api/terrain/tile/${z}/${x2}/${y}?type=sat`;
-}
-function tileCacheKey(source, z, x2, y) {
-  return `${source}_${z}_${x2}_${y}`;
 }
 const DB_NAME = "pilot-terrain-cache";
 const DB_VERSION = 1;
@@ -55539,8 +55595,11 @@ async function clearOldest() {
 const CONFIG = {
   maxConcurrent: 6,
   zoom: DEFAULT_ZOOM,
-  /** Радиус загрузки в тайлах от центра */
-  loadRadius: 2
+  /** Радиус загрузки в тайлах от центра (внутренний для новых) */
+  loadRadius: 3,
+  // 7×7
+  /** Радиус удержания (keep) — держим больше для плавности во время загрузки и движения */
+  keepRadius: 4
 };
 class TerrainManagerImpl {
   constructor() {
@@ -55554,6 +55613,23 @@ class TerrainManagerImpl {
     this.lastLon = 0;
     this.isLoading = false;
     this.loadQueue = [];
+    this.clientSceneLog = [];
+    this.everLoaded = /* @__PURE__ */ new Set();
+  }
+  logClientEvent(event) {
+    const payload = {
+      ...event,
+      t: event.t || (/* @__PURE__ */ new Date()).toISOString(),
+      source: "client-scene"
+    };
+    this.clientSceneLog.push(payload);
+    console.log(`[TerrainClient] ${payload.t} ${payload.type || payload.event || "event"}`, payload);
+    fetch("/api/terrain/log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).catch(() => {
+    });
   }
   init(token) {
     var _a;
@@ -55579,6 +55655,14 @@ class TerrainManagerImpl {
   getAllTiles() {
     return Array.from(this.loadedTiles.values());
   }
+  /** Получить клиентский лог загрузок в сцену (с углами) для анализа */
+  getClientLog() {
+    return [...this.clientSceneLog];
+  }
+  /** Очистить клиентский лог */
+  clearClientLog() {
+    this.clientSceneLog = [];
+  }
   /** Удалить (dispose) все тайлы */
   clearAll() {
     var _a;
@@ -55587,12 +55671,14 @@ class TerrainManagerImpl {
     (_a = this.abortController) == null ? void 0 : _a.abort();
     this.abortController = new AbortController();
     this.loadQueue = [];
+    this.everLoaded.clear();
   }
   /**
    * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
    * Вызывается при каждом новом кадре телеметрии.
    */
   async updatePosition(lat, lon) {
+    var _a;
     if (!this.token) return;
     const center = latLonToTile(lat, lon, CONFIG.zoom);
     this.lastLat = lat;
@@ -55603,80 +55689,171 @@ class TerrainManagerImpl {
     this.currentCenter = center;
     const needed = /* @__PURE__ */ new Set();
     const neededCoords = [];
-    for (let dx = -2; dx <= CONFIG.loadRadius; dx++) {
-      for (let dy = -2; dy <= CONFIG.loadRadius; dy++) {
+    for (let dx = -3; dx <= CONFIG.loadRadius; dx++) {
+      for (let dy = -3; dy <= CONFIG.loadRadius; dy++) {
         const key = `${CONFIG.zoom}/${center.x + dx}/${center.y + dy}`;
         needed.add(key);
         neededCoords.push({ x: center.x + dx, y: center.y + dy, z: CONFIG.zoom });
       }
     }
+    const keep = /* @__PURE__ */ new Set();
+    for (let dx = -4; dx <= CONFIG.keepRadius; dx++) {
+      for (let dy = -4; dy <= CONFIG.keepRadius; dy++) {
+        const key = `${CONFIG.zoom}/${center.x + dx}/${center.y + dy}`;
+        keep.add(key);
+      }
+    }
     const toDelete = [];
     for (const [key] of this.loadedTiles) {
-      if (!needed.has(key)) {
+      if (!keep.has(key)) {
         toDelete.push(key);
       }
     }
     for (const key of toDelete) {
       this.loadedTiles.delete(key);
+      this.logClientEvent({ type: "REMOVED-FROM-SCENE", tile: key });
     }
-    const newTiles = neededCoords.filter((t2) => {
+    const toRestoreFromCache = [];
+    const toLoadFromNetwork = [];
+    for (const t2 of neededCoords) {
       const key = `${t2.z}/${t2.x}/${t2.y}`;
-      return !this.loadedTiles.has(key);
+      if (this.loadedTiles.has(key)) continue;
+      if (this.everLoaded.has(key)) {
+        toRestoreFromCache.push(t2);
+      } else {
+        toLoadFromNetwork.push(t2);
+      }
+    }
+    const neededStr = neededCoords.map((c2) => `${c2.z}/${c2.x}/${c2.y}`).join(" ");
+    this.logClientEvent({
+      type: "UPDATE-POSITION",
+      center: { z: center.z, x: center.x, y: center.y },
+      needed: neededCoords,
+      toRestoreFromCache: toRestoreFromCache.length,
+      toLoadFromNetwork: toLoadFromNetwork.length
     });
-    if (newTiles.length === 0) return;
-    this.loadQueue = newTiles;
-    this.isLoading = true;
-    const total = newTiles.length;
-    let loaded = 0;
+    console.log(`[TerrainClient] UPDATE-POSITION center=${center.z}/${center.x}/${center.y} loadRadius=${CONFIG.loadRadius} needed=[${neededStr}] restoreCache=${toRestoreFromCache.length} network=${toLoadFromNetwork.length}`);
+    if (toRestoreFromCache.length === 0 && toLoadFromNetwork.length === 0) return;
     const signal = this.abortController.signal;
-    const processNext = async () => {
-      var _a, _b2;
-      while (this.loadQueue.length > 0 && !signal.aborted) {
-        const tile = this.loadQueue.shift();
-        const key = `${tile.z}/${tile.x}/${tile.y}`;
-        try {
-          const data = await this.loadSingleTile(tile, signal);
-          if (data && !signal.aborted) {
-            this.loadedTiles.set(key, { coord: tile, data });
-            loaded++;
-            (_a = this.onTileAdded) == null ? void 0 : _a.call(this, tile, data);
-            (_b2 = this.onProgress) == null ? void 0 : _b2.call(this, { loaded, total });
+    this.isLoading = true;
+    for (const tile of toRestoreFromCache) {
+      const key = `${tile.z}/${tile.x}/${tile.y}`;
+      try {
+        const data = await this.loadSingleTile(tile, signal, { forceCacheOnly: true });
+        if (data && !signal.aborted) {
+          this.loadedTiles.set(key, { coord: tile, data });
+          this.logClientEvent({
+            type: "LOADED-INTO-SCENE",
+            coord: { z: tile.z, x: tile.x, y: tile.y },
+            corners: getTileCornersLatLon(tile.x, tile.y, tile.z),
+            from: "client-cache"
+          });
+          (_a = this.onTileAdded) == null ? void 0 : _a.call(this, tile, data);
+          this.everLoaded.add(key);
+        } else {
+          this.logClientEvent({ type: "CACHE_RESTORE_FAILED", coord: { z: tile.z, x: tile.x, y: tile.y } });
+        }
+      } catch (e2) {
+        this.logClientEvent({ type: "CACHE_RESTORE_ERROR", coord: { z: tile.z, x: tile.x, y: tile.y } });
+      }
+    }
+    if (toLoadFromNetwork.length > 0) {
+      this.loadQueue = [...toLoadFromNetwork];
+      const total = toLoadFromNetwork.length;
+      let loaded = 0;
+      const failedThisBatch = [];
+      const processNext = async () => {
+        var _a2, _b2;
+        while (this.loadQueue.length > 0 && !signal.aborted) {
+          const tile = this.loadQueue.shift();
+          const key = `${tile.z}/${tile.x}/${tile.y}`;
+          try {
+            const data = await this.loadSingleTile(tile, signal);
+            if (data && !signal.aborted) {
+              this.loadedTiles.set(key, { coord: tile, data });
+              loaded++;
+              this.logClientEvent({
+                type: "LOADED-INTO-SCENE",
+                coord: { z: tile.z, x: tile.x, y: tile.y },
+                corners: getTileCornersLatLon(tile.x, tile.y, tile.z),
+                from: "network"
+              });
+              (_a2 = this.onTileAdded) == null ? void 0 : _a2.call(this, tile, data);
+              (_b2 = this.onProgress) == null ? void 0 : _b2.call(this, { loaded, total });
+              this.everLoaded.add(key);
+            } else if (!signal.aborted) {
+              failedThisBatch.push(tile);
+            }
+          } catch {
+            if (!signal.aborted) failedThisBatch.push(tile);
           }
-        } catch {
+        }
+      };
+      const workers = Math.min(CONFIG.maxConcurrent, toLoadFromNetwork.length);
+      const promises = [];
+      for (let i2 = 0; i2 < workers; i2++) {
+        promises.push(processNext());
+      }
+      await Promise.allSettled(promises);
+      if (failedThisBatch.length > 0 && !signal.aborted) {
+        const stillNeeded = toLoadFromNetwork.filter((t2) => {
+          const k2 = `${t2.z}/${t2.x}/${t2.y}`;
+          return !this.loadedTiles.has(k2);
+        });
+        const toRetry = failedThisBatch.filter((t2) => stillNeeded.some((s) => s.z === t2.z && s.x === t2.x && s.y === t2.y));
+        if (toRetry.length > 0) {
+          this.logClientEvent({ type: "RETRY-FAILED", count: toRetry.length, tiles: toRetry });
+          this.loadQueue.push(...toRetry);
+          promises.push(processNext());
+          await Promise.allSettled([promises[promises.length - 1]]);
         }
       }
-    };
-    const workers = Math.min(CONFIG.maxConcurrent, newTiles.length);
-    const promises = [];
-    for (let i2 = 0; i2 < workers; i2++) {
-      promises.push(processNext());
     }
-    await Promise.allSettled(promises);
     this.isLoading = false;
+    const currentKeys = new Set(this.loadedTiles.keys());
+    const missingInGrid = neededCoords.filter((t2) => !currentKeys.has(`${t2.z}/${t2.x}/${t2.y}`));
+    if (missingInGrid.length > 0) {
+      this.logClientEvent({ type: "COVERAGE-GAPS", stillMissing: missingInGrid.length, coords: missingInGrid });
+    }
   }
   /**
    * Загрузить один тайл (DEM + Satellite)
+   * @param forceCacheOnly  Если true — никогда не ходить в сеть, только из клиентского кэша (IDB).
+   *                        Используется для тайлов, которые уже были успешно загружены раньше (everLoaded).
+   *                        Это гарантирует требование "не грузить из инета, если уже загружали".
    */
-  async loadSingleTile(tile, signal) {
+  async loadSingleTile(tile, signal, options = {}) {
     const { x: x2, y, z } = tile;
+    const { forceCacheOnly = false } = options;
     try {
       const demKey = tileCacheKey("dem", z, x2, y);
-      let demBlob = await getTile(demKey);
+      let demBlob = null;
       let demImage = null;
-      if (demBlob) {
-        try {
-          demImage = await createImageBitmap(demBlob);
-        } catch {
-          console.warn(`[TerrainManager] Stale IndexedDB dem ${z}/${x2}/${y}, re-fetching`);
-          demBlob = null;
+      if (forceCacheOnly) {
+        demBlob = await getTile(demKey);
+        if (demBlob) {
+          try {
+            demImage = await createImageBitmap(demBlob);
+          } catch {
+            demImage = null;
+          }
         }
-      }
-      if (!demBlob) {
-        const response = await fetch(terrainRgbUrl(this.token, z, x2, y), {
-          signal
-        });
-        if (!response.ok) throw new Error(`DEM fetch failed: ${response.status}`);
-        demBlob = await response.blob();
+        if (!demImage) {
+          return null;
+        }
+      } else {
+        let demResponse = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          demResponse = await fetch(terrainRgbUrl(this.token, z, x2, y), { signal });
+          if (demResponse.ok) break;
+          if (attempt === 0 && demResponse.status >= 500) {
+            await new Promise((r2) => setTimeout(r2, 150));
+            continue;
+          }
+          throw new Error(`DEM fetch failed: ${demResponse.status}`);
+        }
+        if (!demResponse || !demResponse.ok) throw new Error("DEM fetch failed");
+        demBlob = await demResponse.blob();
         putTile(demKey, demBlob, { source: "dem", z, x: x2, y }).catch(() => {
         });
         demImage = await createImageBitmap(demBlob);
@@ -55700,29 +55877,22 @@ class TerrainManagerImpl {
       }
       let satelliteBitmap = null;
       try {
-        const satKey = tileCacheKey("sat", z, x2, y);
-        let satBlob = await getTile(satKey);
-        if (!satBlob) {
-          const response = await fetch(satelliteUrl(this.token, z, x2, y), {
-            signal
+        const response = await fetch(satelliteUrl(this.token, z, x2, y), {
+          signal
+        });
+        if (response.ok) {
+          const satBlob = await response.blob();
+          putTile(tileCacheKey("sat", z, x2, y), satBlob, { source: "sat", z, x: x2, y }).catch(() => {
           });
-          if (response.ok) {
-            satBlob = await response.blob();
-            putTile(satKey, satBlob, { source: "sat", z, x: x2, y }).catch(() => {
-            });
-          }
-        }
-        if (satBlob) {
           try {
             satelliteBitmap = await createImageBitmap(satBlob);
           } catch {
-            console.warn(`[TerrainManager] Stale IndexedDB sat ${z}/${x2}/${y}, re-fetching`);
-            const response = await fetch(satelliteUrl(this.token, z, x2, y), {
+            const response2 = await fetch(satelliteUrl(this.token, z, x2, y), {
               signal
             });
-            if (response.ok) {
-              const freshBlob = await response.blob();
-              putTile(satKey, freshBlob, { source: "sat", z, x: x2, y }).catch(() => {
+            if (response2.ok) {
+              const freshBlob = await response2.blob();
+              putTile(tileCacheKey("sat", z, x2, y), freshBlob, { source: "sat", z, x: x2, y }).catch(() => {
               });
               satelliteBitmap = await createImageBitmap(freshBlob);
             }
@@ -55778,7 +55948,8 @@ function useRealTerrain(lat, lon, enabled = false) {
   reactExports.useEffect(() => {
     TerrainManager.onTile((coord, data) => {
       const all = TerrainManager.getAllTiles();
-      setTiles([...all]);
+      const sorted = [...all].sort((a2, b2) => a2.coord.y - b2.coord.y || a2.coord.x - b2.coord.x);
+      setTiles(sorted);
     });
   }, []);
   const scheduleUpdate = reactExports.useCallback((currentLat, currentLon) => {
@@ -55805,7 +55976,8 @@ function useRealTerrain(lat, lon, enabled = false) {
       try {
         await TerrainManager.updatePosition(currentLat, currentLon);
         const all = TerrainManager.getAllTiles();
-        setTiles([...all]);
+        const sorted = [...all].sort((a2, b2) => a2.coord.y - b2.coord.y || a2.coord.x - b2.coord.x);
+        setTiles(sorted);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -56363,7 +56535,7 @@ const NumInput = ({ label, value, step = 0.1, onChange }) => /* @__PURE__ */ jsx
       step,
       value,
       onChange: (e2) => onChange(parseFloat(e2.target.value) || 0),
-      className: "w-16 bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-white\r\n                 focus:outline-none focus:border-cyan-500/60 [appearance:textfield]\r\n                 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      className: "w-16 bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-white\n                 focus:outline-none focus:border-cyan-500/60 [appearance:textfield]\n                 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
     }
   )
 ] });
@@ -57194,19 +57366,19 @@ const ROTATE_BUTTONS = [
   { az: 0, po: 15, label: "▲" },
   { az: 0, po: -15, label: "▼" }
 ];
-const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, realTerrainData, aircraftPos }) => {
+const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(CameraController, { ref: cameraRef }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("ambientLight", { intensity: 0.5 }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("directionalLight", { position: [10, 20, -10], intensity: 1 }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("directionalLight", { position: [-5, 10, 5], intensity: 0.3 }),
-    realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.loading) && (!(realTerrainData == null ? void 0 : realTerrainData.tiles) || realTerrainData.tiles.length === 0) && /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
+    realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.loading) && !(realTerrainData == null ? void 0 : realTerrainData.tileData) && /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(WorldGroup, { children: [
-      realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.tiles) && realTerrainData.tiles.length > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      realTerrainEnabled && (realTerrainData == null ? void 0 : realTerrainData.tileData) ? /* @__PURE__ */ jsxRuntimeExports.jsx(
         RealTerrainMesh,
         {
-          tiles: realTerrainData.tiles,
-          mode: "realistic"
+          tiles: realTerrainData.tileData ? [{ coord: { z: 14, x: 0, y: 0 }, data: realTerrainData.tileData }] : [],
+          mode: satelliteEnabled ? "realistic" : "schematic"
         }
       ) : /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsx(Runway, {}),
@@ -57218,7 +57390,7 @@ const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled
     /* @__PURE__ */ jsxRuntimeExports.jsx(AircraftModel, { model, useImprovedFdm })
   ] });
 };
-const Aircraft3DCanvas = reactExports.memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, realTerrainData, aircraftPos }) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+const Aircraft3DCanvas = reactExports.memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
   Canvas,
   {
     gl: {
@@ -57234,7 +57406,7 @@ const Aircraft3DCanvas = reactExports.memo(({ model, projection, cameraRef, useI
     onError: (err) => console.error("[Aircraft3D] Canvas error:", err),
     children: [
       projection === "ortho" ? /* @__PURE__ */ jsxRuntimeExports.jsx(OrthographicCamera2, { makeDefault: true, position: CAMERA_PRESETS.chase.position, zoom: 40, near: 0.1, far: 500 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(PerspectiveCamera2, { makeDefault: true, position: CAMERA_PRESETS.chase.position, fov: projection === "wide" ? 80 : 50, near: 0.1, far: 500 }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Scene2, { model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, realTerrainData, aircraftPos })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Scene2, { model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos })
     ]
   }
 ));
@@ -57261,6 +57433,13 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
       return localStorage.getItem("pilot-3d-pfd:realTerrain") === "true";
     } catch {
       return false;
+    }
+  });
+  const [satelliteEnabled, setSatelliteEnabled] = reactExports.useState(() => {
+    try {
+      return localStorage.getItem("pilot-3d-pfd:satelliteTerrain") !== "false";
+    } catch {
+      return true;
     }
   });
   const realTerrain = useRealTerrain(
@@ -57340,8 +57519,9 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         useImprovedFdm,
         showGrid,
         realTerrainEnabled,
+        satelliteEnabled,
         realTerrainData: {
-          tiles: realTerrain.tiles,
+          tileData: realTerrain.tiles && realTerrain.tiles.length > 0 ? realTerrain.tiles[0].data : null,
           loading: realTerrain.loading
         },
         aircraftPos: { x: 0, y: alt ?? 0, z: 0 }
@@ -57402,7 +57582,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         "button",
         {
           title: key,
-          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\r\n                       backdrop-blur-sm transition-colors leading-none",
+          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\n                       backdrop-blur-sm transition-colors leading-none",
           onClick: () => setPreset(key),
           children: label
         },
@@ -57451,7 +57631,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         "button",
         {
           onClick: () => setFdmDialogOpen(true),
-          className: "px-1.5 py-0.5 text-[10px] rounded bg-white/15 hover:bg-cyan-600/50\r\n                       text-white/90 backdrop-blur-sm transition-colors leading-none",
+          className: "px-1.5 py-0.5 text-[10px] rounded bg-white/15 hover:bg-cyan-600/50\n                       text-white/90 backdrop-blur-sm transition-colors leading-none",
           title: "Настройки FDM",
           children: "⚙"
         }
@@ -57493,13 +57673,30 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
             realTerrain.loading && " ⟳"
           ]
         }
+      ),
+      realTerrainEnabled && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => {
+            const next = !satelliteEnabled;
+            setSatelliteEnabled(next);
+            try {
+              localStorage.setItem("pilot-3d-pfd:satelliteTerrain", String(next));
+            } catch {
+            }
+          },
+          className: `px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+              ${satelliteEnabled ? "bg-green-600/50 text-white font-medium" : "bg-white/15 hover:bg-white/30 text-white/70"}`,
+          title: satelliteEnabled ? "Со спутниковой текстурой" : "Без спутника (только рельеф)",
+          children: "🛰"
+        }
       )
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "button",
       {
         onClick: () => setDialogOpen(true),
-        className: "absolute bottom-1.5 right-2 px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-white/30\r\n                   text-white/90 backdrop-blur-sm transition-colors leading-none",
+        className: "absolute bottom-1.5 right-2 px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-white/30\n                   text-white/90 backdrop-blur-sm transition-colors leading-none",
         title: "Выбор модели",
         children: [
           "✈ ",
@@ -57533,14 +57730,14 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
       }
     ),
     showTouchdown && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 flex items-center justify-center pointer-events-none z-50", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[clamp(2rem,8vw,6rem)] font-black text-red-500/90\r\n                          [text-shadow:0_0_20px_rgba(239,68,68,0.6),0_0_60px_rgba(239,68,68,0.3)]\r\n                          tracking-[0.15em] animate-pulse", children: "TOUCHDOWN" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[clamp(2rem,8vw,6rem)] font-black text-red-500/90\n                          [text-shadow:0_0_20px_rgba(239,68,68,0.6),0_0_60px_rgba(239,68,68,0.3)]\n                          tracking-[0.15em] animate-pulse", children: "TOUCHDOWN" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm font-mono text-white/60 mt-2 tracking-[0.1em]", children: "LANDING DETECTED" })
     ] }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1", children: [
       ROTATE_BUTTONS.map(({ az, po, label }, i2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
-          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\r\n                       backdrop-blur-sm transition-colors leading-none",
+          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\n                       backdrop-blur-sm transition-colors leading-none",
           onClick: () => rotateBy(az, po),
           children: label
         },
@@ -57549,7 +57746,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
-          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\r\n                     backdrop-blur-sm transition-colors leading-none ml-1",
+          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\n                     backdrop-blur-sm transition-colors leading-none ml-1",
           onClick: resetView,
           children: "↺"
         }

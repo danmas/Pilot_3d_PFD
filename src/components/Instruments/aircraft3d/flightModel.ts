@@ -127,7 +127,7 @@ export function tickImprovedFdm(
 
   /* ── 2. Скорость ── */
   const drag = p.dragCoeff * state.speed * state.speed;
-  const thrust = thr * p.thrustMax;
+  const thrust = thr * p.thrustMax * p.throttleToThrustFactor;
   state.speed += (thrust - drag) * dt;
   if (state.speed < 0) state.speed = 0;
 

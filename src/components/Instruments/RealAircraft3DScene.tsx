@@ -69,6 +69,7 @@ interface SceneProps {
   useImprovedFdm?: boolean;
   showGrid?: boolean;
   realTerrainEnabled?: boolean;
+  satelliteEnabled: boolean;
   realTerrainData: {
     tileData: import('./aircraft3d/terrain/TerrainManager').TerrainTileData | null;
     loading: boolean;
@@ -76,7 +77,7 @@ interface SceneProps {
   aircraftPos: { x: number; y: number; z: number };
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, realTerrainData, aircraftPos }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => {
   return (
     <>
       <CameraController ref={cameraRef} />
@@ -87,16 +88,16 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
     <directionalLight position={[-5, 10, 5]} intensity={0.3} />
 
     {/* HorizonSphere is fixed in world space — outside WorldGroup */}
-    {realTerrainEnabled && realTerrainData?.loading && (!realTerrainData?.tiles || realTerrainData.tiles.length === 0) && (
+    {realTerrainEnabled && realTerrainData?.loading && !realTerrainData?.tileData && (
       <GroundDisc />
     )}
 
     <WorldGroup>
       {/* RealTerrainMesh внутри WorldGroup — движется вместе с землёй (ВПП, сетка, деревья) */}
-      {realTerrainEnabled && realTerrainData?.tiles && realTerrainData.tiles.length > 0 ? (
+      {realTerrainEnabled && realTerrainData?.tileData ? (
         <RealTerrainMesh
-          tiles={realTerrainData.tiles}
-          mode="realistic"
+          tiles={realTerrainData.tileData ? [{ coord: { z: 14, x: 0, y: 0 }, data: realTerrainData.tileData }] : []}
+          mode={satelliteEnabled ? 'realistic' : 'schematic'}
         />
       ) : (
         <GroundDisc />
@@ -123,14 +124,15 @@ interface Aircraft3DCanvasProps {
   useImprovedFdm?: boolean;
   showGrid?: boolean;
   realTerrainEnabled?: boolean;
+  satelliteEnabled: boolean;
   realTerrainData: {
-    tiles: Array<{ coord: TileCoord; data: import('./aircraft3d/terrain/TerrainManager').TerrainTileData }>;
+    tileData: import('./aircraft3d/terrain/TerrainManager').TerrainTileData | null;
     loading: boolean;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, realTerrainData, aircraftPos }) => (
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => (
   <Canvas
     gl={{
       antialias: true,
@@ -149,7 +151,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
     )}
-    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} />
   </Canvas>
 ));
 
@@ -176,6 +178,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   });
   const [realTerrainEnabled, setRealTerrainEnabled] = useState(() => {
     try { return localStorage.getItem('pilot-3d-pfd:realTerrain') === 'true'; } catch { return false; }
+  });
+  const [satelliteEnabled, setSatelliteEnabled] = useState(() => {
+    try { return localStorage.getItem('pilot-3d-pfd:satelliteTerrain') !== 'false'; } catch { return true; }
   });
 
   const realTerrain = useRealTerrain(
@@ -254,8 +259,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           useImprovedFdm={useImprovedFdm}
           showGrid={showGrid}
           realTerrainEnabled={realTerrainEnabled}
+          satelliteEnabled={satelliteEnabled}
           realTerrainData={{
-            tiles: realTerrain.tiles,
+            tileData: realTerrain.tiles && realTerrain.tiles.length > 0 ? realTerrain.tiles[0].data : null,
             loading: realTerrain.loading,
           }}
           aircraftPos={{ x: 0, y: alt ?? 0, z: 0 }}
@@ -381,6 +387,23 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           🏔
           {realTerrain.loading && ' ⟳'}
         </button>
+        {/* Satellite toggle (only when realTerrain is on) */}
+        {realTerrainEnabled && (
+          <button
+            onClick={() => {
+              const next = !satelliteEnabled;
+              setSatelliteEnabled(next);
+              try { localStorage.setItem('pilot-3d-pfd:satelliteTerrain', String(next)); } catch {}
+            }}
+            className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+              ${satelliteEnabled
+                ? 'bg-green-600/50 text-white font-medium'
+                : 'bg-white/15 hover:bg-white/30 text-white/70'}`}
+            title={satelliteEnabled ? 'Со спутниковой текстурой' : 'Без спутника (только рельеф)'}
+          >
+            🛰
+          </button>
+        )}
 
       </div>
 
