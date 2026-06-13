@@ -35,8 +35,6 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
 
-  console.log('[RealTerrainMesh] render, tiles count:', tiles?.length ?? 0, 'mode:', mode);
-
   const meshes = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
@@ -49,15 +47,12 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
     const baseTileSize = tiles[midIdx].data.worldUnits;
     const tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
 
-    console.log('[RealTerrainMesh] baseTileSize:', baseTileSize, 'tileWU:', tileWU, 'mid coord:', tiles[midIdx].coord);
-
     // Глобальный minElevation для ВСЕЙ сетки — чтобы тайлы стыковались без щелей
     let globalMinElev = Infinity;
     for (const { data } of tiles) {
       if (data.minElevation < globalMinElev) globalMinElev = data.minElevation;
     }
     if (!isFinite(globalMinElev)) globalMinElev = 0;
-    console.log('[RealTerrainMesh] globalMinElev:', globalMinElev);
 
     // Общий материал (schematic)
     const defaultMaterial = mode === 'schematic'
