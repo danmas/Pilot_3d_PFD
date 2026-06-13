@@ -17,7 +17,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import type { TerrainTileData } from './TerrainManager';
-import type { TileCoord } from './terrainTileUtils';
+import { type TileCoord, tileCenterLatLon, tileWorldUnits } from './terrainTileUtils';
 
 interface RealTerrainMeshProps {
   /** Массив тайлов с координатами */
@@ -26,26 +26,51 @@ interface RealTerrainMeshProps {
   opacity?: number;
   /** Режим */
   mode?: 'realistic' | 'schematic';
+  /** Опорный тайл центра (из TerrainManager.currentCenter). Используется для стабильного ref вместо midIdx. */
+  centerTile?: TileCoord | null;
 }
 
 const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   tiles,
   opacity = 1,
   mode = 'realistic',
+  centerTile,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+
+  console.log('[RealTerrainMesh] render, tiles count:', tiles?.length ?? 0, 'mode:', mode);
 
   const meshes = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
     const group = new THREE.Group();
 
-    // Единый размер тайла для всей сетки — берём worldUnits центрального тайла
-    // worldUnits — это размер тайла на земле в WU (без умножения на 2)
-    // Для PlaneGeometry нужна полная ширина = worldUnits * 2 (потому что тайл 2×2 WU)
-    const midIdx = Math.floor(tiles.length / 2);
-    const baseTileSize = tiles[midIdx].data.worldUnits;
-    const tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    // Стабильный референс: используем centerTile координаты НАПРЯМУЮ.
+    // Это гарантирует, что refX/refY не зависят от порядка или количества тайлов в массиве.
+    // Раньше refX/refY брались из tiles[midIdx].coord, что «прыгало» при каждом изменении tiles.
+    let refX: number;
+    let refY: number;
+    let tileWU: number;
+
+    if (centerTile) {
+      refX = centerTile.x;
+      refY = centerTile.y;
+      // Вычисляем worldUnits из координат centerTile — стабильно, не зависит от содержимого массива tiles
+      const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
+      const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
+      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    } else {
+      // Fallback: если centerTile не задан, используем медиану координат
+      const xs = tiles.map(t => t.coord.x).sort((a, b) => a - b);
+      const ys = tiles.map(t => t.coord.y).sort((a, b) => a - b);
+      refX = xs[Math.floor(xs.length / 2)];
+      refY = ys[Math.floor(ys.length / 2)];
+      const midIdx = Math.floor(tiles.length / 2);
+      const baseTileSize = tiles[midIdx].data.worldUnits;
+      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    }
+
+    console.log('[RealTerrainMesh] tileWU:', tileWU, 'refX:', refX, 'refY:', refY, 'centerTile:', centerTile);
 
     // Глобальный minElevation для ВСЕЙ сетки — чтобы тайлы стыковались без щелей
     let globalMinElev = Infinity;
@@ -67,8 +92,6 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       : null;
 
     const halfW = tileWU / 2;
-    const refX = tiles[midIdx].coord.x;
-    const refY = tiles[midIdx].coord.y;
 
     for (const { coord, data } of tiles) {
       const { x, y, z } = coord;
@@ -180,13 +203,14 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
     }
 
     return group;
-  }, [tiles, opacity, mode]);
+  }, [tiles, opacity, mode, centerTile]);
 
   // Очистка при размонтировании
   useEffect(() => {
     return () => {
       if (groupRef.current) {
-        groupRef.current.children.forEach(child => {
+        // Copy to be safe (though we don't mutate during this loop)
+        [...groupRef.current.children].forEach(child => {
           if (child instanceof THREE.Mesh) {
             child.geometry?.dispose();
             if (child.material instanceof THREE.MeshStandardMaterial) {
@@ -214,7 +238,9 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
         groupRef.current.remove(child);
       }
 
-      meshes.children.forEach(child => {
+      // Copy the array first! forEach on live meshes.children while add() removes from it
+      // causes skipping every other tile → checkerboard/holes.
+      [...meshes.children].forEach(child => {
         groupRef.current?.add(child);
       });
     } else if (groupRef.current && !meshes) {
