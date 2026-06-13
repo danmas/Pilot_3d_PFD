@@ -3,3 +3,4 @@ public/data/**
 tmp/
 .env.local
 captures/
+cache/
