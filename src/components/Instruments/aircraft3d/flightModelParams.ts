@@ -72,7 +72,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.05,
-    throttleToThrustFactor: 1.0,
+    throttleToThrustFactor: 2.0,
   },
 
   slow: {
@@ -95,7 +95,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.02,
-    throttleToThrustFactor: 1.0,
+    throttleToThrustFactor: 2.0,
   },
 
   fast: {
@@ -118,7 +118,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.08,
-    throttleToThrustFactor: 1.0,
+    throttleToThrustFactor: 2.0,
   },
 
   custom: { ...({
@@ -137,7 +137,7 @@ export const CONFIG_PRESETS: Record<PresetKey, FlightModelParams> = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.05,
-    throttleToThrustFactor: 1.0,
+    throttleToThrustFactor: 2.0,
   }) },
 };
 

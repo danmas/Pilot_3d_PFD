@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-DjwCf1QR.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-CV2Kdjdq.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -54431,7 +54431,7 @@ const CONFIG_PRESETS = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.05,
-    throttleToThrustFactor: 1
+    throttleToThrustFactor: 2
   },
   slow: {
     elevatorRate: 40,
@@ -54449,7 +54449,7 @@ const CONFIG_PRESETS = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.02,
-    throttleToThrustFactor: 1
+    throttleToThrustFactor: 2
   },
   fast: {
     elevatorRate: 150,
@@ -54467,7 +54467,7 @@ const CONFIG_PRESETS = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.08,
-    throttleToThrustFactor: 1
+    throttleToThrustFactor: 2
   },
   custom: { ...{
     elevatorRate: 80,
@@ -54485,7 +54485,7 @@ const CONFIG_PRESETS = {
     altitudeScale: 0.05,
     groundY: -6,
     joystickSensitivity: 0.05,
-    throttleToThrustFactor: 1
+    throttleToThrustFactor: 2
   } }
 };
 function createDefaultParamsState() {
@@ -57186,7 +57186,8 @@ const PARAM_DEFS = [
   { key: "stallSinkRate", label: "Снижение при stall", min: 5, max: 150, step: 1 },
   { key: "altitudeScale", label: "Масштаб высоты", min: 0.01, max: 0.2, step: 0.01 },
   { key: "groundY", label: "Уровень земли", min: -20, max: -1, step: 0.5 },
-  { key: "joystickSensitivity", label: "Чувств. джойстика", min: 0.01, max: 0.1, step: 0.01 }
+  { key: "joystickSensitivity", label: "Чувств. джойстика", min: 0.01, max: 0.1, step: 0.01 },
+  { key: "throttleToThrustFactor", label: "Газ→тяга (×)", min: 0.1, max: 5, step: 0.1 }
 ];
 const PRESET_OPTIONS = [
   { key: "default", label: "Default" },

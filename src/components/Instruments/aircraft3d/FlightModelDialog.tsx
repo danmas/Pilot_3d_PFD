@@ -41,6 +41,7 @@ const PARAM_DEFS: ParamDef[] = [
   { key: 'altitudeScale',      label: 'Масштаб высоты',       min: 0.01, max: 0.2, step: 0.01 },
   { key: 'groundY',            label: 'Уровень земли',        min: -20, max: -1,  step: 0.5 },
   { key: 'joystickSensitivity',label: 'Чувств. джойстика',    min: 0.01, max: 0.1,   step: 0.01 },
+  { key: 'throttleToThrustFactor', label: 'Газ→тяга (×)',     min: 0.1, max: 5.0, step: 0.1 },
 ];
 
 const PRESET_OPTIONS: { key: PresetKey; label: string }[] = [
