@@ -43,6 +43,10 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
   const improvedInit = useRef(false);
   /** Плавная скорость для Simple FDM */
   const speedMemRef = useRef(250);
+  /** Кэш params для Simple FDM — загружается один раз */
+  const simpleParamsRef = useRef(() => loadFdmParams().params);
+  // Принудительно перезагрузить один раз при маунте
+  const simpleParamsLoaded = useRef(false);
 
   useFrame((_state, delta) => {
     const g = groupRef.current;
@@ -231,11 +235,17 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
       }
 
       // Always move forward — speed depends on throttle × factor
-      const simpleParams = loadFdmParams().params;
+      if (!simpleParamsLoaded.current) {
+        simpleParamsRef.current = loadFdmParams().params;
+        simpleParamsLoaded.current = true;
+      }
+      const sp = simpleParamsRef.current;
+      const factor = (sp.throttleToThrustFactor != null && Number.isFinite(sp.throttleToThrustFactor))
+        ? sp.throttleToThrustFactor : 2.0;
       const throttleVal = override.active ? (override.throttle ?? 0.5) : 0.5;
       const baseSpeed = 80;
       const speedRange = 340;
-      const cas = baseSpeed + throttleVal * simpleParams.throttleToThrustFactor * speedRange / 2;
+      const cas = baseSpeed + throttleVal * factor * speedRange / 2;
       speedMemRef.current += (Math.min(cas, 420) - speedMemRef.current) * 0.03;
       const speedWU = speedMemRef.current * 0.5144 / 40;
       const dt = Math.min(delta, 0.1);

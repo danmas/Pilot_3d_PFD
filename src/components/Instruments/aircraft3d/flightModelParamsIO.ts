@@ -75,7 +75,7 @@ function validateParams(p: any): boolean {
     'elevatorRate', 'aileronRate', 'rudderRate', 'controlSmoothing',
     'bankToYawFactor', 'spiralStability', 'stallSpeed', 'elevatorStallPenalty',
     'thrustMax', 'dragCoeff', 'climbFactor', 'stallSinkRate',
-    'altitudeScale', 'groundY',
+    'altitudeScale', 'groundY', 'joystickSensitivity', 'throttleToThrustFactor',
   ];
   for (const key of required) {
     if (typeof p[key] !== 'number' || !Number.isFinite(p[key])) return false;
