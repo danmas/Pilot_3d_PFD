@@ -2,7 +2,7 @@
   "id": "root",
   "type": "split",
   "splitDirection": "vertical",
-  "splitRatio": 0.20384119955769958,
+  "splitRatio": 0.27907238321056027,
   "children": [
     {
       "id": "178y2zv",
@@ -26,13 +26,13 @@
       "id": "ue9d23r",
       "type": "split",
       "splitDirection": "horizontal",
-      "splitRatio": 0.3038364415270918,
+      "splitRatio": 0.5857895474531815,
       "children": [
         {
           "id": "2i846vt",
           "type": "split",
           "splitDirection": "vertical",
-          "splitRatio": 0.4762868905525667,
+          "splitRatio": 0.5778992569417718,
           "children": [
             {
               "id": "x2tdshv",
