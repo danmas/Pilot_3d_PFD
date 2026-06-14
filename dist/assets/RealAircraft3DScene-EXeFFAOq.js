@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-DNkmW50n.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-B8-QwEUc.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -55173,42 +55173,56 @@ function getTileCornersLatLon(x2, y, z) {
     // SW
   ];
 }
-const RealTerrainMesh = ({
-  tiles,
-  opacity = 1,
-  mode = "realistic",
-  centerTile
-}) => {
-  const groupRef = reactExports.useRef(null);
-  console.log("[RealTerrainMesh] render, tiles count:", (tiles == null ? void 0 : tiles.length) ?? 0, "mode:", mode);
-  const meshes = reactExports.useMemo(() => {
-    if (!tiles || tiles.length === 0) return null;
-    const group = new Group();
-    let refX;
-    let refY;
-    let tileWU;
-    if (centerTile) {
-      refX = centerTile.x;
-      refY = centerTile.y;
-      const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
-      const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
-      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
-    } else {
-      const xs = tiles.map((t2) => t2.coord.x).sort((a2, b2) => a2 - b2);
-      const ys = tiles.map((t2) => t2.coord.y).sort((a2, b2) => a2 - b2);
-      refX = xs[Math.floor(xs.length / 2)];
-      refY = ys[Math.floor(ys.length / 2)];
-      const midIdx = Math.floor(tiles.length / 2);
-      const baseTileSize = tiles[midIdx].data.worldUnits;
-      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+function createTileGeometry(data, coord, tileWU, refX, refY, globalMinElev, segX, segZ) {
+  const { x: x2, y } = coord;
+  const halfW = tileWU / 2;
+  const offsetX = (x2 - refX) * tileWU;
+  const offsetZ = (y - refY) * tileWU;
+  const geo = new BufferGeometry();
+  const positions = new Float32Array((segX + 1) * (segZ + 1) * 3);
+  const uvs = new Float32Array((segX + 1) * (segZ + 1) * 2);
+  const indices = [];
+  const stepX = tileWU / segX;
+  const stepZ = tileWU / segZ;
+  let idx = 0;
+  for (let iz = 0; iz <= segZ; iz++) {
+    for (let ix = 0; ix <= segX; ix++) {
+      const px2 = -halfW + ix * stepX;
+      const pz2 = -halfW + iz * stepZ;
+      const u = ix / segX;
+      const v = iz / segZ;
+      let h2 = sampleHeightBilinear(data.heights, data.width, data.height, u, v);
+      if (!isFinite(h2) || isNaN(h2)) h2 = 0;
+      const hWu = (h2 - globalMinElev) / 40;
+      positions[idx * 3] = px2;
+      positions[idx * 3 + 1] = hWu;
+      positions[idx * 3 + 2] = pz2;
+      uvs[idx * 2] = u;
+      uvs[idx * 2 + 1] = 1 - v;
+      idx++;
     }
-    console.log("[RealTerrainMesh] tileWU:", tileWU, "refX:", refX, "refY:", refY, "centerTile:", centerTile);
-    let globalMinElev = Infinity;
-    for (const { data } of tiles) {
-      if (data.minElevation < globalMinElev) globalMinElev = data.minElevation;
+  }
+  for (let iz = 0; iz < segZ; iz++) {
+    for (let ix = 0; ix < segX; ix++) {
+      const a2 = iz * (segX + 1) + ix;
+      const b2 = iz * (segX + 1) + ix + 1;
+      const c2 = (iz + 1) * (segX + 1) + ix;
+      const d = (iz + 1) * (segX + 1) + ix + 1;
+      indices.push(a2, b2, c2);
+      indices.push(b2, d, c2);
     }
-    if (!isFinite(globalMinElev)) globalMinElev = 0;
-    const defaultMaterial = mode === "schematic" ? new MeshStandardMaterial({
+  }
+  geo.setAttribute("position", new BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  geo.userData.offsetX = offsetX;
+  geo.userData.offsetZ = offsetZ;
+  return geo;
+}
+function createTileMaterial(data, mode) {
+  if (mode === "schematic") {
+    return new MeshStandardMaterial({
       color: "#22c55e",
       roughness: 0.5,
       metalness: 0,
@@ -55216,147 +55230,136 @@ const RealTerrainMesh = ({
       opacity: 0.6,
       side: DoubleSide,
       wireframe: true
-    }) : null;
-    const halfW = tileWU / 2;
-    let totalTriangles = 0;
-    for (const { coord, data } of tiles) {
-      const { x: x2, y, z } = coord;
+    });
+  }
+  if (data.satelliteBitmap) {
+    const tex = new CanvasTexture(
+      data.satelliteBitmap
+    );
+    tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
+    tex.minFilter = LinearMipmapLinearFilter;
+    tex.magFilter = LinearFilter;
+    tex.generateMipmaps = true;
+    return new MeshStandardMaterial({
+      map: tex,
+      color: "#ffffff",
+      roughness: 0.7,
+      metalness: 0,
+      transparent: true,
+      opacity: 1,
+      side: DoubleSide
+    });
+  }
+  return new MeshStandardMaterial({
+    color: "#ff3333",
+    roughness: 0.7,
+    metalness: 0,
+    transparent: true,
+    opacity: 1,
+    side: DoubleSide
+  });
+}
+const TerrainTile = ({
+  coord,
+  data,
+  mode,
+  tileWU,
+  refX,
+  refY,
+  globalMinElev
+}) => {
+  const maxSegX = mode === "schematic" ? 16 : 32;
+  const maxSegZ = mode === "schematic" ? 32 : 64;
+  const segX = Math.min(data.width, Math.max(maxSegX, 8));
+  const segZ = Math.min(data.height, Math.max(maxSegZ, 8));
+  const geo = reactExports.useMemo(
+    () => createTileGeometry(data, coord, tileWU, refX, refY, globalMinElev, segX, segZ),
+    // Пересоздавать только при смене режима или координат
+    [coord.z, coord.x, coord.y, mode, tileWU, refX, refY, globalMinElev, segX, segZ]
+  );
+  const mat = reactExports.useMemo(
+    () => createTileMaterial(data, mode),
+    [mode, data.satelliteBitmap]
+  );
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "mesh",
+    {
+      geometry: geo,
+      material: mat,
+      position: [geo.userData.offsetX, -6, geo.userData.offsetZ],
+      frustumCulled: mode !== "schematic"
+    }
+  );
+};
+React.memo(TerrainTile);
+const RealTerrainMesh = ({
+  tiles,
+  opacity = 1,
+  mode = "realistic",
+  centerTile
+}) => {
+  const groupRef = reactExports.useRef(null);
+  const refData = reactExports.useMemo(() => {
+    if (!tiles || tiles.length === 0) return null;
+    let refX2;
+    let refY2;
+    let tileWU2;
+    if (centerTile) {
+      refX2 = centerTile.x;
+      refY2 = centerTile.y;
+      const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
+      const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
+      tileWU2 = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    } else {
+      const xs = tiles.map((t2) => t2.coord.x).sort((a2, b2) => a2 - b2);
+      const ys = tiles.map((t2) => t2.coord.y).sort((a2, b2) => a2 - b2);
+      refX2 = xs[Math.floor(xs.length / 2)];
+      refY2 = ys[Math.floor(ys.length / 2)];
+      const midIdx = Math.floor(tiles.length / 2);
+      const baseTileSize = tiles[midIdx].data.worldUnits;
+      tileWU2 = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    }
+    let globalMinElev2 = Infinity;
+    for (const { data } of tiles) {
+      if (data.minElevation < globalMinElev2) globalMinElev2 = data.minElevation;
+    }
+    if (!isFinite(globalMinElev2)) globalMinElev2 = 0;
+    return { refX: refX2, refY: refY2, tileWU: tileWU2, globalMinElev: globalMinElev2 };
+  }, [tiles, centerTile]);
+  const triangleStats = reactExports.useMemo(() => {
+    if (!tiles || !refData) return null;
+    let total = 0;
+    for (const { data } of tiles) {
       const maxSegX = mode === "schematic" ? 16 : 32;
       const maxSegZ = mode === "schematic" ? 32 : 64;
       const segX = Math.min(data.width, Math.max(maxSegX, 8));
       const segZ = Math.min(data.height, Math.max(maxSegZ, 8));
-      if (!segX || !segZ || !isFinite(tileWU)) continue;
-      const offsetX = (x2 - refX) * tileWU;
-      const offsetZ = (y - refY) * tileWU;
-      const geo = new BufferGeometry();
-      const positions = new Float32Array((segX + 1) * (segZ + 1) * 3);
-      const uvs = new Float32Array((segX + 1) * (segZ + 1) * 2);
-      const indices = [];
-      const stepX = tileWU / segX;
-      const stepZ = tileWU / segZ;
-      let idx = 0;
-      for (let iz = 0; iz <= segZ; iz++) {
-        for (let ix = 0; ix <= segX; ix++) {
-          const px2 = -halfW + ix * stepX;
-          const pz2 = -halfW + iz * stepZ;
-          const u = ix / segX;
-          const v = iz / segZ;
-          let h2 = sampleHeightBilinear(data.heights, data.width, data.height, u, v);
-          if (!isFinite(h2) || isNaN(h2)) h2 = 0;
-          const hWu = (h2 - globalMinElev) / 40;
-          positions[idx * 3] = px2;
-          positions[idx * 3 + 1] = hWu;
-          positions[idx * 3 + 2] = pz2;
-          uvs[idx * 2] = u;
-          uvs[idx * 2 + 1] = 1 - v;
-          idx++;
-        }
-      }
-      for (let iz = 0; iz < segZ; iz++) {
-        for (let ix = 0; ix < segX; ix++) {
-          const a2 = iz * (segX + 1) + ix;
-          const b2 = iz * (segX + 1) + ix + 1;
-          const c2 = (iz + 1) * (segX + 1) + ix;
-          const d = (iz + 1) * (segX + 1) + ix + 1;
-          indices.push(a2, b2, c2);
-          indices.push(b2, d, c2);
-        }
-      }
-      try {
-        geo.setAttribute("position", new BufferAttribute(positions, 3));
-        geo.setAttribute("uv", new BufferAttribute(uvs, 2));
-        geo.setIndex(indices);
-        geo.computeVertexNormals();
-      } catch (err) {
-        console.error("[RealTerrainMesh] buffer error:", err);
-        continue;
-      }
-      let tileMaterial = defaultMaterial;
-      if (mode === "realistic") {
-        if (data.satelliteBitmap) {
-          const tex = new CanvasTexture(
-            data.satelliteBitmap
-          );
-          tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
-          tex.minFilter = LinearMipmapLinearFilter;
-          tex.magFilter = LinearFilter;
-          tex.generateMipmaps = true;
-          tileMaterial = new MeshStandardMaterial({
-            map: tex,
-            color: "#ffffff",
-            roughness: 0.7,
-            metalness: 0,
-            transparent: true,
-            opacity: opacity < 1 ? opacity : 1,
-            side: DoubleSide
-          });
-        } else {
-          tileMaterial = new MeshStandardMaterial({
-            color: "#ff3333",
-            roughness: 0.7,
-            metalness: 0,
-            transparent: true,
-            opacity: opacity < 1 ? opacity : 1,
-            side: DoubleSide
-          });
-        }
-      }
-      const mesh = new Mesh(geo, tileMaterial);
-      mesh.position.set(offsetX, -6, offsetZ);
-      mesh.frustumCulled = mode !== "schematic";
-      const triCount = segX * segZ * 2;
-      totalTriangles += triCount;
-      group.add(mesh);
+      total += segX * segZ * 2;
     }
-    console.log(`[RealTerrainMesh] total tiles: ${tiles.length}, triangles: ${totalTriangles.toLocaleString()} (mode: ${mode})`);
-    return group;
-  }, [tiles, opacity, mode, centerTile]);
-  reactExports.useEffect(() => {
-    return () => {
-      if (groupRef.current) {
-        [...groupRef.current.children].forEach((child) => {
-          var _a;
-          if (child instanceof Mesh) {
-            (_a = child.geometry) == null ? void 0 : _a.dispose();
-            if (child.material instanceof MeshStandardMaterial) {
-              child.material.dispose();
-              if (child.material.map) child.material.map.dispose();
-            }
-          }
-        });
-      }
-    };
-  }, []);
-  reactExports.useEffect(() => {
-    var _a, _b2;
-    if (groupRef.current && meshes) {
-      while (groupRef.current.children.length > 0) {
-        const child = groupRef.current.children[0];
-        if (child instanceof Mesh) {
-          (_a = child.geometry) == null ? void 0 : _a.dispose();
-          if (child.material instanceof MeshStandardMaterial) {
-            child.material.dispose();
-            if (child.material.map) child.material.map.dispose();
-          }
-        }
-        groupRef.current.remove(child);
-      }
-      [...meshes.children].forEach((child) => {
-        var _a2;
-        (_a2 = groupRef.current) == null ? void 0 : _a2.add(child);
-      });
-    } else if (groupRef.current && !meshes) {
-      while (groupRef.current.children.length > 0) {
-        const child = groupRef.current.children[0];
-        if (child instanceof Mesh) {
-          (_b2 = child.geometry) == null ? void 0 : _b2.dispose();
-        }
-        groupRef.current.remove(child);
-      }
+    return total;
+  }, [tiles, mode, refData]);
+  React.useEffect(() => {
+    if (triangleStats !== null) {
+      console.log(
+        `[RealTerrainMesh] total tiles: ${tiles.length}, triangles: ${triangleStats.toLocaleString()} (mode: ${mode})`
+      );
     }
-  }, [meshes]);
-  if (!tiles || tiles.length === 0) return null;
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("group", { ref: groupRef });
+  }, [tiles == null ? void 0 : tiles.length, triangleStats, mode]);
+  if (!tiles || tiles.length === 0 || !refData) return null;
+  const { refX, refY, tileWU, globalMinElev } = refData;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("group", { ref: groupRef, children: tiles.map(({ coord, data }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    TerrainTile,
+    {
+      coord,
+      data,
+      mode,
+      tileWU,
+      refX,
+      refY,
+      globalMinElev
+    },
+    `${coord.z}/${coord.x}/${coord.y}-${mode}`
+  )) });
 };
 const LOG_COLORS = {
   HIT: "text-green-400",
@@ -55708,6 +55711,10 @@ class TerrainManagerImpl {
     this.loadQueue = [];
     this.everLoaded.clear();
   }
+  /** P0.1: публичный геттер для currentCenter */
+  getCurrentCenter() {
+    return this.currentCenter;
+  }
   /**
    * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
    * Вызывается при каждом новом кадре телеметрии.
@@ -55970,6 +55977,7 @@ function useRealTerrain(lat, lon, enabled = false) {
   const [loading2, setLoading] = reactExports.useState(false);
   const [progress, setProgress] = reactExports.useState(null);
   const [error2, setError] = reactExports.useState(null);
+  const [centerTile, setCenterTile] = reactExports.useState(null);
   const lastLatRef = reactExports.useRef(null);
   const lastLonRef = reactExports.useRef(null);
   const enabledRef = reactExports.useRef(enabled);
@@ -55985,6 +55993,7 @@ function useRealTerrain(lat, lon, enabled = false) {
       const all = TerrainManager.getAllTiles();
       const sorted = [...all].sort((a2, b2) => a2.coord.y - b2.coord.y || a2.coord.x - b2.coord.x);
       setTiles(sorted);
+      setCenterTile(TerrainManager.getCurrentCenter());
     });
   }, []);
   const scheduleUpdate = reactExports.useCallback((currentLat, currentLon) => {
@@ -56013,6 +56022,7 @@ function useRealTerrain(lat, lon, enabled = false) {
         const all = TerrainManager.getAllTiles();
         const sorted = [...all].sort((a2, b2) => a2.coord.y - b2.coord.y || a2.coord.x - b2.coord.x);
         setTiles(sorted);
+        setCenterTile(TerrainManager.getCurrentCenter());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -56060,7 +56070,8 @@ function useRealTerrain(lat, lon, enabled = false) {
     progress,
     hasCoords: enabled && TerrainManager.isReady && (lat !== null || lon !== null),
     error: error2,
-    tileCount: tiles.length
+    tileCount: tiles.length,
+    centerTile
   };
 }
 const Runway = reactExports.memo(() => {
@@ -57414,7 +57425,8 @@ const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled
         RealTerrainMesh,
         {
           tiles: realTerrainData.tiles,
-          mode: satelliteEnabled ? "realistic" : "schematic"
+          mode: satelliteEnabled ? "realistic" : "schematic",
+          centerTile: realTerrainData.centerTile
         }
       ) : /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsx(Runway, {}),
@@ -57558,7 +57570,8 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         satelliteEnabled,
         realTerrainData: {
           tiles: realTerrain.tiles,
-          loading: realTerrain.loading
+          loading: realTerrain.loading,
+          centerTile: realTerrain.centerTile
         },
         aircraftPos: { x: 0, y: alt ?? 0, z: 0 }
       }

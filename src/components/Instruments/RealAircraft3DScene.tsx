@@ -73,6 +73,7 @@ interface SceneProps {
   realTerrainData: {
     tiles: Array<{ coord: import('./aircraft3d/terrain/terrainTileUtils').TileCoord; data: import('./aircraft3d/terrain/TerrainManager').TerrainTileData }>;
     loading: boolean;
+    centerTile: import('./aircraft3d/terrain/terrainTileUtils').TileCoord | null;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
 }
@@ -98,6 +99,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
         <RealTerrainMesh
           tiles={realTerrainData.tiles}
           mode={satelliteEnabled ? 'realistic' : 'schematic'}
+          centerTile={realTerrainData.centerTile}
         />
       ) : (
         <GroundDisc />
@@ -128,6 +130,7 @@ interface Aircraft3DCanvasProps {
   realTerrainData: {
     tiles: Array<{ coord: import('./aircraft3d/terrain/terrainTileUtils').TileCoord; data: import('./aircraft3d/terrain/TerrainManager').TerrainTileData }>;
     loading: boolean;
+    centerTile: import('./aircraft3d/terrain/terrainTileUtils').TileCoord | null;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
 }
@@ -263,6 +266,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           realTerrainData={{
             tiles: realTerrain.tiles,
             loading: realTerrain.loading,
+            centerTile: realTerrain.centerTile,
           }}
           aircraftPos={{ x: 0, y: alt ?? 0, z: 0 }}
         />

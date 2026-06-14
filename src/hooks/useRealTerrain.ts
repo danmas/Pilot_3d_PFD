@@ -21,6 +21,8 @@ export interface RealTerrainState {
   error: string | null;
   /** Количество загруженных тайлов */
   tileCount: number;
+  /** P0.1: текущий центр (из TerrainManager) */
+  centerTile: TileCoord | null;
 }
 
 // Тестовые координаты (Альпы, Монблан)
@@ -39,6 +41,7 @@ export function useRealTerrain(
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<{ loaded: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [centerTile, setCenterTile] = useState<TileCoord | null>(null);
 
   const lastLatRef = useRef<number | null>(null);
   const lastLonRef = useRef<number | null>(null);
@@ -62,6 +65,8 @@ export function useRealTerrain(
       // This makes midIdx / ref calculations in the mesh much more stable.
       const sorted = [...all].sort((a, b) => (a.coord.y - b.coord.y) || (a.coord.x - b.coord.x));
       setTiles(sorted);
+      // P0.1: обновляем centerTile из TerrainManager
+      setCenterTile(TerrainManager.getCurrentCenter());
     });
   }, []);
 
@@ -99,6 +104,8 @@ export function useRealTerrain(
         const all = TerrainManager.getAllTiles();
         const sorted = [...all].sort((a, b) => (a.coord.y - b.coord.y) || (a.coord.x - b.coord.x));
         setTiles(sorted);
+        // P0.1: обновляем centerTile
+        setCenterTile(TerrainManager.getCurrentCenter());
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
@@ -158,5 +165,6 @@ export function useRealTerrain(
     hasCoords: enabled && TerrainManager.isReady && (lat !== null || lon !== null),
     error,
     tileCount: tiles.length,
+    centerTile,
   };
 }

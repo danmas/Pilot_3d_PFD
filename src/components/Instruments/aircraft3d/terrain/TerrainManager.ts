@@ -145,6 +145,11 @@ class TerrainManagerImpl {
     this.everLoaded.clear();
   }
 
+  /** P0.1: публичный геттер для currentCenter */
+  getCurrentCenter(): TileCoord | null {
+    return this.currentCenter;
+  }
+
   /**
    * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
    * Вызывается при каждом новом кадре телеметрии.
