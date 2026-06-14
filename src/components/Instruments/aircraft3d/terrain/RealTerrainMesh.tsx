@@ -17,7 +17,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import type { TerrainTileData } from './TerrainManager';
-import { type TileCoord, tileCenterLatLon, tileWorldUnits } from './terrainTileUtils';
+import { type TileCoord, tileCenterLatLon, tileWorldUnits, sampleHeightBilinear } from './terrainTileUtils';
 
 interface RealTerrainMeshProps {
   /** Массив тайлов с координатами */
@@ -94,10 +94,16 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 
     const halfW = tileWU / 2;
 
+    // Хранилище для статистики
+    let totalTriangles = 0;
+
     for (const { coord, data } of tiles) {
       const { x, y, z } = coord;
-      const segX = Math.min(data.width, 64);
-      const segZ = Math.min(data.height, 256);
+      // P0: сниженные сегменты — реалистик 32×64, схематик 16×32
+      const maxSegX = mode === 'schematic' ? 16 : 32;
+      const maxSegZ = mode === 'schematic' ? 32 : 64;
+      const segX = Math.min(data.width, Math.max(maxSegX, 8));
+      const segZ = Math.min(data.height, Math.max(maxSegZ, 8));
 
       if (!segX || !segZ || !isFinite(tileWU)) continue;
 
@@ -122,15 +128,8 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 
           const u = ix / segX;
           const v = iz / segZ;
-          const hi = Math.round(u * (data.width - 1));
-          const hj = Math.round(v * (data.height - 1));
-          const ci = Math.max(0, Math.min(data.width - 1, hi));
-          const cj = Math.max(0, Math.min(data.height - 1, hj));
-          const fi = cj * data.width + ci;
-          let h = 0;
-          if (data.heights && fi < data.heights.length) {
-            h = data.heights[fi];
-          }
+          // P0: bilinear вместо nearest-neighbour
+          let h = sampleHeightBilinear(data.heights, data.width, data.height, u, v);
           if (!isFinite(h) || isNaN(h)) h = 0;
           const hWu = (h - globalMinElev) / 40;
 
@@ -199,9 +198,15 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 
       const mesh = new THREE.Mesh(geo, tileMaterial);
       mesh.position.set(offsetX, -6, offsetZ);
-      mesh.frustumCulled = false;
+      // P0: frustum culling включен для дальних тайлов (проверим, помогает ли)
+      // Для schematic с wireframe — лучше оставить без culling чтобы видеть структуру
+      mesh.frustumCulled = mode !== 'schematic';
+      const triCount = segX * segZ * 2;
+      totalTriangles += triCount;
       group.add(mesh);
     }
+
+    console.log(`[RealTerrainMesh] total tiles: ${tiles.length}, triangles: ${totalTriangles.toLocaleString()} (mode: ${mode})`);
 
     return group;
   }, [tiles, opacity, mode, centerTile]);

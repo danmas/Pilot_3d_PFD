@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-D7PYP-so.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-DNkmW50n.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -55124,6 +55124,27 @@ function decodeTerrainRGB(imageData) {
   }
   return heights;
 }
+function sampleHeightBilinear(heights, width, height, u, v) {
+  const uClamped = Math.max(0, Math.min(1, u));
+  const vClamped = Math.max(0, Math.min(1, v));
+  const fx = uClamped * (width - 1);
+  const fy = vClamped * (height - 1);
+  const ix = Math.floor(fx);
+  const iy = Math.floor(fy);
+  const dx = fx - ix;
+  const dy = fy - iy;
+  const x0 = Math.max(0, Math.min(ix, width - 1));
+  const x1 = Math.max(0, Math.min(ix + 1, width - 1));
+  const y0 = Math.max(0, Math.min(iy, height - 1));
+  const y1 = Math.max(0, Math.min(iy + 1, height - 1));
+  const h00 = heights[y0 * width + x0];
+  const h10 = heights[y0 * width + x1];
+  const h01 = heights[y1 * width + x0];
+  const h11 = heights[y1 * width + x1];
+  const h0 = h00 + (h10 - h00) * dx;
+  const h1 = h01 + (h11 - h01) * dx;
+  return h0 + (h1 - h0) * dy;
+}
 function terrainRgbUrl(token, z, x2, y) {
   return `/api/terrain/tile/${z}/${x2}/${y}?type=dem`;
 }
@@ -55197,10 +55218,13 @@ const RealTerrainMesh = ({
       wireframe: true
     }) : null;
     const halfW = tileWU / 2;
+    let totalTriangles = 0;
     for (const { coord, data } of tiles) {
       const { x: x2, y, z } = coord;
-      const segX = Math.min(data.width, 64);
-      const segZ = Math.min(data.height, 256);
+      const maxSegX = mode === "schematic" ? 16 : 32;
+      const maxSegZ = mode === "schematic" ? 32 : 64;
+      const segX = Math.min(data.width, Math.max(maxSegX, 8));
+      const segZ = Math.min(data.height, Math.max(maxSegZ, 8));
       if (!segX || !segZ || !isFinite(tileWU)) continue;
       const offsetX = (x2 - refX) * tileWU;
       const offsetZ = (y - refY) * tileWU;
@@ -55217,15 +55241,7 @@ const RealTerrainMesh = ({
           const pz2 = -halfW + iz * stepZ;
           const u = ix / segX;
           const v = iz / segZ;
-          const hi = Math.round(u * (data.width - 1));
-          const hj = Math.round(v * (data.height - 1));
-          const ci = Math.max(0, Math.min(data.width - 1, hi));
-          const cj = Math.max(0, Math.min(data.height - 1, hj));
-          const fi = cj * data.width + ci;
-          let h2 = 0;
-          if (data.heights && fi < data.heights.length) {
-            h2 = data.heights[fi];
-          }
+          let h2 = sampleHeightBilinear(data.heights, data.width, data.height, u, v);
           if (!isFinite(h2) || isNaN(h2)) h2 = 0;
           const hWu = (h2 - globalMinElev) / 40;
           positions[idx * 3] = px2;
@@ -55287,9 +55303,12 @@ const RealTerrainMesh = ({
       }
       const mesh = new Mesh(geo, tileMaterial);
       mesh.position.set(offsetX, -6, offsetZ);
-      mesh.frustumCulled = false;
+      mesh.frustumCulled = mode !== "schematic";
+      const triCount = segX * segZ * 2;
+      totalTriangles += triCount;
       group.add(mesh);
     }
+    console.log(`[RealTerrainMesh] total tiles: ${tiles.length}, triangles: ${totalTriangles.toLocaleString()} (mode: ${mode})`);
     return group;
   }, [tiles, opacity, mode, centerTile]);
   reactExports.useEffect(() => {

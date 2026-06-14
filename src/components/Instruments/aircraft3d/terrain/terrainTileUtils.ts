@@ -105,6 +105,47 @@ export function sampleHeight(
 }
 
 /**
+ * P0: bilinear sampling — плавная интерполяция между 4 соседними пикселями.
+ * Даёт лучшее качество при том же количестве вершин.
+ */
+export function sampleHeightBilinear(
+  heights: Float32Array,
+  width: number,
+  height: number,
+  u: number,
+  v: number
+): number {
+  const uClamped = Math.max(0, Math.min(1, u));
+  const vClamped = Math.max(0, Math.min(1, v));
+
+  const fx = uClamped * (width - 1);
+  const fy = vClamped * (height - 1);
+
+  const ix = Math.floor(fx);
+  const iy = Math.floor(fy);
+
+  const dx = fx - ix;
+  const dy = fy - iy;
+
+  // Координаты соседей с clamp на границы
+  const x0 = Math.max(0, Math.min(ix, width - 1));
+  const x1 = Math.max(0, Math.min(ix + 1, width - 1));
+  const y0 = Math.max(0, Math.min(iy, height - 1));
+  const y1 = Math.max(0, Math.min(iy + 1, height - 1));
+
+  // 4 соседа
+  const h00 = heights[y0 * width + x0];
+  const h10 = heights[y0 * width + x1];
+  const h01 = heights[y1 * width + x0];
+  const h11 = heights[y1 * width + x1];
+
+  // Bilinear interpolation
+  const h0 = h00 + (h10 - h00) * dx;
+  const h1 = h01 + (h11 - h01) * dx;
+  return h0 + (h1 - h0) * dy;
+}
+
+/**
  * URL для Mapbox Terrain-RGB тайла (через наш proxy)
  */
 export function terrainRgbUrl(token: string, z: number, x: number, y: number): string {

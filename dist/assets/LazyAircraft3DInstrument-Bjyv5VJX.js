@@ -1,6 +1,6 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/index-D7PYP-so.js","assets/index-CPSOVAFD.css"])))=>i.map(i=>d[i]);
-import { r as reactExports, R as React, j as jsxRuntimeExports, _ as __vitePreload } from "./index-D7PYP-so.js";
-const Inner3D = reactExports.lazy(() => __vitePreload(() => import("./index-D7PYP-so.js").then((n) => n.a), true ? __vite__mapDeps([0,1]) : void 0));
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/index-DNkmW50n.js","assets/index-CPSOVAFD.css"])))=>i.map(i=>d[i]);
+import { r as reactExports, R as React, j as jsxRuntimeExports, _ as __vitePreload } from "./index-DNkmW50n.js";
+const Inner3D = reactExports.lazy(() => __vitePreload(() => import("./index-DNkmW50n.js").then((n) => n.a), true ? __vite__mapDeps([0,1]) : void 0));
 const LazyAircraft3DInstrument = ({ frame }) => {
   const [show, setShow] = reactExports.useState(false);
   React.useEffect(() => {

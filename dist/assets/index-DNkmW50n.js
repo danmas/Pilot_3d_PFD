@@ -35,7 +35,7 @@
     fetch(link.href, fetchOpts);
   }
 })();
-const version = "2.12.0";
+const version = "2.12.1";
 const pkg = {
   version
 };
@@ -16713,7 +16713,7 @@ const fmt = (v, d = 1) => typeof v === "number" && Number.isFinite(v) ? v.toFixe
 const LoadingFallback = () => /* @__PURE__ */ jsxRuntimeExports$1.jsx("div", { className: "w-full h-full bg-[#0a0a14] flex items-center justify-center select-none", children: /* @__PURE__ */ jsxRuntimeExports$1.jsx("div", { className: "text-white/20 text-sm font-mono", children: "Loading 3D engine…" }) });
 let RealScene = null;
 {
-  RealScene = reactExports$1.lazy(() => __vitePreload(() => import("./RealAircraft3DScene-DusemRQs.js"), true ? [] : void 0).then((m) => ({ default: m.RealAircraft3DScene })));
+  RealScene = reactExports$1.lazy(() => __vitePreload(() => import("./RealAircraft3DScene-Ddq8I3MP.js"), true ? [] : void 0).then((m) => ({ default: m.RealAircraft3DScene })));
 }
 const Aircraft3DStub = reactExports$1.memo(({ frame }) => {
   const pitch = finite(frame == null ? void 0 : frame.PitchAngle);
@@ -19244,7 +19244,7 @@ const ChartsView = ({ frame, epochMs, catalog, initialMode = "stacked" }) => {
     ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-center h-full text-white/30 text-sm", children: "Initializing charts…" }) })
   ] });
 };
-const Aircraft3DInstrument = React.lazy(() => __vitePreload(() => import("./LazyAircraft3DInstrument-ClWlACpI.js"), true ? [] : void 0));
+const Aircraft3DInstrument = React.lazy(() => __vitePreload(() => import("./LazyAircraft3DInstrument-Bjyv5VJX.js"), true ? [] : void 0));
 const LIVE_PFD_URL = "/events/pfd";
 function App() {
   var _a, _b, _c, _d, _e, _f, _g, _h, _i;
