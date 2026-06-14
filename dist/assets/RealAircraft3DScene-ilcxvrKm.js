@@ -1,4 +1,4 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-CIIdvxOC.js";
+import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-DTj7Fu8e.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -55188,12 +55188,13 @@ const RealTerrainMesh = ({
     }
     if (!isFinite(globalMinElev)) globalMinElev = 0;
     const defaultMaterial = mode === "schematic" ? new MeshStandardMaterial({
-      color: "#4a7c3f",
-      roughness: 0.8,
+      color: "#22c55e",
+      roughness: 0.5,
       metalness: 0,
       transparent: true,
-      opacity,
-      side: DoubleSide
+      opacity: 0.6,
+      side: DoubleSide,
+      wireframe: true
     }) : null;
     const halfW = tileWU / 2;
     for (const { coord, data } of tiles) {

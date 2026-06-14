@@ -79,15 +79,16 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
     }
     if (!isFinite(globalMinElev)) globalMinElev = 0;
 
-    // Общий материал (schematic)
+    // Общий материал (schematic / wireframe)
     const defaultMaterial = mode === 'schematic'
       ? new THREE.MeshStandardMaterial({
-          color: '#4a7c3f',
-          roughness: 0.8,
+          color: '#22c55e',
+          roughness: 0.5,
           metalness: 0.0,
           transparent: true,
-          opacity,
+          opacity: 0.6,
           side: THREE.DoubleSide,
+          wireframe: true,
         })
       : null;
 
