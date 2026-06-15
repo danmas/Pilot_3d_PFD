@@ -428,6 +428,29 @@ useFrame((_state, delta) => {
 
 Проект в хорошей форме, активно развивается. Основные усилия — на модульность glue-слоя и тесты.
 
+### Terrain Proxy Server (порт 3409)
+
+Для real terrain (Mapbox Terrain-RGB / Satellite) используется отдельный прокси-сервер `server/terrain-proxy.js`:
+
+- **Порт:** 3409 (не конфликтует с Vite dev на 3410)
+- **Эндпоинты:**
+  - `GET /api/terrain/tile/:z/:x/:y?type=dem|sat` — прокси тайла рельефа/спутника
+  - `GET /api/terrain/quota` — статистика запросов к Mapbox
+- **Дисковый кэш:** `cache/terrain/` — скачанные тайлы не запрашиваются повторно
+- **Квоты Mapbox:** 50k запросов/месяц, трекинг в `cache/terrain-quota.json`
+- **Токен:** читается из переменной `VITE_MAPBOX_TOKEN` или `MAPBOX_TOKEN` в `.env`
+
+**Запуск:**
+```bash
+node server/terrain-proxy.js       # отдельно
+pm2 start server/terrain-proxy.js -- --port 3409   # через pm2
+```
+
+В **dev-режиме** Vite проксирует `/api/terrain/*` на `http://localhost:3409` (см. `vite.config.ts`).
+В **production** `server/server.js` заменяет и Vite, и terrain-proxy одним процессом (встроенный Express + terrain).
+
+Подробнее: [KB/README_terrain_proxy.md](./KB/README_terrain_proxy.md), [KB/README_terrain_quota.md](./KB/README_terrain_quota.md)
+
 ### Быстрые ссылки на документацию (обновлено 2026-06-12)
 - Главная архитектура: [KB/README_architecture.md](./KB/README_architecture.md)
 - Декодирование и телеметрия: [KB/README_decoding.md](./KB/README_decoding.md)
