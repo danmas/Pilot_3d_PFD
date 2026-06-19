@@ -9,7 +9,7 @@
  * только при смене режима (realistic ↔ schematic).
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import type { TerrainTileData } from './TerrainManager';
 import { type TileCoord, sampleHeightBilinear } from './terrainTileUtils';
@@ -178,6 +178,16 @@ const TerrainTile: React.FC<TerrainTileProps> = ({
     () => createTileMaterial(data, mode),
     [mode, data.satelliteBitmap],
   );
+
+  // Освобождаем GPU-ресурсы при размонтировании тайла (geometry + material + texture)
+  useEffect(() => {
+    return () => {
+      geo.dispose();
+      mat.dispose();
+      const tex = (mat as THREE.MeshStandardMaterial).map;
+      if (tex) tex.dispose();
+    };
+  }, [geo, mat]);
 
   return (
     <mesh

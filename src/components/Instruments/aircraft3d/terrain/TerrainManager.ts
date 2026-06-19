@@ -400,26 +400,39 @@ class TerrainManagerImpl {
       }
 
       // 2. Satellite (не блокирует)
-      // Всегда запрашиваем у прокси, чтобы брать из серверного постоянного кэша, если тайл был когда-либо успешно загружен.
       let satelliteBitmap: ImageBitmap | null = null;
       try {
-        const response = await fetch(satelliteUrl(this.token, z, x, y), {
-          signal,
-        });
-        if (response.ok) {
-          const satBlob = await response.blob();
-          putTile(tileCacheKey('sat', z, x, y), satBlob, { source: 'sat', z, x, y }).catch(() => {});
-          try {
-            satelliteBitmap = await createImageBitmap(satBlob);
-          } catch {
-            // Если bitmap плохой, пробуем ещё раз (прокси должен отдать из кэша, без инета)
-            const response2 = await fetch(satelliteUrl(this.token, z, x, y), {
-              signal,
-            });
-            if (response2.ok) {
-              const freshBlob = await response2.blob();
-              putTile(tileCacheKey('sat', z, x, y), freshBlob, { source: 'sat', z, x, y }).catch(() => {});
-              satelliteBitmap = await createImageBitmap(freshBlob);
+        if (forceCacheOnly) {
+          // Для everLoaded — строго из клиентского кэша (IDB), без сети вообще.
+          const satKey = tileCacheKey('sat', z, x, y);
+          const satBlob = await getTile(satKey);
+          if (satBlob) {
+            try {
+              satelliteBitmap = await createImageBitmap(satBlob);
+            } catch {
+              satelliteBitmap = null;
+            }
+          }
+        } else {
+          // Запрашиваем у прокси — сервер отдаст из дискового кэша, если тайл уже загружали.
+          const response = await fetch(satelliteUrl(this.token, z, x, y), {
+            signal,
+          });
+          if (response.ok) {
+            const satBlob = await response.blob();
+            putTile(tileCacheKey('sat', z, x, y), satBlob, { source: 'sat', z, x, y }).catch(() => {});
+            try {
+              satelliteBitmap = await createImageBitmap(satBlob);
+            } catch {
+              // Если bitmap плохой, пробуем ещё раз (прокси должен отдать из кэша, без инета)
+              const response2 = await fetch(satelliteUrl(this.token, z, x, y), {
+                signal,
+              });
+              if (response2.ok) {
+                const freshBlob = await response2.blob();
+                putTile(tileCacheKey('sat', z, x, y), freshBlob, { source: 'sat', z, x, y }).catch(() => {});
+                satelliteBitmap = await createImageBitmap(freshBlob);
+              }
             }
           }
         }

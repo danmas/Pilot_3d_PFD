@@ -211,10 +211,11 @@
 
 #### Чек-лист реализации P0.1
 
-- [ ] Реализовать Вариант A (компонент `TerrainTile` + рефакторинг RealTerrainMesh)
-- [ ] Добавить геттер `getCurrentCenter()` в TerrainManager
-- [ ] Обновить `useRealTerrain` (state + возврат centerTile + triangleCount)
-- [ ] Пробросить centerTile через сцену в RealTerrainMesh
+- [x] Реализовать Вариант A (компонент `TerrainTile` + рефакторинг RealTerrainMesh)
+- [x] Добавить геттер `getCurrentCenter()` в TerrainManager
+- [x] Обновить `useRealTerrain` (state + возврат centerTile + triangleCount)
+- [x] Пробросить centerTile через сцену в RealTerrainMesh
+- [x] Dispose геометрии/материала/текстуры при размонтировании тайла (2026-06-18)
 - [ ] Улучшить логирование + интеграция в TerrainLogPanel
 - [ ] Провести замеры и задокументировать (добавить в отчёт P0 или новый P0.1 report)
 

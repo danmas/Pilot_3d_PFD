@@ -65,6 +65,7 @@ export default defineConfig(({mode}) => {
       },
       port: port,
       host: '0.0.0.0',
+      allowedHosts: ['pilot3d.carlinkmail.ru', '.carlinkmail.ru'],
       proxy: {
         '/api/terrain': {
           target: 'http://localhost:3409',

@@ -190,7 +190,6 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
     frame.Latitude as number | undefined,
     frame.Longitude as number | undefined,
     realTerrainEnabled,
-    5  // gridSize=5 → 5×5 тайлов для покрытия большой площади
   );
 
   /* ── Периодическая проверка groundTouch ── */
@@ -498,7 +497,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
     pf.Heading1 === nf.Heading1 &&
     pf.CAS === nf.CAS &&
     pf.Vy === nf.Vy &&
-    pf.RAltitude === nf.RAltitude
+    pf.RAltitude === nf.RAltitude &&
+    pf.Latitude === nf.Latitude &&
+    pf.Longitude === nf.Longitude
   );
 });
 

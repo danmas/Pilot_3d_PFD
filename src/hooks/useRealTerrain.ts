@@ -3,10 +3,16 @@
  *
  * Подписывается на телеметрию (lat/lon), вызывает TerrainManager.updatePosition()
  * и предоставляет массив загруженных тайлов для RealTerrainMesh.
+ *
+ * v2: дополнительно читает aircraftPosition напрямую через rAF —
+ * это надёжно работает в обоих режимах FDM (Simple и Improved),
+ * независимо от того, доходит ли lat/lon через frame prop.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TerrainManager, type TerrainTileData } from '../components/Instruments/aircraft3d/terrain/TerrainManager';
 import type { TileCoord } from '../components/Instruments/aircraft3d/terrain/terrainTileUtils';
+import { aircraftPosition } from '../components/Instruments/aircraft3d/aircraftPosition';
+import { SIM_REF_LAT, SIM_REF_LON } from '../components/Instruments/aircraft3d/flightModel';
 
 export interface RealTerrainState {
   /** Все загруженные тайлы */
@@ -74,11 +80,11 @@ export function useRealTerrain(
   const scheduleUpdate = useCallback((currentLat: number, currentLon: number) => {
     if (!enabledRef.current || !TerrainManager.isReady) return;
 
-    // Порог движения: ~50% тайла на zoom=14
+    // Порог движения: ~25% тайла на zoom=14 (~580 м)
     const TILE_LAT = 0.021; // ~2.3 км на zoom=14
     const TILE_LON = 0.043; // ~2.3 км на zoom=14
-    const THRESHOLD_LAT = TILE_LAT * 0.4;
-    const THRESHOLD_LON = TILE_LON * 0.4;
+    const THRESHOLD_LAT = TILE_LAT * 0.25;
+    const THRESHOLD_LON = TILE_LON * 0.25;
 
     if (lastLatRef.current !== null && lastLonRef.current !== null) {
       const dLat = Math.abs(currentLat - lastLatRef.current);
@@ -135,19 +141,35 @@ export function useRealTerrain(
       scheduleUpdate(currentLat, currentLon);
     }
 
-    // Периодическая проверка позиции каждые 5 сек
-    const interval = setInterval(() => {
-      if (!enabledRef.current) return;
-      const clat = lat ?? DEFAULT_LAT;
-      const clon = lon ?? DEFAULT_LON;
-      if (isFinite(clat) && isFinite(clon)) {
-        scheduleUpdate(clat, clon);
+    // rAF цикл: читаем aircraftPosition напрямую и вычисляем lat/lon.
+    // Это надёжно работает в обоих режимах FDM, т.к. aircraftPosition
+    // обновляется в useFrame независимо от frame prop propagation.
+    const METERS_PER_DEG_LAT = 111320;
+    const cosRefLat = Math.cos(SIM_REF_LAT * Math.PI / 180);
+    let rafId: number;
+    let lastUpdateTime = 0;
+    const MIN_UPDATE_INTERVAL = 500; // ms между проверками
+
+    const checkPosition = () => {
+      const now = performance.now();
+      if (now - lastUpdateTime >= MIN_UPDATE_INTERVAL) {
+        lastUpdateTime = now;
+        // Вычисляем lat/lon из накопленного смещения
+        const dxMeters = aircraftPosition.x * 40;   // восток → долгота
+        const dnMeters = -aircraftPosition.z * 40;   // север → широта
+        const simLat = SIM_REF_LAT + dnMeters / METERS_PER_DEG_LAT;
+        const simLon = SIM_REF_LON + dxMeters / (METERS_PER_DEG_LAT * cosRefLat);
+
+        if (isFinite(simLat) && isFinite(simLon)) {
+          scheduleUpdate(simLat, simLon);
+        }
       }
-    }, 5000);
+      rafId = requestAnimationFrame(checkPosition);
+    };
+    rafId = requestAnimationFrame(checkPosition);
 
     return () => {
-      clearInterval(interval);
-      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+      cancelAnimationFrame(rafId);
     };
   }, [lat, lon, enabled, scheduleUpdate]);
 

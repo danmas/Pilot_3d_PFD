@@ -217,10 +217,16 @@ const tileWU = tileGroundSizeMeters(zoom, lat) / 40;
 - Запись в `cache/terrain-quota.json`
 - Авто-остановка при 45,000 запросов
 
-### 🔄 Фаза 5: Ленивая подгрузка по движению самолёта
+### ✅ Фаза 5: Ленивая подгрузка по движению самолёта (2026-06-18)
 
-- В разработке: не сетка, а загрузка тайлов по мере перемещения
-- Unload дальних тайлов (dispose geometry/texture)
+**Реализовано.** Подробности: [README_terrain_lazy_loading_report.md](./README_terrain_lazy_loading_report.md)
+
+- `TerrainManager.updatePosition(lat, lon)` — lazy-загрузка: вычисляет нужную сетку `loadRadius=3` (7×7), удаляет тайлы за `keepRadius=4` (9×9)
+- `everLoaded` Set — тайлы, загруженные хотя бы раз, восстанавливаются **только из клиентского кэша (IDB)**, без обращения к интернету
+- `useRealTerrain` — rAF-цикл (500мс) читает `aircraftPosition` напрямую, вычисляет lat/lon из накопленного смещения в WU
+- `TerrainTile` — `useEffect` cleanup: `geo.dispose()`, `mat.dispose()`, `tex.dispose()` при размонтировании тайла
+- `forceCacheOnly` — DEM **и** satellite берутся из IndexedDB (раньше satellite всегда фетчился с сервера)
+- Проброс `centerTile` через `TerrainManager.getCurrentCenter()` → hook → scene → mesh для стабильного референса
 
 ## Переменные окружения
 

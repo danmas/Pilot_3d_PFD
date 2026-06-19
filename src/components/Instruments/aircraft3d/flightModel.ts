@@ -44,7 +44,14 @@ export interface ImprovedState {
   _throttle_smoothed: number;
   /** Текущие параметры FDM (ссылкой на объект) */
   params: FlightModelParams;
+  /** Опорные координаты (стартовая точка полёта) */
+  refLat: number;
+  refLon: number;
 }
+
+/** Стартовые координаты (Альпы, Монблан — совпадает с useRealTerrain DEFAULT) */
+export const SIM_REF_LAT = 45.832;
+export const SIM_REF_LON = 6.865;
 
 export function createImprovedState(): ImprovedState {
   return {
@@ -63,6 +70,8 @@ export function createImprovedState(): ImprovedState {
     _rudder_smoothed: 0,
     _throttle_smoothed: 0,
     params: { ...CONFIG_PRESETS.default },
+    refLat: SIM_REF_LAT,
+    refLon: SIM_REF_LON,
   };
 }
 
@@ -162,6 +171,15 @@ export function tickImprovedFdm(
   aircraftPosition.x += -Math.sin(headingRad) * speedWU * forwardHoriz * dt;
   aircraftPosition.z += -Math.cos(headingRad) * speedWU * forwardHoriz * dt;
 
+  /* ── 7b. Географические координаты из накопленного смещения ── */
+  // +X = восток, -Z = север, 1 WU = 40 м
+  const METERS_PER_DEG_LAT = 111320;
+  const dxMeters = aircraftPosition.x * 40;       // восток → долгота
+  const dnMeters = -aircraftPosition.z * 40;      // север → широта
+  const simLat = state.refLat + dnMeters / METERS_PER_DEG_LAT;
+  const cosRefLat = Math.cos(state.refLat * DEG);
+  const simLon = state.refLon + dxMeters / (METERS_PER_DEG_LAT * cosRefLat);
+
   /* ── 8. Ground clamp + touch ── */
   const worldY = state.altitude * p.altitudeScale + (p.groundY + 3);
   aircraftPosition.y = worldY;
@@ -187,6 +205,8 @@ export function tickImprovedFdm(
   outFrame.RollAngle = state.rollAngle;
   outFrame.Heading1 = state.heading;
   outFrame.MagneticHeading = state.heading;
+  outFrame.Latitude = simLat;
+  outFrame.Longitude = simLon;
   outFrame.CAS = state.speed;
   outFrame.Vy = state.vy * 60; // ft/s → fpm
   outFrame.RAltitude = altFt;
