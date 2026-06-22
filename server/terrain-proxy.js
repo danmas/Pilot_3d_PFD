@@ -182,6 +182,40 @@ app.post('/api/terrain/log', (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/terrain/cached — список всех кэшированных тайлов (только DEM)
+app.get('/api/terrain/cached', (req, res) => {
+  try {
+    const tiles = [];
+    if (!fs.existsSync(CACHE_DIR)) return res.json({ tiles: [], count: 0 });
+
+    // Проходим по z-уровням
+    const zDirs = fs.readdirSync(CACHE_DIR, { withFileTypes: true });
+    for (const zd of zDirs) {
+      if (!zd.isDirectory()) continue;
+      const z = parseInt(zd.name, 10);
+      if (!isFinite(z)) continue;
+      const xDirs = fs.readdirSync(path.join(CACHE_DIR, zd.name), { withFileTypes: true });
+      for (const xd of xDirs) {
+        if (!xd.isDirectory()) continue;
+        const x = parseInt(xd.name, 10);
+        if (!isFinite(x)) continue;
+        const files = fs.readdirSync(path.join(CACHE_DIR, zd.name, xd.name), { withFileTypes: true });
+        for (const f of files) {
+          if (!f.isFile()) continue;
+          const match = f.name.match(/^(\d+)-dem\.png$/);
+          if (match) {
+            tiles.push({ z, x, y: parseInt(match[1]) });
+          }
+        }
+      }
+    }
+
+    res.json({ tiles, count: tiles.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/terrain/quota — статистика запросов
 app.get('/api/terrain/quota', (req, res) => {
   const now = new Date();

@@ -16,6 +16,7 @@ import { AircraftModel } from './aircraft3d/AircraftModel';
 import { GroundDisc } from './aircraft3d/Ground';
 import { RealTerrainMesh } from './aircraft3d/terrain/RealTerrainMesh';
 import { TerrainLogPanel } from './aircraft3d/terrain/TerrainLogPanel';
+import { TerrainManager } from './aircraft3d/terrain/TerrainManager';
 import type { TileCoord } from './aircraft3d/terrain/terrainTileUtils';
 import { useRealTerrain } from '../../hooks/useRealTerrain';
 import { Runway } from './aircraft3d/Runway';
@@ -189,6 +190,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
   const [satelliteEnabled, setSatelliteEnabled] = useState(() => {
     try { return localStorage.getItem('pilot-3d-pfd:satelliteTerrain') !== 'false'; } catch { return true; }
   });
+  const [loadAllCached, setLoadAllCached] = useState<{ loading: boolean; total: number; done: number }>({ loading: false, total: 0, done: 0 });
 
   const realTerrain = useRealTerrain(
     frame.Latitude as number | undefined,
@@ -409,6 +411,26 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
             title={satelliteEnabled ? 'Со спутниковой текстурой' : 'Без спутника (только рельеф)'}
           >
             🛰
+          </button>
+        )}
+        {/* Load all cached terrain tiles */}
+        {realTerrainEnabled && (
+          <button
+            onClick={async () => {
+              setLoadAllCached({ loading: true, total: 0, done: 0 });
+              const loaded = await TerrainManager.loadAllCached((done, total) => {
+                setLoadAllCached(prev => ({ ...prev, done, total }));
+              });
+              setLoadAllCached(prev => ({ ...prev, loading: false, done: loaded }));
+            }}
+            disabled={loadAllCached.loading}
+            className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+              ${loadAllCached.loading
+                ? 'bg-yellow-600/50 text-white animate-pulse'
+                : 'bg-white/15 hover:bg-cyan-600/50 text-white/70'}`}
+            title="Загрузить ВСЕ кэшированные тайлы (без интернета)"
+          >
+            📦{loadAllCached.loading && ` ${loadAllCached.done}/${loadAllCached.total}`}
           </button>
         )}
 

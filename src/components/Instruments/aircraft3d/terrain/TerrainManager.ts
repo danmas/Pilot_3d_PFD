@@ -67,6 +67,8 @@ class TerrainManagerImpl {
   private lastLon = 0;
   /** Идёт ли загрузка */
   private isLoading = false;
+  /** Mutex: защита от повторного вызова updatePosition */
+  private isUpdating = false;
   /** Очередь тайлов на загрузку */
   private loadQueue: TileCoord[] = [];
 
@@ -151,11 +153,82 @@ class TerrainManagerImpl {
   }
 
   /**
+   * Загрузить ВСЕ кэшированные тайлы (из серверного дискового кэша).
+   * Запрашивает список у /api/terrain/cached и загружает каждый DEM.
+   * Тайлы загружаются из серверного кэша без обращения к Mapbox.
+   */
+  async loadAllCached(onProgress?: (loaded: number, total: number) => void): Promise<number> {
+    if (!this.token) return 0;
+
+    try {
+      const resp = await fetch('/api/terrain/cached');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const { tiles } = await resp.json();
+      if (!Array.isArray(tiles) || tiles.length === 0) return 0;
+
+      // Фильтруем: только ещё не загруженные
+      const toLoad: TileCoord[] = [];
+      for (const { z, x, y } of tiles) {
+        const key = `${z}/${x}/${y}`;
+        if (!this.loadedTiles.has(key)) {
+          toLoad.push({ x, y, z });
+        }
+      }
+
+      if (toLoad.length === 0) return 0;
+
+      const signal = this.abortController!.signal;
+      this.isLoading = true;
+      let loaded = 0;
+      let cursor = 0;
+      const total = toLoad.length;
+
+      const processNext = async (): Promise<void> => {
+        while (cursor < total && !signal.aborted) {
+          const idx = cursor++;
+          const tile = toLoad[idx];
+          const key = `${tile.z}/${tile.x}/${tile.y}`;
+          try {
+            const data = await this.loadSingleTile(tile, signal);
+            if (data && !signal.aborted) {
+              this.loadedTiles.set(key, { coord: tile, data });
+              this.everLoaded.add(key);
+              this.onTileAdded?.(tile, data);
+              loaded++;
+              onProgress?.(loaded, total);
+            }
+          } catch {
+            // skip failed tiles
+          }
+        }
+      };
+
+      // Параллельные воркеры
+      const workers = Math.min(CONFIG.maxConcurrent, total);
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < workers; i++) {
+        promises.push(processNext());
+      }
+      await Promise.allSettled(promises);
+
+      this.isLoading = false;
+      return loaded;
+    } catch (e) {
+      console.warn('[TerrainManager] loadAllCached error:', e);
+      this.isLoading = false;
+      return 0;
+    }
+  }
+
+  /**
    * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
    * Вызывается при каждом новом кадре телеметрии.
    */
   async updatePosition(lat: number, lon: number): Promise<void> {
     if (!this.token) return;
+    // Mutex: пропускаем вызов, если предыдущий ещё не завершён
+    if (this.isUpdating) return;
+    this.isUpdating = true;
 
     const center = latLonToTile(lat, lon, CONFIG.zoom);
     this.lastLat = lat;
@@ -181,23 +254,13 @@ class TerrainManagerImpl {
       }
     }
 
-    // 3. Удаляем тайлы, вышедшие за keepRadius (держим overlap для плавности)
+    // Вычисляем keep-область (для отложенного удаления)
     const keep = new Set<string>();
     for (let dx = -CONFIG.keepRadius; dx <= CONFIG.keepRadius; dx++) {
       for (let dy = -CONFIG.keepRadius; dy <= CONFIG.keepRadius; dy++) {
         const key = `${CONFIG.zoom}/${center.x + dx}/${center.y + dy}`;
         keep.add(key);
       }
-    }
-    const toDelete: string[] = [];
-    for (const [key] of this.loadedTiles) {
-      if (!keep.has(key)) {
-        toDelete.push(key);
-      }
-    }
-    for (const key of toDelete) {
-      this.loadedTiles.delete(key);
-      this.logClientEvent({ type: 'REMOVED-FROM-SCENE', tile: key });
     }
 
     // 4. Определяем новые тайлы для загрузки
@@ -317,12 +380,32 @@ class TerrainManagerImpl {
 
     this.isLoading = false;
 
+    // 6. После загрузки новых — удаляем старые тайлы за keepRadius
+    const toDelete: string[] = [];
+    for (const [key] of this.loadedTiles) {
+      if (!keep.has(key)) {
+        toDelete.push(key);
+      }
+    }
+    for (const key of toDelete) {
+      this.loadedTiles.delete(key);
+      this.logClientEvent({ type: 'REMOVED-FROM-SCENE', tile: key });
+    }
+    // Обновляем React state после удаления (если есть оставшиеся тайлы)
+    if (toDelete.length > 0) {
+      const remaining = this.getAllTiles();
+      if (remaining.length > 0) {
+        this.onTileAdded?.(remaining[0].coord, remaining[0].data);
+      }
+    }
+
     // После всего — проверяем покрытие текущего needed
     const currentKeys = new Set(this.loadedTiles.keys());
     const missingInGrid = neededCoords.filter(t => !currentKeys.has(`${t.z}/${t.x}/${t.y}`));
     if (missingInGrid.length > 0) {
       this.logClientEvent({ type: 'COVERAGE-GAPS', stillMissing: missingInGrid.length, coords: missingInGrid });
     }
+    this.isUpdating = false;
   }
 
   /**
