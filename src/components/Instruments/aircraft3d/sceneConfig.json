@@ -2,7 +2,7 @@
   "camera": {
     "orthoSize": 12,
     "minDist": 3,
-    "maxDist": 500,
+    "maxDist": 2500,
     "dragSensitivity": 0.006,
     "defaultPreset": "chase",
     "presets": {
@@ -13,9 +13,9 @@
     }
   },
   "projection": {
-    "perspective": { "fov": 50, "near": 0.5, "far": 500 },
-    "wide":        { "fov": 80, "near": 0.5, "far": 500 },
-    "ortho":       { "frustumHalf": 12, "near": 0.5, "far": 500 }
+    "perspective": { "fov": 50, "near": 0.5, "far": 2500 },
+    "wide":        { "fov": 80, "near": 0.5, "far": 2500 },
+    "ortho":       { "frustumHalf": 12, "near": 0.5, "far": 2500 }
   },
   "horizon": {
     "radius": 200

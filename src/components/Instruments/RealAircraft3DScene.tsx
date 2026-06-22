@@ -33,6 +33,7 @@ import {
   type CameraControls,
   type ProjectionType,
 } from './aircraft3d/CameraController';
+import sceneConfig from './aircraft3d/sceneConfig.json';
 import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/modelConfig';
 import { ModelDialog } from './aircraft3d/ModelDialog';
 import TouchControls from '../Controls/TouchControls';
@@ -135,7 +136,9 @@ interface Aircraft3DCanvasProps {
   aircraftPos: { x: number; y: number; z: number };
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => (
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => {
+  const PROJ = sceneConfig.projection;
+  return (
   <Canvas
     gl={{
       antialias: true,
@@ -150,13 +153,14 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     onError={(err) => console.error('[Aircraft3D] Canvas error:', err)}
   >
     {projection === 'ortho' ? (
-      <OrthographicCamera makeDefault position={CAMERA_PRESETS.chase.position} zoom={40} near={0.1} far={500} />
+      <OrthographicCamera makeDefault position={CAMERA_PRESETS.chase.position} zoom={40} near={0.1} far={PROJ.ortho.far} />
     ) : (
-      <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? 80 : 50} near={0.1} far={500} />
+      <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? PROJ.wide.fov : PROJ.perspective.fov} near={0.1} far={PROJ.perspective.far} />
     )}
     <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} />
   </Canvas>
-));
+  );
+});
 
 /* ─── Loading placeholder ─── */
 const LoadingOverlay: React.FC = () => (
