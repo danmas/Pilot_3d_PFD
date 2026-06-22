@@ -58,5 +58,20 @@
   },
   "velocityVector": {
     "arrowLength": 3.0
-  }
+  },
+  "locations": {
+    "alps": {
+      "name": "Альпы (Монблан)",
+      "lat": 45.832,
+      "lon": 6.865,
+      "zoom": 14
+    },
+    "protvino": {
+      "name": "Протвино (Серпуховский р-н)",
+      "lat": 54.883,
+      "lon": 37.217,
+      "zoom": 14
+    }
+  },
+  "defaultLocation": "alps"
 }

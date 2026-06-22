@@ -42,6 +42,7 @@ import { APP_VERSION } from '../../version';
 import { FlightModelDialog } from './aircraft3d/FlightModelDialog';
 import { type ParamsState } from './aircraft3d/flightModelParams';
 import { loadFdmParams } from './aircraft3d/flightModel';
+import { aircraftPosition, locationRef } from './aircraft3d/aircraftPosition';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -191,6 +192,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
     try { return localStorage.getItem('pilot-3d-pfd:satelliteTerrain') !== 'false'; } catch { return true; }
   });
   const [loadAllCached, setLoadAllCached] = useState<{ loading: boolean; total: number; done: number }>({ loading: false, total: 0, done: 0 });
+  const [currentLocation, setCurrentLocation] = useState(() => {
+    try { return localStorage.getItem('pilot-3d-pfd:location') || sceneConfig.defaultLocation; } catch { return sceneConfig.defaultLocation; }
+  });
 
   const realTerrain = useRealTerrain(
     frame.Latitude as number | undefined,
@@ -432,6 +436,32 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           >
             📦{loadAllCached.loading && ` ${loadAllCached.done}/${loadAllCached.total}`}
           </button>
+        )}
+        {/* Location selector */}
+        {realTerrainEnabled && (
+          <>
+            <span className="mx-0.5 text-white/30 select-none">│</span>
+            {Object.entries(sceneConfig.locations).map(([id, loc]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  locationRef.lat = loc.lat;
+                  locationRef.lon = loc.lon;
+                  aircraftPosition.set(0, 0, 0);
+                  TerrainManager.clearAll();
+                  setCurrentLocation(id);
+                  try { localStorage.setItem('pilot-3d-pfd:location', id); } catch {}
+                }}
+                className={`px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+                  ${currentLocation === id
+                    ? 'bg-cyan-600/50 text-white font-medium'
+                    : 'bg-white/15 hover:bg-white/30 text-white/70'}`}
+                title={loc.name}
+              >
+                {id === 'alps' ? '🏔️' : '🌲'} {loc.name.split(' ')[0]}
+              </button>
+            ))}
+          </>
         )}
 
       </div>

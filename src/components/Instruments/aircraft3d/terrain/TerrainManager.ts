@@ -227,8 +227,9 @@ class TerrainManagerImpl {
   async updatePosition(lat: number, lon: number): Promise<void> {
     if (!this.token) return;
     // Mutex: пропускаем вызов, если предыдущий ещё не завершён
-    if (this.isUpdating) return;
+    if (this.isUpdating) { console.log('[TerrainManager] updatePosition SKIP: isUpdating'); return; }
     this.isUpdating = true;
+    console.log('[TerrainManager] updatePosition START lat=', lat, 'lon=', lon);
 
     const center = latLonToTile(lat, lon, CONFIG.zoom);
     this.lastLat = lat;

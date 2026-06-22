@@ -11,7 +11,7 @@
  *   Все коэффициенты настраиваются через FlightModelParams.
  */
 import * as THREE from 'three';
-import { aircraftPosition, groundTouch } from './aircraftPosition';
+import { aircraftPosition, groundTouch, locationRef } from './aircraftPosition';
 import { telemetryRef } from '../../../telemetryRef';
 import { aircraftControlsRef } from '../../../aircraftControlsRef';
 import type { TelemetryFrame } from '../../../types';
@@ -44,14 +44,7 @@ export interface ImprovedState {
   _throttle_smoothed: number;
   /** Текущие параметры FDM (ссылкой на объект) */
   params: FlightModelParams;
-  /** Опорные координаты (стартовая точка полёта) */
-  refLat: number;
-  refLon: number;
 }
-
-/** Стартовые координаты (Альпы, Монблан — совпадает с useRealTerrain DEFAULT) */
-export const SIM_REF_LAT = 45.832;
-export const SIM_REF_LON = 6.865;
 
 export function createImprovedState(): ImprovedState {
   return {
@@ -61,7 +54,7 @@ export function createImprovedState(): ImprovedState {
     speed: 250,
     altitude: 0,
     vy: 0,
-    throttle: 0.5, // стартуем с 50%
+    throttle: 0.5,
     elevator: 0,
     ailerons: 0,
     rudder: 0,
@@ -70,8 +63,6 @@ export function createImprovedState(): ImprovedState {
     _rudder_smoothed: 0,
     _throttle_smoothed: 0,
     params: { ...CONFIG_PRESETS.default },
-    refLat: SIM_REF_LAT,
-    refLon: SIM_REF_LON,
   };
 }
 
@@ -176,9 +167,9 @@ export function tickImprovedFdm(
   const METERS_PER_DEG_LAT = 111320;
   const dxMeters = aircraftPosition.x * 40;       // восток → долгота
   const dnMeters = -aircraftPosition.z * 40;      // север → широта
-  const simLat = state.refLat + dnMeters / METERS_PER_DEG_LAT;
-  const cosRefLat = Math.cos(state.refLat * DEG);
-  const simLon = state.refLon + dxMeters / (METERS_PER_DEG_LAT * cosRefLat);
+  const simLat = locationRef.lat + dnMeters / METERS_PER_DEG_LAT;
+  const cosRefLat = Math.cos(locationRef.lat * DEG);
+  const simLon = locationRef.lon + dxMeters / (METERS_PER_DEG_LAT * cosRefLat);
 
   /* ── 8. Ground clamp + touch ── */
   const worldY = state.altitude * p.altitudeScale + (p.groundY + 3);

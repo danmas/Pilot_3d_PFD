@@ -12,7 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { TerrainManager, type TerrainTileData } from '../components/Instruments/aircraft3d/terrain/TerrainManager';
 import type { TileCoord } from '../components/Instruments/aircraft3d/terrain/terrainTileUtils';
 import { aircraftPosition } from '../components/Instruments/aircraft3d/aircraftPosition';
-import { SIM_REF_LAT, SIM_REF_LON } from '../components/Instruments/aircraft3d/flightModel';
+import { locationRef } from '../components/Instruments/aircraft3d/aircraftPosition';
 
 export interface RealTerrainState {
   /** Все загруженные тайлы */
@@ -78,7 +78,10 @@ export function useRealTerrain(
 
   // Debounced обновление позиции — не чаще 1 раза в 2 сек
   const scheduleUpdate = useCallback((currentLat: number, currentLon: number) => {
-    if (!enabledRef.current || !TerrainManager.isReady) return;
+    if (!enabledRef.current || !TerrainManager.isReady) {
+      console.log('[useRealTerrain] scheduleUpdate SKIP: enabled=', enabledRef.current, 'ready=', TerrainManager.isReady);
+      return;
+    }
 
     // Порог движения: ~25% тайла на zoom=14 (~580 м)
     const TILE_LAT = 0.021; // ~2.3 км на zoom=14
@@ -145,7 +148,6 @@ export function useRealTerrain(
     // Это надёжно работает в обоих режимах FDM, т.к. aircraftPosition
     // обновляется в useFrame независимо от frame prop propagation.
     const METERS_PER_DEG_LAT = 111320;
-    const cosRefLat = Math.cos(SIM_REF_LAT * Math.PI / 180);
     let rafId: number;
     let lastUpdateTime = 0;
     const MIN_UPDATE_INTERVAL = 500; // ms между проверками
@@ -154,13 +156,14 @@ export function useRealTerrain(
       const now = performance.now();
       if (now - lastUpdateTime >= MIN_UPDATE_INTERVAL) {
         lastUpdateTime = now;
-        // Вычисляем lat/lon из накопленного смещения
-        const dxMeters = aircraftPosition.x * 40;   // восток → долгота
-        const dnMeters = -aircraftPosition.z * 40;   // север → широта
-        const simLat = SIM_REF_LAT + dnMeters / METERS_PER_DEG_LAT;
-        const simLon = SIM_REF_LON + dxMeters / (METERS_PER_DEG_LAT * cosRefLat);
+        const cosRefLat = Math.cos(locationRef.lat * Math.PI / 180);
+        const dxMeters = aircraftPosition.x * 40;
+        const dnMeters = -aircraftPosition.z * 40;
+        const simLat = locationRef.lat + dnMeters / METERS_PER_DEG_LAT;
+        const simLon = locationRef.lon + dxMeters / (METERS_PER_DEG_LAT * cosRefLat);
 
         if (isFinite(simLat) && isFinite(simLon)) {
+          console.log('[useRealTerrain] rAF pos:', simLat.toFixed(4), simLon.toFixed(4), 'loc:', locationRef.lat, locationRef.lon);
           scheduleUpdate(simLat, simLon);
         }
       }
