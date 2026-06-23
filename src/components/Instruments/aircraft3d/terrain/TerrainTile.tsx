@@ -122,7 +122,7 @@ function createTileMaterial(
   }
 
   // Realistic mode
-  if (data.satelliteBitmap) {
+  if (data.satelliteBitmap && data.satelliteBitmap.width > 0) {
     // ImageBitmap нельзя напрямую в CanvasTexture — он transfer'ится в WebGL
     // и обнуляется, ломая mipmap'ы. Рисуем на canvas как для DEM.
     const canvas = document.createElement('canvas');
@@ -130,8 +130,6 @@ function createTileMaterial(
     canvas.height = data.satelliteBitmap.height;
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(data.satelliteBitmap, 0, 0);
-    // ImageBitmap больше не нужен — WebGL будет читать canvas
-    data.satelliteBitmap.close();
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
