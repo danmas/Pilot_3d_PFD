@@ -28,7 +28,7 @@
 
 | Файл | Описание | Ключевые темы | Актуализация |
 |------|----------|---------------|--------------|
-| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene, drag-n-drop ячеек (v2.8.5), FDM телеметрия (v2.8.8), bridge/ модули (capture + sse-publisher + udp + raw + sim + http-api extraction 2026-06-12) | 2026-06-12 |
+| [README_architecture.md](./README_architecture.md) | Полная архитектура приложения | telemetryRef, data modes (sample/live/manual), компоненты, App.tsx, поток данных, PanelBuilder, HTTP API, GroundTouch v2.6.3, GridOverlay, RealAircraft3DScene, drag-n-drop ячеек (v2.8.5), FDM телеметрия (v2.8.8), bridge/ модули (capture + sse-publisher + udp + raw + sim + http-api extraction 2026-06-12) | 2026-06-18 |
 | [README_INDEX.md](./README_INDEX.md) | **Этот файл** | Оглавление БЗ проекта | 2026-06-07 |
 
 ---
@@ -56,10 +56,11 @@
 | [README_ground_touch.md](./README_ground_touch.md) | Ground Touch Detection (v2.6.3) | Clamp Y≥-6, TOUCHDOWN overlay, groundTouch | 2026-06-06 |
 | [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) | Сцена Aircraft 3D: размеры, объекты, масштаб WU | TARGET_SIZE, WorldGroup, координаты, камера, World Units (1WU=40m) | 2026-06-09 |
 | [README_plan_realistic_3D.md](./README_plan_realistic_3D.md) | План: реалистичный ландшафт | Шейдерный ground, InstancedMesh, биомы, фазы реализации | 2026-06-09 |
-|| [README_plan_real_terrain.md](./README_plan_real_terrain.md) | **Реализовано ✅** — реальный ландшафт | Mapbox Terrain-RGB, серверный прокси (server.js), дисковый кэш (cache/terrain/), два уровня кэширования, lazy load grid 5×5, авто-восстановление IndexedDB (v2.9.5) | 2026-06-11 |
-|| [README_terrain_proxy.md](./README_terrain_proxy.md) | **Новый** — серверный прокси Mapbox | Express API, дисковый кэш, dev-запуск (:3409 + Vite proxy), /api/terrain/logs, X-Cache | 2026-06-11 |
+|| [README_plan_real_terrain.md](./README_plan_real_terrain.md) | **Реализовано ✅** — реальный ландшафт | Mapbox Terrain-RGB, серверный прокси (server.js), дисковый кэш (cache/terrain/), два уровня кэширования, **Фаза 5: lazy load по движению самолёта (2026-06-18)** | 2026-06-18 |
+||| [README_terrain_lazy_loading_report.md](./README_terrain_lazy_loading_report.md) | **Новый** — отчёт: ленивая подгрузка terrain (Фаза 5) | 3 корневые причины, rAF-цикл, WU→lat/lon, dispose, forceCacheOnly | 2026-06-18 |
+||| [README_terrain_proxy.md](./README_terrain_proxy.md) | **Новый** — серверный прокси Mapbox | Express API, дисковый кэш, dev-запуск (:3409 + Vite proxy), /api/terrain/logs, X-Cache | 2026-06-11 |
 || [README_terrain_quota.md](./README_terrain_quota.md) | **Новый** — система квот Mapbox | 50k лимит, автоматический сброс, буфер 10%, quota endpoint, файл terrain-quota.json | 2026-06-10 |
-| [README_plan_terrain_lod.md](./README_plan_terrain_lod.md) | **План** — оптимизация трисов и LOD terrain | Снижение сегментов, distance LOD, bilinear sampling, displacementMap, оценка вариантов | 2026-06-14 |
+| [README_plan_terrain_lod.md](./README_plan_terrain_lod.md) | **План** — оптимизация трисов и LOD terrain | Снижение сегментов, distance LOD, bilinear sampling, displacementMap, оценка вариантов; **P0.1: 4/6 чекбоксов выполнено** | 2026-06-18 |
 
 ---
 
@@ -185,7 +186,7 @@
    - При удалении документа — удаляется строка из индекса.
    - Приватные / чувствительные данные (API-ключи, пароли) в KB не попадают.
 
-**Последнее обновление:** 2026-06-12 (P0-1 тесты + P0-2 рефакторинг: все 7 bridge/* модулей включая http-api; main README + roadmap обновлены; dev-сервер на 3410 запущен и слушает после правок извлечения)
+**Последнее обновление:** 2026-06-18 (pull dev → lazy loading report + Фаза 5 terrain, bump версии документа до v2.13.3)
 
 
 
