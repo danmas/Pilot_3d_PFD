@@ -51,7 +51,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function TerrainLogPanel() {
   const [logs, setLogs] = useState<TerrainLogEntry[]>([]);
-  const [visible, setVisible] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,10 +80,10 @@ export function TerrainLogPanel() {
 
   // Авто-скролл вниз при новых логах
   useEffect(() => {
-    if (scrollRef.current && visible) {
+    if (scrollRef.current && !collapsed) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [logs, visible]);
+  }, [logs, collapsed]);
 
   // Показываем только последние MAX_VISIBLE записей
   const displayLogs = logs.slice(-MAX_VISIBLE);
@@ -94,27 +94,35 @@ export function TerrainLogPanel() {
   const errorCount = logs.filter(l => l.status === 'ERROR' || l.status === 'TIMEOUT').length;
   const total = logs.length;
 
-  if (!visible) {
+  /* ── Свёрнутое состояние: компактная кнопка ── */
+  if (collapsed) {
     return (
       <button
-        className="absolute top-2 right-2 mt-[72px] text-[10px] text-white/40 hover:text-white/70
-                   bg-black/30 backdrop-blur-sm rounded px-1.5 py-0.5 z-10"
-        onClick={() => setVisible(true)}
-        title="Показать логи terrain"
+        className="absolute top-2 right-2 mt-[44px] z-20 text-[11px] text-white/80 hover:text-white
+                   bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded px-2 py-1 select-none
+                   whitespace-nowrap border border-white/15 hover:border-white/30 transition-colors"
+        onClick={() => setCollapsed(false)}
+        title="Развернуть логи terrain"
       >
-        📋
+        📋 Terrain
       </button>
     );
   }
 
+  /* ── Развёрнутое состояние: полная панель под кнопками ── */
   return (
     <div
-      className="absolute top-2 right-2 mt-[72px] z-10 select-none"
-      style={{ width: '320px', maxHeight: '280px' }}
+      className="absolute top-2 right-2 mt-[44px] z-10 select-none"
+      style={{ width: '320px' }}
     >
-      {/* Заголовок */}
-      <div className="flex items-center justify-between mb-0.5">
-        <div className="text-[10px] font-mono text-white/50">
+      {/* Заголовок — кликабельный, сворачивает */}
+      <div
+        className="flex items-center justify-between mb-0.5 cursor-pointer hover:bg-white/5 rounded px-1 -mx-1"
+        onClick={() => setCollapsed(true)}
+        title="Свернуть логи"
+      >
+        <div className="text-[10px] font-mono text-white/50 flex items-center gap-1">
+          <span className="text-[8px] text-white/30 inline-block">▼</span>
           Terrain Log {total > 0 && (
             <span className="text-white/30">
               <span className="text-green-400/60">{hitCount}</span>
@@ -126,13 +134,6 @@ export function TerrainLogPanel() {
             </span>
           )}
         </div>
-        <button
-          className="text-[10px] text-white/30 hover:text-white/70 leading-none px-1"
-          onClick={() => setVisible(false)}
-          title="Скрыть логи"
-        >
-          ✕
-        </button>
       </div>
 
       {/* Список логов */}
