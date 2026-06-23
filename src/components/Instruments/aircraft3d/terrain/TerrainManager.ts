@@ -159,7 +159,7 @@ class TerrainManagerImpl {
    * Запрашивает список у /api/terrain/cached и загружает каждый DEM.
    * Тайлы загружаются из серверного кэша без обращения к Mapbox.
    */
-  async loadAllCached(onProgress?: (loaded: number, total: number) => void): Promise<number> {
+  async loadAllCached(lat: number, lon: number, onProgress?: (loaded: number, total: number) => void): Promise<number> {
     if (!this.token) return 0;
 
     try {
@@ -168,11 +168,20 @@ class TerrainManagerImpl {
       const { tiles } = await resp.json();
       if (!Array.isArray(tiles) || tiles.length === 0) return 0;
 
-      // Фильтруем: только ещё не загруженные
+      // Вычисляем допустимые тайлы в пределах keepRadius от текущей позиции
+      const center = latLonToTile(lat, lon, CONFIG.zoom);
+      const allowedKeys = new Set<string>();
+      for (let dx = -CONFIG.keepRadius; dx <= CONFIG.keepRadius; dx++) {
+        for (let dy = -CONFIG.keepRadius; dy <= CONFIG.keepRadius; dy++) {
+          allowedKeys.add(`${CONFIG.zoom}/${center.x + dx}/${center.y + dy}`);
+        }
+      }
+
+      // Фильтруем: только ещё не загруженные И в пределах текущей локации
       const toLoad: TileCoord[] = [];
       for (const { z, x, y } of tiles) {
         const key = `${z}/${x}/${y}`;
-        if (!this.loadedTiles.has(key)) {
+        if (!this.loadedTiles.has(key) && allowedKeys.has(key)) {
           toLoad.push({ x, y, z });
         }
       }

@@ -422,7 +422,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           <button
             onClick={async () => {
               setLoadAllCached({ loading: true, total: 0, done: 0 });
-              const loaded = await TerrainManager.loadAllCached((done, total) => {
+              const loaded = await TerrainManager.loadAllCached(locationRef.lat, locationRef.lon, (done, total) => {
                 setLoadAllCached(prev => ({ ...prev, done, total }));
               });
               setLoadAllCached(prev => ({ ...prev, loading: false, done: loaded }));
