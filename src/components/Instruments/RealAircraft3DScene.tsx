@@ -79,9 +79,10 @@ interface SceneProps {
     centerTile: import('./aircraft3d/terrain/terrainTileUtils').TileCoord | null;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
+  locationKey: string;
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey }) => {
   return (
     <>
       <CameraController ref={cameraRef} />
@@ -100,6 +101,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
       {/* RealTerrainMesh внутри WorldGroup — движется вместе с землёй (ВПП, сетка, деревья) */}
       {realTerrainEnabled && realTerrainData?.tiles && realTerrainData.tiles.length > 0 ? (
         <RealTerrainMesh
+          key={locationKey}
           tiles={realTerrainData.tiles}
           mode={satelliteEnabled ? 'realistic' : 'schematic'}
           centerTile={realTerrainData.centerTile}
@@ -136,9 +138,10 @@ interface Aircraft3DCanvasProps {
     centerTile: import('./aircraft3d/terrain/terrainTileUtils').TileCoord | null;
   } | null;
   aircraftPos: { x: number; y: number; z: number };
+  locationKey: string;
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => {
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey }) => {
   const PROJ = sceneConfig.projection;
   return (
   <Canvas
@@ -159,7 +162,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? PROJ.wide.fov : PROJ.perspective.fov} near={0.1} far={PROJ.perspective.far} />
     )}
-    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} locationKey={locationKey} />
   </Canvas>
   );
 });
@@ -278,6 +281,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
             centerTile: realTerrain.centerTile,
           }}
           aircraftPos={{ x: 0, y: alt ?? 0, z: 0 }}
+          locationKey={currentLocation}
         />
       </Suspense>
 

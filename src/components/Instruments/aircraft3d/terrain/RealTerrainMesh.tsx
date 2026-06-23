@@ -36,29 +36,41 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
 
-  // Вычисляем refX/refY/tileWU/globalMinElev ОДИН раз при изменении входных данных
+  // Фиксированный референс — вычисляется ОДИН раз при первом появлении тайлов
+  // и больше не меняется. Это предотвращает скачки ландшафта при смене centerTile,
+  // т.к. WorldGroup уже двигает всё плавно через aircraftPosition.
+  const fixedRef = useRef<{ refX: number; refY: number; tileWU: number } | null>(null);
+
+  // Вычисляем refX/refY/tileWU/globalMinElev
   const refData = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
-    let refX: number;
-    let refY: number;
-    let tileWU: number;
+    // Если fixedRef ещё не установлен — вычисляем и фиксируем
+    if (!fixedRef.current) {
+      let refX: number;
+      let refY: number;
+      let tileWU: number;
 
-    if (centerTile) {
-      refX = centerTile.x;
-      refY = centerTile.y;
-      const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
-      const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
-      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
-    } else {
-      const xs = tiles.map(t => t.coord.x).sort((a, b) => a - b);
-      const ys = tiles.map(t => t.coord.y).sort((a, b) => a - b);
-      refX = xs[Math.floor(xs.length / 2)];
-      refY = ys[Math.floor(ys.length / 2)];
-      const midIdx = Math.floor(tiles.length / 2);
-      const baseTileSize = tiles[midIdx].data.worldUnits;
-      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+      if (centerTile) {
+        refX = centerTile.x;
+        refY = centerTile.y;
+        const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
+        const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
+        tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+      } else {
+        const xs = tiles.map(t => t.coord.x).sort((a, b) => a - b);
+        const ys = tiles.map(t => t.coord.y).sort((a, b) => a - b);
+        refX = xs[Math.floor(xs.length / 2)];
+        refY = ys[Math.floor(ys.length / 2)];
+        const midIdx = Math.floor(tiles.length / 2);
+        const baseTileSize = tiles[midIdx].data.worldUnits;
+        tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+      }
+
+      fixedRef.current = { refX, refY, tileWU };
     }
+
+    const { refX, refY, tileWU } = fixedRef.current;
 
     let globalMinElev = Infinity;
     for (const { data } of tiles) {
