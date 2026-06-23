@@ -145,6 +145,8 @@ class TerrainManagerImpl {
     this.abortController = new AbortController();
     this.loadQueue = [];
     this.everLoaded.clear();
+    this.isUpdating = false;
+    this.isLoading = false;
   }
 
   /** P0.1: публичный геттер для currentCenter */
@@ -239,6 +241,7 @@ class TerrainManagerImpl {
     if (this.currentCenter && 
         this.currentCenter.x === center.x && 
         this.currentCenter.y === center.y) {
+      this.isUpdating = false;
       return;
     }
 
@@ -293,7 +296,10 @@ class TerrainManagerImpl {
     });
     console.log(`[TerrainClient] UPDATE-POSITION center=${center.z}/${center.x}/${center.y} loadRadius=${CONFIG.loadRadius} needed=[${neededStr}] restoreCache=${toRestoreFromCache.length} network=${toLoadFromNetwork.length}`);
 
-    if (toRestoreFromCache.length === 0 && toLoadFromNetwork.length === 0) return;
+    if (toRestoreFromCache.length === 0 && toLoadFromNetwork.length === 0) {
+      this.isUpdating = false;
+      return;
+    }
 
     const signal = this.abortController!.signal;
     this.isLoading = true;
@@ -380,6 +386,7 @@ class TerrainManagerImpl {
     }
 
     this.isLoading = false;
+    if (signal.aborted) return; // Не трогаем isUpdating — нас уже отменили через clearAll()
 
     // 6. После загрузки новых — удаляем старые тайлы за keepRadius
     const toDelete: string[] = [];
