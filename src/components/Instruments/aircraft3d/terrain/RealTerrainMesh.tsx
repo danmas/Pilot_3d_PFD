@@ -45,6 +45,15 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   const refData = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
+    // Если centerTile ушёл далеко от зафиксированного ref — сбрасываем (смена локации)
+    if (fixedRef.current && centerTile) {
+      const dx = Math.abs(centerTile.x - fixedRef.current.refX);
+      const dy = Math.abs(centerTile.y - fixedRef.current.refY);
+      if (dx > 8 || dy > 8) {
+        fixedRef.current = null;
+      }
+    }
+
     // Если fixedRef ещё не установлен — вычисляем и фиксируем
     if (!fixedRef.current) {
       let refX: number;
