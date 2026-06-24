@@ -8,7 +8,7 @@ import * as THREE from 'three';
 
 export const RedTree: React.FC = memo(() => {
   return (
-    <mesh position={[20, -6 + 7.5, 40]} castShadow>
+    <mesh position={[0, -6 + 7.5, 0]} castShadow>
       <coneGeometry args={[6, 15, 6]} />
       <meshStandardMaterial color="red" roughness={0.5} />
     </mesh>

@@ -24,6 +24,8 @@ import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { Trees } from './aircraft3d/Trees';
 import { RedTree } from './aircraft3d/RedTree';
+import { ColoredCone } from './aircraft3d/ColoredCone';
+import { tileWorldUnits } from './aircraft3d/terrain/terrainTileUtils';
 import { GridOverlay } from './aircraft3d/GridOverlay';
 import { WorldGroup } from './aircraft3d/WorldGroup';
 import { groundTouch } from './aircraft3d/aircraftPosition';
@@ -84,6 +86,13 @@ interface SceneProps {
 }
 
 const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey }) => {
+  // Размер 10 тайлов территории в WU (зависит от широты локации)
+  const loc = sceneConfig.locations[locationKey as keyof typeof sceneConfig.locations];
+  const lat = loc?.lat ?? 0;
+  const zoom = loc?.zoom ?? 14;
+  const tileWU = (tileWorldUnits(zoom, lat) || 200) * 2; // tileWU = baseTileSize * 2
+  const TERRITORY_OFFSET = 10 * tileWU;
+
   return (
     <>
       <CameraController ref={cameraRef} />
@@ -115,6 +124,8 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
       <Clouds />
       <Trees />
       <RedTree />
+      <ColoredCone color="blue" x={0} z={-TERRITORY_OFFSET} />
+      <ColoredCone color="green" x={TERRITORY_OFFSET} z={0} />
       {showGrid && <GridOverlay />}
     </WorldGroup>
 
