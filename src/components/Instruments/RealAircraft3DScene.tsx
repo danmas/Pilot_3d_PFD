@@ -90,7 +90,8 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
   const loc = sceneConfig.locations[locationKey as keyof typeof sceneConfig.locations];
   const lat = loc?.lat ?? 0;
   const zoom = loc?.zoom ?? 14;
-  const tileWU = tileWorldUnits(zoom, lat) || 200; // один реальный тайл Slippy Map (без ×2)
+  // rendered tileWU = baseTileSize × 2 (тайлы на сцене рендерятся в двойном размере)
+  const tileWU = (tileWorldUnits(zoom, lat) || 200) * 2;
   const TERRITORY_OFFSET = 10 * tileWU;
 
   return (
