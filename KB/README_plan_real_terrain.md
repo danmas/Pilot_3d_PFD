@@ -285,6 +285,7 @@ TerrainManager.isReady  // true если токен есть
 - [README_terrain_proxy.md](./README_terrain_proxy.md) — Серверный прокси: server.js, кэш, алгоритм
 - [README_terrain_quota.md](./README_terrain_quota.md) — Система квот Mapbox, сброс, алерты
 - [README_aircraft3d_scene.md](./README_aircraft3d_scene.md) — Размеры сцены, World Units
+- [README_architecture.md](./README_architecture.md) §4.8 — Окно Карты тайлов (v2.14.0): Leaflet + BroadcastChannel, слои сцена/кэш/отсутствующие
 - [README_performance_3D.md](./README_performance_3D.md) — Производительность 3D
 - [Mapbox Terrain-RGB docs](https://docs.mapbox.com/data/tilesets/reference/mapbox-terrain-dem-v1/)
 - [Slippy Map Tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames)

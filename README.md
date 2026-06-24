@@ -12,6 +12,7 @@
 | **Raw Data Monitor** | `http://localhost:3410/raw` | Мониторинг сырых UDP-пакетов с любого порта (14442/14443), hex+decoded, piggyback-режим |
 | **Bridge (UDP → HTTP)** | порт 14443 → 3410 | Слушает UDP, декодирует полный набор параметров (132 поля), раздаёт SSE/API |
 | **Flight Simulator** | PFD → Live → Simulator | Серверный симулятор полёта, запись telemetry + blackbox, scripted test profiles |
+| **Карта тайлов** | 3D Aircraft → 🗺 | Отдельное окно: схематичная карта тайлов (сцена/кэш/отсутствующие), маркер самолёта + вектор скорости, компас |
 
 ## Архитектура
 
@@ -304,6 +305,10 @@ event: status       → { port, active, receivedPackets, receivedFrames, ... }
 | `panel-config-current.json` | Текущая компоновка Panel Builder (автосохранение) |
 | `panel-menu.json` | Конфигурация меню «···» в Panel Builder |
 | `src/types.ts` | `TelemetryFrame` тип для фронтенда |
+| `map.html` | Entry HTML окна Карты (`window.open('/map.html')`) |
+| `src/map/MapApp.tsx` | Leaflet-карта: слои тайлов, маркер самолёта, вектор скорости, компас |
+| `src/map/useMapBroadcaster.ts` | Хук главной страницы: трансляция состояния сцены в BroadcastChannel (~10 Гц) |
+| `src/map/mapProtocol.ts` | Контракт `MapStatePacket` + `tileBounds()` |
 
 ## Порт по умолчанию: 14443
 
@@ -451,11 +456,26 @@ pm2 start server/terrain-proxy.js -- --port 3409   # через pm2
 
 Подробнее: [KB/README_terrain_proxy.md](./KB/README_terrain_proxy.md), [KB/README_terrain_quota.md](./KB/README_terrain_quota.md)
 
-### Быстрые ссылки на документацию (обновлено 2026-06-12)
+### Окно Карты тайлов (v2.14.0)
+
+Отдельное окно браузера (`/map.html`), открывается кнопкой **🗺** в тулбаре 3D-сцены. Схематичная карта (Leaflet без тайл-слоя), свободный pan/zoom.
+
+- **Слои тайлов** (квадраты-границы без заливки):
+  - 🟩 зелёный — тайлы в сцене (`TerrainManager.getAllTiles`)
+  - ⬜ серый — закэшированы на сервере, но не в сцене (`/api/terrain/cached`)
+  - 🟥 красный пунктир — нужны (7×7), но отсутствуют и в сцене, и в кэше
+- **Маркер самолёта** + вектор горизонтальной проекции скорости (длина ∝ путевой скорости, направление = трек).
+- **Компас N/Ю** (north-up), кнопка **⊕** — центрировать на самолёте.
+- Данные — через **BroadcastChannel** с главной страницы (`useMapBroadcaster`); окно карты ничего не вычисляет. Сервер вычислимых величин не имеет — позиция и вектор берутся из 3D-сцены.
+
+Файлы: `src/map/` (`MapApp.tsx`, `main.tsx`, `mapProtocol.ts`, `useMapBroadcaster.ts`), `map.html`. Зависимость: `leaflet`.
+
+### Быстрые ссылки на документацию (обновлено 2026-06-24)
 - Главная архитектура: [KB/README_architecture.md](./KB/README_architecture.md)
 - Декодирование и телеметрия: [KB/README_decoding.md](./KB/README_decoding.md)
 - Физика и симулятор: [KB/README_flight_physics.md](./KB/README_flight_physics.md), [KB/README_simulator_realisation.md](./KB/README_simulator_realisation.md)
 - 3D и terrain: [KB/README_terrain_proxy.md](./KB/README_terrain_proxy.md), [KB/README_terrain_quota.md](./KB/README_terrain_quota.md)
+- Окно Карты тайлов (v2.14.0): `map.html` + `src/map/` (Leaflet, BroadcastChannel)
 - Идеи: [KB/README_ideas.md](./KB/README_ideas.md)
 - План и прогресс: [KB/README_roadmap.md](./KB/README_roadmap.md) (P0-1 тестирование завершено, P0-2 рефакторинг в процессе)
 

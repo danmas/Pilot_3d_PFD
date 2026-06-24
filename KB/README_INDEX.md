@@ -144,6 +144,7 @@
 - **Идеи в разработку:** [README_ideas.md](./README_ideas.md)
 - **3D-самолёт:** [../src/components/Instruments/aircraft3d/README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md)
 - **Ground Touch & Clamp (v2.6.3):** `aircraftPosition.ts` — `groundTouch`, `aircraftPosition.y ≥ -6` (`../src/components/Instruments/aircraft3d/aircraftPosition.ts`)
+- **Окно Карты тайлов (v2.14.0):** `map.html` + `src/map/` — Leaflet, BroadcastChannel, слои сцена/кэш/отсутствующие ([README_architecture.md](./README_architecture.md) §4.8)
 - **Realtime Charts:** [../packages/realtime-charts/README.md](../packages/realtime-charts/README.md)
 - **Измерение латентности:** [../DOCS/Latency-Measurement-Methodology.md](../DOCS/Latency-Measurement-Methodology.md)
 - **tne-replay-tool (захват/реплей):** [../tne-replay-tool/README.md](../tne-replay-tool/README.md)
@@ -186,7 +187,7 @@
    - При удалении документа — удаляется строка из индекса.
    - Приватные / чувствительные данные (API-ключи, пароли) в KB не попадают.
 
-**Последнее обновление:** 2026-06-18 (pull dev → lazy loading report + Фаза 5 terrain, bump версии документа до v2.13.3)
+**Последнее обновление:** 2026-06-24 (окно Карты тайлов v2.14.0: Leaflet + BroadcastChannel; bump до v2.14.0)
 
 
 

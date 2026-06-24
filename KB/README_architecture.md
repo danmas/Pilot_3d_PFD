@@ -1,6 +1,6 @@
 # Архитектура Pilot_3d_PFD
 
-> Версия документа: v2.13.3
+> Версия документа: v2.14.0
 
 ---
 
@@ -89,6 +89,8 @@ export const aircraftControlsRef: {
           PFD приборы    3D Aircraft       PanelBuilder
           (5 штук)      (Three.js)        (PanelKit)
 ```
+
+> **v2.14.0:** состояние 3D-сцены (геопозиция, путевой вектор, тайлы) дополнительно транслируется через `BroadcastChannel('pilot-map-state')` в отдельное окно Карты (`map.html`). Это side-channel — не влияет на основной поток `telemetryRef → setFrame`.
 
 ### Упрощённая диаграмма
 
@@ -180,6 +182,13 @@ Sources → telemetryRef → setFrame() → Component(frame)
 ### 4.7 Ground Touch (v2.6.3)
 
 `aircraftPosition.ts`: при касании земли (`Y ≤ -6`) — позиция зажимается в Y = -6, срабатывает `groundTouch.current = true`, на экране появляется оверлей TOUCHDOWN. Подробнее: [README_ground_touch.md](./README_ground_touch.md).
+
+### 4.8 Окно Карты тайлов (v2.14.0)
+
+Отдельное окно браузера (`map.html` → `src/map/main.tsx`), открывается из 3D-сцены кнопкой 🗺. Схематичная карта на Leaflet (без тайл-слоя). Получает состояние сцены через **BroadcastChannel** (`pilot-map-state`) — главное окно не передаёт данные на сервер, окно карты ничего не вычисляет.
+
+- `useMapBroadcaster(frame)` — вызывается в `RealAircraft3DScene`, rAF-цикл ~10 Гц: читает `aircraftPosition` + `locationRef` + `TerrainManager` и отправляет `MapStatePacket { lat, lon, track, speed, heading, sceneTiles, needed }`.
+- `MapApp.tsx` — слои: сцена (зелёный), кэш сервера (серый, `/api/terrain/cached`), отсутствующие 7×7 (красный пунктир); маркер самолёта + вектор скорости; компас N/Ю; авто-центр + кнопка ⊕.
 
 ---
 
@@ -292,6 +301,11 @@ src/
 │   │   └── aircraft3d/         ← Three.js 3D самолёт
 │   ├── PanelKit/               ← drag-n-drop конструктор панелей
 │   └── PanelBuilder/           ← обёртка PanelKit + AviationWidget
+├── map/                        ← окно Карты тайлов (v2.14.0)
+│   ├── MapApp.tsx              ← Leaflet-карта: слои тайлов, маркер, вектор, компас
+│   ├── main.tsx                ← точка входа окна Карты
+│   ├── mapProtocol.ts          ← контракт MapStatePacket + tileBounds
+│   └── useMapBroadcaster.ts    ← хук трансляции состояния сцены → BroadcastChannel
 └── index.html / boot-screen.html
 
 bridge/
