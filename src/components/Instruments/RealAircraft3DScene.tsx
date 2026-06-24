@@ -28,7 +28,7 @@ import { ColoredCone } from './aircraft3d/ColoredCone';
 import { tileWorldUnits } from './aircraft3d/terrain/terrainTileUtils';
 import { GridOverlay } from './aircraft3d/GridOverlay';
 import { WorldGroup } from './aircraft3d/WorldGroup';
-import { groundTouch } from './aircraft3d/aircraftPosition';
+import { groundTouch, aircraftPosition, locationRef } from './aircraft3d/aircraftPosition';
 import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel, applyFdmParamsToActive } from './aircraft3d/flightModel';
 import {
   CameraController,
@@ -45,7 +45,7 @@ import { APP_VERSION } from '../../version';
 import { FlightModelDialog } from './aircraft3d/FlightModelDialog';
 import { type ParamsState } from './aircraft3d/flightModelParams';
 import { loadFdmParams } from './aircraft3d/flightModel';
-import { aircraftPosition, locationRef } from './aircraft3d/aircraftPosition';
+import { flightPause } from './aircraft3d/flightPause';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -90,7 +90,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
   const loc = sceneConfig.locations[locationKey as keyof typeof sceneConfig.locations];
   const lat = loc?.lat ?? 0;
   const zoom = loc?.zoom ?? 14;
-  const tileWU = (tileWorldUnits(zoom, lat) || 200) * 2; // tileWU = baseTileSize * 2
+  const tileWU = tileWorldUnits(zoom, lat) || 200; // один реальный тайл Slippy Map (без ×2)
   const TERRITORY_OFFSET = 10 * tileWU;
 
   return (
@@ -217,6 +217,20 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
     realTerrainEnabled,
   );
 
+  // ── Пауза симуляции ──
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        flightPause.paused = !flightPause.paused;
+        setPaused(flightPause.paused);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // Транслируем состояние сцены в окно Карты (BroadcastChannel)
   useMapBroadcaster(frame);
 
@@ -301,6 +315,14 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
       </Suspense>
 
       <TouchControls />
+
+      {/* ── Индикатор паузы ── */}
+      {paused && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div className="text-6xl font-bold text-white/20 select-none tracking-widest">⏸ ПАУЗА</div>
+          <div className="absolute bottom-1/4 text-sm text-white/40 select-none">Пробел — продолжить</div>
+        </div>
+      )}
 
       {/* HUD overlay */}
       <div className="absolute top-2 left-2 text-[11px] font-mono text-white/80 leading-tight pointer-events-none">

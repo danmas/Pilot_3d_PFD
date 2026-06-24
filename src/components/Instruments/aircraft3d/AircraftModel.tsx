@@ -15,6 +15,7 @@ import {
 } from './flightModel';
 import { loadFdmParams } from './flightModel';
 import type { FlightModelParams } from './flightModelParams';
+import { flightPause } from './flightPause';
 
 const DEG = Math.PI / 180;
 
@@ -50,7 +51,7 @@ export const AircraftModel: React.FC<AircraftModelProps> = memo(({
 
   useFrame((_state, delta) => {
     const g = groupRef.current;
-    if (!g) return;
+    if (!g || flightPause.paused) return;
 
     const override = aircraftControlsRef.current;
     const improved = useImprovedProp ?? false;

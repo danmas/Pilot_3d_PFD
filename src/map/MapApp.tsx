@@ -34,6 +34,7 @@ export function MapApp() {
   const cacheLayerRef = useRef<L.LayerGroup | null>(null);
   const missingLayerRef = useRef<L.LayerGroup | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const coneLayerRef = useRef<L.LayerGroup | null>(null);
 
   const packetRef = useRef<MapStatePacket | null>(null);
   const cachedTilesRef = useRef<TileKey[]>([]);
@@ -93,6 +94,24 @@ export function MapApp() {
       const k = tileKey(t);
       return !sceneSet.has(k) && !cachedSet.has(k);
     }).length);
+
+    // ── Конусы-маркеры ──
+    coneLayerRef.current?.clearLayers();
+    const cones = p?.cones ?? [];
+    for (const c of cones) {
+      const colorMap: Record<string, string> = {
+        red: '#ef4444', blue: '#3b82f6', green: '#22c55e',
+      };
+      const fill = colorMap[c.color] ?? c.color;
+      L.circleMarker([c.lat, c.lon], {
+        radius: 8,
+        color: '#fff',
+        weight: 2,
+        fillColor: fill,
+        fillOpacity: 0.9,
+        interactive: false,
+      }).addTo(coneLayerRef.current!);
+    }
 
     // Первичная подгонка вида (только пока не отцентрировались на самолёте)
     if (!hasFitRef.current && !hasCenteredRef.current) {
@@ -155,6 +174,7 @@ export function MapApp() {
     sceneLayerRef.current = L.layerGroup().addTo(lmap);
     cacheLayerRef.current = L.layerGroup().addTo(lmap);
     missingLayerRef.current = L.layerGroup().addTo(lmap);
+    coneLayerRef.current = L.layerGroup().addTo(lmap);
 
     const channel = new BroadcastChannel(MAP_CHANNEL);
     const onMessage = (e: MessageEvent<MapStatePacket>) => {
@@ -251,6 +271,11 @@ export function MapApp() {
         .legend .sw.green { border-color: #22c55e; }
         .legend .sw.gray { border-color: #6b7280; }
         .legend .sw.red { border-top-style: dashed; border-color: #ef4444; }
+        .legend .sw.cone { border: none; width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .legend .sw.cone.red { background: #ef4444; }
+        .legend .sw.cone.blue { background: #3b82f6; }
+        .legend .sw.cone.green { background: #22c55e; }
+        .legend .cone-section { margin-top: 4px; border-top: 1px solid #374151; padding-top: 4px; }
         .legend .count { color: #6b7280; margin-left: auto; padding-left: 8px; }
 
         .status { top: 10px; right: 10px; background: rgba(10,10,15,0.8); border: 1px solid #1f2937;
@@ -280,6 +305,9 @@ export function MapApp() {
         <div className="row"><span className="sw green" /> Сцена<span className="count">{sceneCount}</span></div>
         <div className="row"><span className="sw gray" /> Кэш сервера<span className="count">{cachedCount}</span></div>
         <div className="row"><span className="sw red" /> Отсутствуют<span className="count">{missingCount}</span></div>
+        <div className="row cone-section"><span className="sw cone red" /> Красный (0,0)</div>
+        <div className="row"><span className="sw cone blue" /> Синий (север)</div>
+        <div className="row"><span className="sw cone green" /> Зелёный (восток)</div>
       </div>
 
       <div className={`map-overlay status ${connected ? 'live' : ''}`}>

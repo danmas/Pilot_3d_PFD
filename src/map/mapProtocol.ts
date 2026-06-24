@@ -23,6 +23,16 @@ export interface MapStatePacket {
   sceneTiles: TileKey[];
   /** Ожидаемая сетка 7×7 вокруг центра (needed). */
   needed: TileKey[];
+  /** Цветные конусы-маркеры (статичные, в геокоординатах). */
+  cones: ConeMarker[];
+}
+
+/** Конус-маркер на карте. */
+export interface ConeMarker {
+  lat: number;
+  lon: number;
+  color: string;
+  label: string;
 }
 
 export interface TileKey {
