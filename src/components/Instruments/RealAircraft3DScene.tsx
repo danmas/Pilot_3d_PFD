@@ -19,6 +19,7 @@ import { TerrainLogPanel } from './aircraft3d/terrain/TerrainLogPanel';
 import { TerrainManager } from './aircraft3d/terrain/TerrainManager';
 import type { TileCoord } from './aircraft3d/terrain/terrainTileUtils';
 import { useRealTerrain } from '../../hooks/useRealTerrain';
+import { useMapBroadcaster } from '../../map/useMapBroadcaster';
 import { Runway } from './aircraft3d/Runway';
 import { Clouds } from './aircraft3d/Clouds';
 import { Trees } from './aircraft3d/Trees';
@@ -111,7 +112,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
       )}
 
       <Runway />
-      <Clouds count={40} />
+      <Clouds />
       <Trees />
       <RedTree />
       {showGrid && <GridOverlay />}
@@ -205,6 +206,9 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
     realTerrainEnabled,
   );
 
+  // Транслируем состояние сцены в окно Карты (BroadcastChannel)
+  useMapBroadcaster(frame);
+
   /* ── Периодическая проверка groundTouch ── */
   useEffect(() => {
     let rafId: number;
@@ -280,7 +284,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
             loading: realTerrain.loading,
             centerTile: realTerrain.centerTile,
           }}
-          aircraftPos={{ x: 0, y: alt ?? 0, z: 0 }}
+          aircraftPos={{ x: 0, y: finite(alt), z: 0 }}
           locationKey={currentLocation}
         />
       </Suspense>
@@ -468,6 +472,15 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           </>
         )}
 
+        {/* Open Map window */}
+        <span className="mx-0.5 text-white/30 select-none">│</span>
+        <button
+          onClick={() => window.open('/map.html', 'pilot-map', 'width=1000,height=720')}
+          className="px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none bg-white/15 hover:bg-cyan-600/50 text-white/70"
+          title="Открыть окно Карты тайлов"
+        >
+          🗺
+        </button>
       </div>
 
       {/* Model button */}
