@@ -51,7 +51,7 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       refY = centerTile.y;
       const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
       const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
-      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+      tileWU = baseTileSize > 0 ? baseTileSize : 200; // реальный размер (без ×2) — синхронизация с FDM
     } else {
       const xs = tiles.map(t => t.coord.x).sort((a, b) => a - b);
       const ys = tiles.map(t => t.coord.y).sort((a, b) => a - b);
@@ -59,7 +59,7 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       refY = ys[Math.floor(ys.length / 2)];
       const midIdx = Math.floor(tiles.length / 2);
       const baseTileSize = tiles[midIdx].data.worldUnits;
-      tileWU = baseTileSize > 0 ? baseTileSize * 2 : 200;
+      tileWU = baseTileSize > 0 ? baseTileSize : 200; // реальный размер (без ×2) — синхронизация с FDM
     }
 
     let globalMinElev = Infinity;
