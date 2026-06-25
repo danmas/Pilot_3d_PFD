@@ -5,11 +5,11 @@
  * рендерит список TerrainTile компонентов. При добавлении тайла
  * создаётся геометрия только для него, а не для всей сетки.
  *
- * Версия v2.12.1:
- *   - tileWU = baseTileSize * 2 (единый размер для всей сетки)
+ * v2.14.1:
+ *   - tileWU = baseTileSize (реальный размер 1×, синхронизация с FDM)
  *   - Центр по centerTile или медиане
- *   - offsetZ без инверсии знака
- *   - UV: 1 - v (flip)
+ *   - fixedRef фиксируется при загрузке, не сбрасывается при полёте
+ *     (только при смене локации >8 тайлов)
  */
 
 import React, { useMemo, useRef } from 'react';
@@ -18,13 +18,9 @@ import { type TileCoord, tileCenterLatLon, tileWorldUnits } from './terrainTileU
 import { TerrainTile } from './TerrainTile';
 
 interface RealTerrainMeshProps {
-  /** Массив тайлов с координатами */
   tiles: Array<{ coord: TileCoord; data: TerrainTileData }> | null;
-  /** Прозрачность */
   opacity?: number;
-  /** Режим */
   mode?: 'realistic' | 'schematic';
-  /** Опорный тайл центра (из TerrainManager.currentCenter). Используется для стабильного ref. */
   centerTile?: TileCoord | null;
 }
 
@@ -36,31 +32,49 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
 
-  // Фиксированный референс — обновляется при смене центра, чтобы тайлы
-  // всегда были центрированы вокруг самолёта. Без этого возникает
-  // двойной сдвиг: offset + WorldGroup-translation.
+  // Fixed reference: вычисляется при первой загрузке тайлов
+  // и НЕ меняется при полёте (только при смене локации >8 тайлов).
+  // Все тайлы позиционируются относительно этого фиксированного ref.
+  // WorldGroup сдвигает весь мир через -aircraftPosition независимо.
+  const fixedRef = useRef<{ refX: number; refY: number; tileWU: number } | null>(null);
+
   const refData = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
-    let refX: number;
-    let refY: number;
-    let tileWU: number;
-
-    if (centerTile) {
-      refX = centerTile.x;
-      refY = centerTile.y;
-      const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
-      const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
-      tileWU = baseTileSize > 0 ? baseTileSize : 200; // реальный размер (без ×2) — синхронизация с FDM
-    } else {
-      const xs = tiles.map(t => t.coord.x).sort((a, b) => a - b);
-      const ys = tiles.map(t => t.coord.y).sort((a, b) => a - b);
-      refX = xs[Math.floor(xs.length / 2)];
-      refY = ys[Math.floor(ys.length / 2)];
-      const midIdx = Math.floor(tiles.length / 2);
-      const baseTileSize = tiles[midIdx].data.worldUnits;
-      tileWU = baseTileSize > 0 ? baseTileSize : 200; // реальный размер (без ×2) — синхронизация с FDM
+    // Сброс fixedRef только при смене локации (далеко ушли от старого central tile)
+    if (fixedRef.current && centerTile) {
+      const dx = Math.abs(centerTile.x - fixedRef.current.refX);
+      const dy = Math.abs(centerTile.y - fixedRef.current.refY);
+      if (dx > 8 || dy > 8) {
+        fixedRef.current = null;
+      }
     }
+
+    if (!fixedRef.current) {
+      let refX: number;
+      let refY: number;
+      let tileWU: number;
+
+      if (centerTile) {
+        refX = centerTile.x;
+        refY = centerTile.y;
+        const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
+        const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
+        tileWU = baseTileSize > 0 ? baseTileSize : 200; // 1× = синхронизация с FDM
+      } else {
+        const xs = tiles.map(t => t.coord.x).sort((a, b) => a - b);
+        const ys = tiles.map(t => t.coord.y).sort((a, b) => a - b);
+        refX = xs[Math.floor(xs.length / 2)];
+        refY = ys[Math.floor(ys.length / 2)];
+        const midIdx = Math.floor(tiles.length / 2);
+        const baseTileSize = tiles[midIdx].data.worldUnits;
+        tileWU = baseTileSize > 0 ? baseTileSize : 200;
+      }
+
+      fixedRef.current = { refX, refY, tileWU };
+    }
+
+    const { refX, refY, tileWU } = fixedRef.current;
 
     let globalMinElev = Infinity;
     for (const { data } of tiles) {
@@ -71,10 +85,8 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
     return { refX, refY, tileWU, globalMinElev };
   }, [tiles, centerTile]);
 
-  // Подсчёт и логирование треугольников
   const triangleStats = useMemo(() => {
     if (!tiles || !refData) return null;
-
     let total = 0;
     for (const { data } of tiles) {
       const maxSegX = mode === 'schematic' ? 16 : 32;
@@ -83,11 +95,9 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
       const segZ = Math.min(data.height, Math.max(maxSegZ, 8));
       total += segX * segZ * 2;
     }
-
     return total;
   }, [tiles, mode, refData]);
 
-  // Логируем при изменении
   React.useEffect(() => {
     if (triangleStats !== null) {
       console.log(
