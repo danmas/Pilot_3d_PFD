@@ -13,7 +13,6 @@ import { aircraftPosition, locationRef } from '../components/Instruments/aircraf
 import { TerrainManager } from '../components/Instruments/aircraft3d/terrain/TerrainManager';
 import { MAP_CHANNEL, type MapStatePacket, type TileKey, type ConeMarker } from './mapProtocol';
 import { tileWorldUnits } from '../components/Instruments/aircraft3d/terrain/terrainTileUtils';
-import sceneConfig from '../components/Instruments/aircraft3d/sceneConfig.json';
 
 const METERS_PER_DEG_LAT = 111320;
 const WU_TO_M = 40; // 1 World Unit ≈ 40 м
@@ -33,18 +32,6 @@ export function useMapBroadcaster(frame: TelemetryFrame): void {
     let lastTrack = 0;
     let lastSpeed = 0;
     let sendLog = 0;
-
-    // ── Статичные позиции конусов (вычисляются один раз) ──
-    const loc = sceneConfig.locations[sceneConfig.defaultLocation as keyof typeof sceneConfig.locations] ?? Object.values(sceneConfig.locations)[0];
-    const tileWU = tileWorldUnits(loc?.zoom ?? 14, loc?.lat ?? 0) || 200; // один реальный тайл (без ×2)
-    const TERRITORY_OFFSET = 10 * tileWU; // WU
-    const offsetM = TERRITORY_OFFSET * WU_TO_M; // метры
-    const cosLat = Math.cos(((loc?.lat ?? 0) * Math.PI) / 180);
-    const cones: ConeMarker[] = [
-      { lat: loc!.lat, lon: loc!.lon, color: 'red', label: 'R' },
-      { lat: loc!.lat + offsetM / METERS_PER_DEG_LAT, lon: loc!.lon, color: 'blue', label: 'B' },
-      { lat: loc!.lat, lon: loc!.lon + offsetM / (METERS_PER_DEG_LAT * cosLat), color: 'green', label: 'G' },
-    ];
 
     const tick = () => {
       const now = performance.now();
@@ -96,6 +83,17 @@ export function useMapBroadcaster(frame: TelemetryFrame): void {
             }
           }
         }
+
+        // ── Конусы-маркеры (вычисляются каждый тик из locationRef —
+        //    корректно при смене локации) ──
+        const tileWU = tileWorldUnits(14, locationRef.lat) || 200;
+        const offsetM = 10 * tileWU * WU_TO_M;
+        const cosLat = Math.cos((locationRef.lat * Math.PI) / 180);
+        const cones: ConeMarker[] = [
+          { lat: locationRef.lat, lon: locationRef.lon, color: 'red', label: 'R' },
+          { lat: locationRef.lat + offsetM / METERS_PER_DEG_LAT, lon: locationRef.lon, color: 'blue', label: 'B' },
+          { lat: locationRef.lat, lon: locationRef.lon + offsetM / (METERS_PER_DEG_LAT * cosLat), color: 'green', label: 'G' },
+        ];
 
         const packet: MapStatePacket = {
           lat: simLat,

@@ -16,8 +16,10 @@ import { useEffect, useRef, useState } from 'react';
 import * as L from 'leaflet';
 import {
   MAP_CHANNEL,
+  TILE_SELECT_CHANNEL,
   type MapStatePacket,
   type TileKey,
+  type TileSelectMessage,
   tileKey,
   tileBounds,
 } from './mapProtocol';
@@ -35,6 +37,9 @@ export function MapApp() {
   const missingLayerRef = useRef<L.LayerGroup | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const coneLayerRef = useRef<L.LayerGroup | null>(null);
+  const selectLayerRef = useRef<L.LayerGroup | null>(null);
+  const selectedTileRef = useRef<TileKey | null>(null);
+  const selectChannelRef = useRef<BroadcastChannel | null>(null);
 
   const packetRef = useRef<MapStatePacket | null>(null);
   const cachedTilesRef = useRef<TileKey[]>([]);
@@ -52,6 +57,36 @@ export function MapApp() {
   const [sceneCount, setSceneCount] = useState(0);
   const [missingCount, setMissingCount] = useState(0);
 
+  // ── Клик по тайлу на карте ──
+  const onTileClick = (t: TileKey) => {
+    selectedTileRef.current = t;
+    rebuildLayers();
+
+    // Отправляем в сцену
+    const msg: TileSelectMessage = { tile: t, source: 'map' };
+    selectChannelRef.current?.postMessage(msg);
+
+    // Логируем на сервер координаты углов (lat/lon) и tile z/x/y
+    const b = tileBounds(t); // [[south, west], [north, east]]
+    const corners = [
+      { lat: b[1][0], lon: b[0][1] },  // NW
+      { lat: b[1][0], lon: b[1][1] },  // NE
+      { lat: b[0][0], lon: b[1][1] },  // SE
+      { lat: b[0][0], lon: b[0][1] },  // SW
+    ];
+    fetch('/api/terrain/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'MAP-TILE-SELECTED',
+        coord: t,
+        corners,
+        source: 'map',
+      }),
+    }).catch(() => {});
+    console.log('[map] tile selected:', tileKey(t), corners);
+  };
+
   // ── Перестроение слоёв тайлов ──
   const rebuildLayers = () => {
     const lmap = mapRef.current;
@@ -62,12 +97,25 @@ export function MapApp() {
     const needed = p?.needed ?? [];
     const sceneSet = new Set(sceneTiles.map(tileKey));
 
-    // Сцена — зелёный
+    // Сцена — зелёный (кликабельные)
     sceneLayerRef.current?.clearLayers();
     for (const t of sceneTiles) {
       L.rectangle(tileBounds(t), {
-        color: '#22c55e', weight: 1.5, fill: false, interactive: false,
-      }).addTo(sceneLayerRef.current!);
+        color: '#22c55e', weight: 1.5, fill: false, interactive: true,
+      }).addTo(sceneLayerRef.current!).on('click', () => onTileClick(t));
+    }
+
+    // Выделенный тайл — синий (поверх всех слоёв)
+    selectLayerRef.current?.clearLayers();
+    if (selectedTileRef.current) {
+      const sel = selectedTileRef.current;
+      // Показываем только если тайл ещё в сцене
+      if (sceneSet.has(tileKey(sel))) {
+        L.rectangle(tileBounds(sel), {
+          color: '#3b82f6', weight: 3, fill: true, fillColor: '#3b82f6',
+          fillOpacity: 0.15, interactive: false,
+        }).addTo(selectLayerRef.current!);
+      }
     }
 
     // Кэш-только — серый
@@ -175,8 +223,10 @@ export function MapApp() {
     cacheLayerRef.current = L.layerGroup().addTo(lmap);
     missingLayerRef.current = L.layerGroup().addTo(lmap);
     coneLayerRef.current = L.layerGroup().addTo(lmap);
+    selectLayerRef.current = L.layerGroup().addTo(lmap);
 
     const channel = new BroadcastChannel(MAP_CHANNEL);
+    selectChannelRef.current = new BroadcastChannel(TILE_SELECT_CHANNEL);
     const onMessage = (e: MessageEvent<MapStatePacket>) => {
       const p = e.data;
       if (!p) return;
@@ -203,6 +253,15 @@ export function MapApp() {
       }
     };
     channel.addEventListener('message', onMessage);
+
+    // Приём выбора тайла от сцены
+    const onSelectMessage = (e: MessageEvent<TileSelectMessage>) => {
+      const msg = e.data;
+      if (!msg || msg.source === 'map') return; // игнорируем свои же
+      selectedTileRef.current = msg.tile;
+      rebuildLayers();
+    };
+    selectChannelRef.current?.addEventListener('message', onSelectMessage);
 
     const refreshCache = async () => {
       try {
@@ -232,6 +291,9 @@ export function MapApp() {
 
     return () => {
       channel.removeEventListener('message', onMessage);
+      selectChannelRef.current?.removeEventListener('message', onSelectMessage);
+      selectChannelRef.current?.close();
+      selectChannelRef.current = null;
       channel.close();
       window.clearInterval(cacheTimer);
       window.clearInterval(watchdog);
@@ -308,6 +370,7 @@ export function MapApp() {
         <div className="row cone-section"><span className="sw cone red" /> Красный (0,0)</div>
         <div className="row"><span className="sw cone blue" /> Синий (север)</div>
         <div className="row"><span className="sw cone green" /> Зелёный (восток)</div>
+        <div className="row cone-section"><span className="sw" style={{ borderTopColor: '#3b82f6', borderTopWidth: 3 }} /> Выбранный тайл</div>
       </div>
 
       <div className={`map-overlay status ${connected ? 'live' : ''}`}>

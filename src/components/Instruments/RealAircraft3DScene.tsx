@@ -46,6 +46,7 @@ import { FlightModelDialog } from './aircraft3d/FlightModelDialog';
 import { type ParamsState } from './aircraft3d/flightModelParams';
 import { loadFdmParams } from './aircraft3d/flightModel';
 import { flightPause } from './aircraft3d/flightPause';
+import { TILE_SELECT_CHANNEL, type TileSelectMessage } from '../../map/mapProtocol';
 
 /* ─── helpers ─── */
 const finite = (v: unknown): number =>
@@ -83,9 +84,10 @@ interface SceneProps {
   } | null;
   aircraftPos: { x: number; y: number; z: number };
   locationKey: string;
+  selectedTile?: TileCoord | null;
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey, selectedTile }) => {
   // Размер 10 тайлов территории в WU (зависит от широты локации)
   const loc = sceneConfig.locations[locationKey as keyof typeof sceneConfig.locations];
   const lat = loc?.lat ?? 0;
@@ -116,6 +118,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
           tiles={realTerrainData.tiles}
           mode={satelliteEnabled ? 'realistic' : 'schematic'}
           centerTile={realTerrainData.centerTile}
+          selectedTile={selectedTile ?? null}
         />
       ) : (
         <GroundDisc />
@@ -125,6 +128,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
       <Clouds />
       <Trees />
       <RedTree />
+      <ColoredCone color="red" x={0} z={0} />
       <ColoredCone color="blue" x={0} z={-TERRITORY_OFFSET} />
       <ColoredCone color="green" x={TERRITORY_OFFSET} z={0} />
       {showGrid && <GridOverlay />}
@@ -152,9 +156,10 @@ interface Aircraft3DCanvasProps {
   } | null;
   aircraftPos: { x: number; y: number; z: number };
   locationKey: string;
+  selectedTile?: TileCoord | null;
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey }) => {
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey, selectedTile }) => {
   const PROJ = sceneConfig.projection;
   return (
   <Canvas
@@ -175,7 +180,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? PROJ.wide.fov : PROJ.perspective.fov} near={0.1} far={PROJ.perspective.far} />
     )}
-    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} locationKey={locationKey} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} locationKey={locationKey} selectedTile={selectedTile} />
   </Canvas>
   );
 });
@@ -208,6 +213,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
     try { return localStorage.getItem('pilot-3d-pfd:satelliteTerrain') !== 'false'; } catch { return true; }
   });
   const [loadAllCached, setLoadAllCached] = useState<{ loading: boolean; total: number; done: number }>({ loading: false, total: 0, done: 0 });
+  const [selectedTile, setSelectedTile] = useState<TileCoord | null>(null);
   const [currentLocation, setCurrentLocation] = useState(() => {
     try { return localStorage.getItem('pilot-3d-pfd:location') || sceneConfig.defaultLocation; } catch { return sceneConfig.defaultLocation; }
   });
@@ -234,6 +240,21 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
 
   // Транслируем состояние сцены в окно Карты (BroadcastChannel)
   useMapBroadcaster(frame);
+
+  // ── Приём выбора тайла от окна Карты ──
+  useEffect(() => {
+    const ch = new BroadcastChannel(TILE_SELECT_CHANNEL);
+    const onMessage = (e: MessageEvent<TileSelectMessage>) => {
+      const msg = e.data;
+      if (!msg || msg.source === 'scene') return; // игнорируем свои же
+      setSelectedTile(msg.tile ?? null);
+    };
+    ch.addEventListener('message', onMessage);
+    return () => {
+      ch.removeEventListener('message', onMessage);
+      ch.close();
+    };
+  }, []);
 
   /* ── Периодическая проверка groundTouch ── */
   useEffect(() => {
@@ -312,6 +333,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           }}
           aircraftPos={{ x: 0, y: finite(alt), z: 0 }}
           locationKey={currentLocation}
+          selectedTile={selectedTile}
         />
       </Suspense>
 

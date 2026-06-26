@@ -1,4 +1,6 @@
-import { c as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports, b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./index-B8-QwEUc.js";
+import { a as requireReact, g as getDefaultExportFromCjs, R as React, d as requireScheduler, r as reactExports, j as jsxRuntimeExports } from "./index-D88IFt53.js";
+import { b as aircraftControlsRef, t as telemetryRef, A as APP_VERSION } from "./main-DwShow9e.js";
+import { M as MAP_CHANNEL } from "./mapProtocol-5I4fM8yB.js";
 /**
  * @license
  * Copyright 2010-2026 Three.js Authors
@@ -20143,7 +20145,7 @@ class SphereGeometry extends BufferGeometry {
     heightSegments = Math.max(2, Math.floor(heightSegments));
     const thetaEnd = Math.min(thetaStart + thetaLength, Math.PI);
     let index = 0;
-    const grid = [];
+    const grid2 = [];
     const vertex2 = new Vector3();
     const normal = new Vector3();
     const indices = [];
@@ -20170,14 +20172,14 @@ class SphereGeometry extends BufferGeometry {
         uvs.push(u + uOffset, 1 - v);
         verticesRow.push(index++);
       }
-      grid.push(verticesRow);
+      grid2.push(verticesRow);
     }
     for (let iy = 0; iy < heightSegments; iy++) {
       for (let ix = 0; ix < widthSegments; ix++) {
-        const a2 = grid[iy][ix + 1];
-        const b2 = grid[iy][ix];
-        const c2 = grid[iy + 1][ix];
-        const d = grid[iy + 1][ix + 1];
+        const a2 = grid2[iy][ix + 1];
+        const b2 = grid2[iy][ix];
+        const c2 = grid2[iy + 1][ix];
+        const d = grid2[iy + 1][ix + 1];
         if (iy !== 0 || thetaStart > 0) indices.push(a2, b2, d);
         if (iy !== heightSegments - 1 || thetaEnd < Math.PI) indices.push(b2, c2, d);
       }
@@ -45094,10 +45096,10 @@ function Kb() {
       function _p(t2, r2, a2, l2, c2, d) {
         var h2 = t2.pendingLanes;
         t2.pendingLanes = a2, t2.suspendedLanes = 0, t2.pingedLanes = 0, t2.warmLanes = 0, t2.expiredLanes &= a2, t2.entangledLanes &= a2, t2.errorRecoveryDisabledLanes &= a2, t2.shellSuspendCounter = 0;
-        var y = t2.entanglements, R = t2.expirationTimes, L = t2.hiddenUpdates;
+        var y = t2.entanglements, R2 = t2.expirationTimes, L = t2.hiddenUpdates;
         for (a2 = h2 & ~a2; 0 < a2; ) {
           var j2 = 31 - vt(a2), A = 1 << j2;
-          y[j2] = 0, R[j2] = -1;
+          y[j2] = 0, R2[j2] = -1;
           var W2 = L[j2];
           if (W2 !== null) for (L[j2] = null, j2 = 0; j2 < W2.length; j2++) {
             var V = W2[j2];
@@ -45239,17 +45241,17 @@ function Kb() {
           });
           var d = l2.DetermineComponentFrameRoot(), h2 = d[0], y = d[1];
           if (h2 && y) {
-            var R = h2.split(`
+            var R2 = h2.split(`
 `), L = y.split(`
 `);
-            for (c2 = l2 = 0; l2 < R.length && !R[l2].includes("DetermineComponentFrameRoot"); ) l2++;
+            for (c2 = l2 = 0; l2 < R2.length && !R2[l2].includes("DetermineComponentFrameRoot"); ) l2++;
             for (; c2 < L.length && !L[c2].includes("DetermineComponentFrameRoot"); ) c2++;
-            if (l2 === R.length || c2 === L.length) for (l2 = R.length - 1, c2 = L.length - 1; 1 <= l2 && 0 <= c2 && R[l2] !== L[c2]; ) c2--;
-            for (; 1 <= l2 && 0 <= c2; l2--, c2--) if (R[l2] !== L[c2]) {
+            if (l2 === R2.length || c2 === L.length) for (l2 = R2.length - 1, c2 = L.length - 1; 1 <= l2 && 0 <= c2 && R2[l2] !== L[c2]; ) c2--;
+            for (; 1 <= l2 && 0 <= c2; l2--, c2--) if (R2[l2] !== L[c2]) {
               if (l2 !== 1 || c2 !== 1) do
-                if (l2--, c2--, 0 > c2 || R[l2] !== L[c2]) {
+                if (l2--, c2--, 0 > c2 || R2[l2] !== L[c2]) {
                   var j2 = `
-` + R[l2].replace(" at new ", " at ");
+` + R2[l2].replace(" at new ", " at ");
                   return t2.displayName && j2.includes("<anonymous>") && (j2 = j2.replace("<anonymous>", t2.displayName)), j2;
                 }
               while (1 <= l2 && 0 <= c2);
@@ -45424,7 +45426,7 @@ Error generating stack: ` + l2.message + `
             e: for (; d !== null; ) {
               var y = d;
               d = c2;
-              for (var R = 0; R < r2.length; R++) if (y.context === r2[R]) {
+              for (var R2 = 0; R2 < r2.length; R2++) if (y.context === r2[R2]) {
                 d.lanes |= a2, y = d.alternate, y !== null && (y.lanes |= a2), Ot(d.return, a2, t2), l2 || (h2 = null);
                 break e;
               }
@@ -45555,8 +45557,8 @@ Error generating stack: ` + l2.message + `
       }
       function vu(t2, r2) {
         for (var a2 = t2.suspendedLanes, l2 = t2.pingedLanes, c2 = t2.expirationTimes, d = t2.pendingLanes & -62914561; 0 < d; ) {
-          var h2 = 31 - vt(d), y = 1 << h2, R = c2[h2];
-          R === -1 ? ((y & a2) === 0 || (y & l2) !== 0) && (c2[h2] = Tp(y, r2)) : R <= r2 && (t2.expiredLanes |= y), d &= ~y;
+          var h2 = 31 - vt(d), y = 1 << h2, R2 = c2[h2];
+          R2 === -1 ? ((y & a2) === 0 || (y & l2) !== 0) && (c2[h2] = Tp(y, r2)) : R2 <= r2 && (t2.expiredLanes |= y), d &= ~y;
         }
         if (r2 = Ne, a2 = he, a2 = Lr(t2, t2 === r2 ? a2 : 0, t2.cancelPendingCommit !== null || t2.timeoutHandle !== Lo), l2 = t2.callbackNode, a2 === 0 || t2 === r2 && (_e === 2 || _e === 9) || t2.cancelPendingCommit !== null) return l2 !== null && l2 !== null && le(l2), t2.callbackNode = null, t2.callbackPriority = 0;
         if ((a2 & 3) === 0 || Pi(t2, a2)) {
@@ -45749,18 +45751,18 @@ Error generating stack: ` + l2.message + `
         function h2(P) {
           return t2 && P.alternate === null && (P.flags |= 67108866), P;
         }
-        function y(P, w, C, H) {
-          return w === null || w.tag !== 6 ? (w = Ps(C, P.mode, H), w.return = P, w) : (w = c2(w, C), w.return = P, w);
+        function y(P, w, C, H2) {
+          return w === null || w.tag !== 6 ? (w = Ps(C, P.mode, H2), w.return = P, w) : (w = c2(w, C), w.return = P, w);
         }
-        function R(P, w, C, H) {
+        function R2(P, w, C, H2) {
           var Q = C.type;
-          return Q === $a ? j2(P, w, C.props.children, H, C.key) : w !== null && (w.elementType === Q || typeof Q == "object" && Q !== null && Q.$$typeof === ua && pt(Q) === w.type) ? (w = c2(w, C.props), La(w, C), w.return = P, w) : (w = ws(C.type, C.key, C.props, null, P.mode, H), La(w, C), w.return = P, w);
+          return Q === $a ? j2(P, w, C.props.children, H2, C.key) : w !== null && (w.elementType === Q || typeof Q == "object" && Q !== null && Q.$$typeof === ua && pt(Q) === w.type) ? (w = c2(w, C.props), La(w, C), w.return = P, w) : (w = ws(C.type, C.key, C.props, null, P.mode, H2), La(w, C), w.return = P, w);
         }
-        function L(P, w, C, H) {
-          return w === null || w.tag !== 4 || w.stateNode.containerInfo !== C.containerInfo || w.stateNode.implementation !== C.implementation ? (w = dc(C, P.mode, H), w.return = P, w) : (w = c2(w, C.children || []), w.return = P, w);
+        function L(P, w, C, H2) {
+          return w === null || w.tag !== 4 || w.stateNode.containerInfo !== C.containerInfo || w.stateNode.implementation !== C.implementation ? (w = dc(C, P.mode, H2), w.return = P, w) : (w = c2(w, C.children || []), w.return = P, w);
         }
-        function j2(P, w, C, H, Q) {
-          return w === null || w.tag !== 7 ? (w = Eo(C, P.mode, H, Q), w.return = P, w) : (w = c2(w, C), w.return = P, w);
+        function j2(P, w, C, H2, Q) {
+          return w === null || w.tag !== 7 ? (w = Eo(C, P.mode, H2, Q), w.return = P, w) : (w = c2(w, C), w.return = P, w);
         }
         function A(P, w, C) {
           if (typeof w == "string" && w !== "" || typeof w == "number" || typeof w == "bigint") return w = Ps("" + w, P.mode, C), w.return = P, w;
@@ -45780,47 +45782,47 @@ Error generating stack: ` + l2.message + `
           }
           return null;
         }
-        function W2(P, w, C, H) {
+        function W2(P, w, C, H2) {
           var Q = w !== null ? w.key : null;
-          if (typeof C == "string" && C !== "" || typeof C == "number" || typeof C == "bigint") return Q !== null ? null : y(P, w, "" + C, H);
+          if (typeof C == "string" && C !== "" || typeof C == "number" || typeof C == "bigint") return Q !== null ? null : y(P, w, "" + C, H2);
           if (typeof C == "object" && C !== null) {
             switch (C.$$typeof) {
               case zs:
-                return C.key === Q ? R(P, w, C, H) : null;
+                return C.key === Q ? R2(P, w, C, H2) : null;
               case sa:
-                return C.key === Q ? L(P, w, C, H) : null;
+                return C.key === Q ? L(P, w, C, H2) : null;
               case ua:
-                return C = pt(C), W2(P, w, C, H);
+                return C = pt(C), W2(P, w, C, H2);
             }
-            if (ca(C) || Fl(C)) return Q !== null ? null : j2(P, w, C, H, null);
-            if (typeof C.then == "function") return W2(P, w, Rt(C), H);
-            if (C.$$typeof === Io) return W2(P, w, Wl(P, C), H);
+            if (ca(C) || Fl(C)) return Q !== null ? null : j2(P, w, C, H2, null);
+            if (typeof C.then == "function") return W2(P, w, Rt(C), H2);
+            if (C.$$typeof === Io) return W2(P, w, Wl(P, C), H2);
             Na(P, C);
           }
           return null;
         }
-        function V(P, w, C, H, Q) {
-          if (typeof H == "string" && H !== "" || typeof H == "number" || typeof H == "bigint") return P = P.get(C) || null, y(w, P, "" + H, Q);
-          if (typeof H == "object" && H !== null) {
-            switch (H.$$typeof) {
+        function V(P, w, C, H2, Q) {
+          if (typeof H2 == "string" && H2 !== "" || typeof H2 == "number" || typeof H2 == "bigint") return P = P.get(C) || null, y(w, P, "" + H2, Q);
+          if (typeof H2 == "object" && H2 !== null) {
+            switch (H2.$$typeof) {
               case zs:
-                return P = P.get(H.key === null ? C : H.key) || null, R(w, P, H, Q);
+                return P = P.get(H2.key === null ? C : H2.key) || null, R2(w, P, H2, Q);
               case sa:
-                return P = P.get(H.key === null ? C : H.key) || null, L(w, P, H, Q);
+                return P = P.get(H2.key === null ? C : H2.key) || null, L(w, P, H2, Q);
               case ua:
-                return H = pt(H), V(P, w, C, H, Q);
+                return H2 = pt(H2), V(P, w, C, H2, Q);
             }
-            if (ca(H) || Fl(H)) return P = P.get(C) || null, j2(w, P, H, Q, null);
-            if (typeof H.then == "function") return V(P, w, C, Rt(H), Q);
-            if (H.$$typeof === Io) return V(P, w, C, Wl(w, H), Q);
-            Na(w, H);
+            if (ca(H2) || Fl(H2)) return P = P.get(C) || null, j2(w, P, H2, Q, null);
+            if (typeof H2.then == "function") return V(P, w, C, Rt(H2), Q);
+            if (H2.$$typeof === Io) return V(P, w, C, Wl(w, H2), Q);
+            Na(w, H2);
           }
           return null;
         }
-        function Oe(P, w, C, H) {
+        function Oe(P, w, C, H2) {
           for (var Q = null, Ge = null, J = w, Pe = w = 0, me = null; J !== null && Pe < C.length; Pe++) {
             J.index > Pe ? (me = J, J = null) : me = J.sibling;
-            var be = W2(P, J, C[Pe], H);
+            var be = W2(P, J, C[Pe], H2);
             if (be === null) {
               J === null && (J = me);
               break;
@@ -45829,19 +45831,19 @@ Error generating stack: ` + l2.message + `
           }
           if (Pe === C.length) return a2(P, J), ue && or(P, Pe), Q;
           if (J === null) {
-            for (; Pe < C.length; Pe++) J = A(P, C[Pe], H), J !== null && (w = d(J, w, Pe), Ge === null ? Q = J : Ge.sibling = J, Ge = J);
+            for (; Pe < C.length; Pe++) J = A(P, C[Pe], H2), J !== null && (w = d(J, w, Pe), Ge === null ? Q = J : Ge.sibling = J, Ge = J);
             return ue && or(P, Pe), Q;
           }
-          for (J = l2(J); Pe < C.length; Pe++) me = V(J, P, Pe, C[Pe], H), me !== null && (t2 && me.alternate !== null && J.delete(me.key === null ? Pe : me.key), w = d(me, w, Pe), Ge === null ? Q = me : Ge.sibling = me, Ge = me);
+          for (J = l2(J); Pe < C.length; Pe++) me = V(J, P, Pe, C[Pe], H2), me !== null && (t2 && me.alternate !== null && J.delete(me.key === null ? Pe : me.key), w = d(me, w, Pe), Ge === null ? Q = me : Ge.sibling = me, Ge = me);
           return t2 && J.forEach(function(Oo) {
             return r2(P, Oo);
           }), ue && or(P, Pe), Q;
         }
-        function vn(P, w, C, H) {
+        function vn(P, w, C, H2) {
           if (C == null) throw Error(F(151));
           for (var Q = null, Ge = null, J = w, Pe = w = 0, me = null, be = C.next(); J !== null && !be.done; Pe++, be = C.next()) {
             J.index > Pe ? (me = J, J = null) : me = J.sibling;
-            var Oo = W2(P, J, be.value, H);
+            var Oo = W2(P, J, be.value, H2);
             if (Oo === null) {
               J === null && (J = me);
               break;
@@ -45850,15 +45852,15 @@ Error generating stack: ` + l2.message + `
           }
           if (be.done) return a2(P, J), ue && or(P, Pe), Q;
           if (J === null) {
-            for (; !be.done; Pe++, be = C.next()) be = A(P, be.value, H), be !== null && (w = d(be, w, Pe), Ge === null ? Q = be : Ge.sibling = be, Ge = be);
+            for (; !be.done; Pe++, be = C.next()) be = A(P, be.value, H2), be !== null && (w = d(be, w, Pe), Ge === null ? Q = be : Ge.sibling = be, Ge = be);
             return ue && or(P, Pe), Q;
           }
-          for (J = l2(J); !be.done; Pe++, be = C.next()) be = V(J, P, Pe, be.value, H), be !== null && (t2 && be.alternate !== null && J.delete(be.key === null ? Pe : be.key), w = d(be, w, Pe), Ge === null ? Q = be : Ge.sibling = be, Ge = be);
+          for (J = l2(J); !be.done; Pe++, be = C.next()) be = V(J, P, Pe, be.value, H2), be !== null && (t2 && be.alternate !== null && J.delete(be.key === null ? Pe : be.key), w = d(be, w, Pe), Ge === null ? Q = be : Ge.sibling = be, Ge = be);
           return t2 && J.forEach(function(qs) {
             return r2(P, qs);
           }), ue && or(P, Pe), Q;
         }
-        function li(P, w, C, H) {
+        function li(P, w, C, H2) {
           if (typeof C == "object" && C !== null && C.type === $a && C.key === null && (C = C.props.children), typeof C == "object" && C !== null) {
             switch (C.$$typeof) {
               case zs:
@@ -45867,11 +45869,11 @@ Error generating stack: ` + l2.message + `
                     if (w.key === Q) {
                       if (Q = C.type, Q === $a) {
                         if (w.tag === 7) {
-                          a2(P, w.sibling), H = c2(w, C.props.children), H.return = P, P = H;
+                          a2(P, w.sibling), H2 = c2(w, C.props.children), H2.return = P, P = H2;
                           break e;
                         }
                       } else if (w.elementType === Q || typeof Q == "object" && Q !== null && Q.$$typeof === ua && pt(Q) === w.type) {
-                        a2(P, w.sibling), H = c2(w, C.props), La(H, C), H.return = P, P = H;
+                        a2(P, w.sibling), H2 = c2(w, C.props), La(H2, C), H2.return = P, P = H2;
                         break e;
                       }
                       a2(P, w);
@@ -45879,7 +45881,7 @@ Error generating stack: ` + l2.message + `
                     } else r2(P, w);
                     w = w.sibling;
                   }
-                  C.type === $a ? (H = Eo(C.props.children, P.mode, H, C.key), H.return = P, P = H) : (H = ws(C.type, C.key, C.props, null, P.mode, H), La(H, C), H.return = P, P = H);
+                  C.type === $a ? (H2 = Eo(C.props.children, P.mode, H2, C.key), H2.return = P, P = H2) : (H2 = ws(C.type, C.key, C.props, null, P.mode, H2), La(H2, C), H2.return = P, P = H2);
                 }
                 return h2(P);
               case sa:
@@ -45887,7 +45889,7 @@ Error generating stack: ` + l2.message + `
                   for (Q = C.key; w !== null; ) {
                     if (w.key === Q) {
                       if (w.tag === 4 && w.stateNode.containerInfo === C.containerInfo && w.stateNode.implementation === C.implementation) {
-                        a2(P, w.sibling), H = c2(w, C.children || []), H.return = P, P = H;
+                        a2(P, w.sibling), H2 = c2(w, C.children || []), H2.return = P, P = H2;
                         break e;
                       } else {
                         a2(P, w);
@@ -45896,32 +45898,32 @@ Error generating stack: ` + l2.message + `
                     } else r2(P, w);
                     w = w.sibling;
                   }
-                  H = dc(C, P.mode, H), H.return = P, P = H;
+                  H2 = dc(C, P.mode, H2), H2.return = P, P = H2;
                 }
                 return h2(P);
               case ua:
-                return C = pt(C), li(P, w, C, H);
+                return C = pt(C), li(P, w, C, H2);
             }
-            if (ca(C)) return Oe(P, w, C, H);
+            if (ca(C)) return Oe(P, w, C, H2);
             if (Fl(C)) {
               if (Q = Fl(C), typeof Q != "function") throw Error(F(150));
-              return C = Q.call(C), vn(P, w, C, H);
+              return C = Q.call(C), vn(P, w, C, H2);
             }
-            if (typeof C.then == "function") return li(P, w, Rt(C), H);
-            if (C.$$typeof === Io) return li(P, w, Wl(P, C), H);
+            if (typeof C.then == "function") return li(P, w, Rt(C), H2);
+            if (C.$$typeof === Io) return li(P, w, Wl(P, C), H2);
             Na(P, C);
           }
-          return typeof C == "string" && C !== "" || typeof C == "number" || typeof C == "bigint" ? (C = "" + C, w !== null && w.tag === 6 ? (a2(P, w.sibling), H = c2(w, C), H.return = P, P = H) : (a2(P, w), H = Ps(C, P.mode, H), H.return = P, P = H), h2(P)) : a2(P, w);
+          return typeof C == "string" && C !== "" || typeof C == "number" || typeof C == "bigint" ? (C = "" + C, w !== null && w.tag === 6 ? (a2(P, w.sibling), H2 = c2(w, C), H2.return = P, P = H2) : (a2(P, w), H2 = Ps(C, P.mode, H2), H2.return = P, P = H2), h2(P)) : a2(P, w);
         }
-        return function(P, w, C, H) {
+        return function(P, w, C, H2) {
           try {
             Bs = 0;
-            var Q = li(P, w, C, H);
+            var Q = li(P, w, C, H2);
             return Kt = null, Q;
           } catch (J) {
             if (J === cl || J === jc) throw J;
             var Ge = Yn(29, J, null, P.mode);
-            return Ge.lanes = H, Ge.return = P, Ge;
+            return Ge.lanes = H2, Ge.return = P, Ge;
           } finally {
           }
         };
@@ -46050,14 +46052,14 @@ Error generating stack: ` + l2.message + `
         var d = c2.firstBaseUpdate, h2 = c2.lastBaseUpdate, y = c2.shared.pending;
         if (y !== null) {
           c2.shared.pending = null;
-          var R = y, L = R.next;
-          R.next = null, h2 === null ? d = L : h2.next = L, h2 = R;
+          var R2 = y, L = R2.next;
+          R2.next = null, h2 === null ? d = L : h2.next = L, h2 = R2;
           var j2 = t2.alternate;
-          j2 !== null && (j2 = j2.updateQueue, y = j2.lastBaseUpdate, y !== h2 && (y === null ? j2.firstBaseUpdate = L : y.next = L, j2.lastBaseUpdate = R));
+          j2 !== null && (j2 = j2.updateQueue, y = j2.lastBaseUpdate, y !== h2 && (y === null ? j2.firstBaseUpdate = L : y.next = L, j2.lastBaseUpdate = R2));
         }
         if (d !== null) {
           var A = c2.baseState;
-          h2 = 0, j2 = L = R = null, y = d;
+          h2 = 0, j2 = L = R2 = null, y = d;
           do {
             var W2 = y.lane & -536870913, V = W2 !== y.lane;
             if (V ? (he & W2) === W2 : (l2 & W2) === W2) {
@@ -46097,13 +46099,13 @@ Error generating stack: ` + l2.message + `
               payload: y.payload,
               callback: y.callback,
               next: null
-            }, j2 === null ? (L = j2 = V, R = A) : j2 = j2.next = V, h2 |= W2;
+            }, j2 === null ? (L = j2 = V, R2 = A) : j2 = j2.next = V, h2 |= W2;
             if (y = y.next, y === null) {
               if (y = c2.shared.pending, y === null) break;
               V = y, y = V.next, V.next = null, c2.lastBaseUpdate = V, c2.shared.pending = null;
             }
           } while (true);
-          j2 === null && (R = A), c2.baseState = R, c2.firstBaseUpdate = L, c2.lastBaseUpdate = j2, d === null && (c2.shared.lanes = 0), ba |= h2, t2.lanes = h2, t2.memoizedState = A;
+          j2 === null && (R2 = A), c2.baseState = R2, c2.firstBaseUpdate = L, c2.lastBaseUpdate = j2, d === null && (c2.shared.lanes = 0), ba |= h2, t2.lanes = h2, t2.memoizedState = A;
         }
       }
       function Dd(t2, r2) {
@@ -46297,12 +46299,12 @@ Error generating stack: ` + l2.message + `
         if (d = t2.baseState, c2 === null) t2.memoizedState = d;
         else {
           r2 = c2.next;
-          var y = h2 = null, R = null, L = r2, j2 = false;
+          var y = h2 = null, R2 = null, L = r2, j2 = false;
           do {
             var A = L.lane & -536870913;
             if (A !== L.lane ? (he & A) === A : (Wo & A) === A) {
               var W2 = L.revertLane;
-              if (W2 === 0) R !== null && (R = R.next = {
+              if (W2 === 0) R2 !== null && (R2 = R2.next = {
                 lane: 0,
                 revertLane: 0,
                 gesture: null,
@@ -46322,7 +46324,7 @@ Error generating stack: ` + l2.message + `
                 hasEagerState: L.hasEagerState,
                 eagerState: L.eagerState,
                 next: null
-              }, R === null ? (y = R = A, h2 = d) : R = R.next = A, ne.lanes |= W2, ba |= W2;
+              }, R2 === null ? (y = R2 = A, h2 = d) : R2 = R2.next = A, ne.lanes |= W2, ba |= W2;
               A = L.action, oi && a2(d, A), d = L.hasEagerState ? L.eagerState : a2(d, A);
             } else W2 = {
               lane: A,
@@ -46332,11 +46334,11 @@ Error generating stack: ` + l2.message + `
               hasEagerState: L.hasEagerState,
               eagerState: L.eagerState,
               next: null
-            }, R === null ? (y = R = W2, h2 = d) : R = R.next = W2, ne.lanes |= A, ba |= A;
+            }, R2 === null ? (y = R2 = W2, h2 = d) : R2 = R2.next = W2, ne.lanes |= A, ba |= A;
             L = L.next;
           } while (L !== null && L !== r2);
-          if (R === null ? h2 = d : R.next = y, !jn(d, t2.memoizedState) && (hn = true, j2 && (a2 = ul, a2 !== null))) throw a2;
-          t2.memoizedState = d, t2.baseState = h2, t2.baseQueue = R, l2.lastRenderedState = d;
+          if (R2 === null ? h2 = d : R2.next = y, !jn(d, t2.memoizedState) && (hn = true, j2 && (a2 = ul, a2 !== null))) throw a2;
+          t2.memoizedState = d, t2.baseState = h2, t2.baseQueue = R2, l2.lastRenderedState = d;
         }
         return c2 === null && (l2.lanes = 0), [t2.memoizedState, l2.dispatch];
       }
@@ -46447,8 +46449,8 @@ Error generating stack: ` + l2.message + `
           var d = M.T, h2 = {};
           M.T = h2;
           try {
-            var y = a2(c2, l2), R = M.S;
-            R !== null && R(h2, y), dr(t2, r2, y);
+            var y = a2(c2, l2), R2 = M.S;
+            R2 !== null && R2(h2, y), dr(t2, r2, y);
           } catch (L) {
             Jl(t2, r2, L);
           } finally {
@@ -46655,9 +46657,9 @@ Error generating stack: ` + l2.message + `
         var h2 = M.T, y = {};
         M.T = y, Wi(t2, false, r2, a2);
         try {
-          var R = c2(), L = M.S;
-          if (L !== null && L(y, R), R !== null && typeof R == "object" && typeof R.then == "function") {
-            var j2 = ho(R, l2);
+          var R2 = c2(), L = M.S;
+          if (L !== null && L(y, R2), R2 !== null && typeof R2 == "object" && typeof R2.then == "function") {
+            var j2 = ho(R2, l2);
             ea(t2, r2, j2, bt(t2));
           } else ea(t2, r2, l2, bt(t2));
         } catch (A) {
@@ -47045,18 +47047,18 @@ Error generating stack: ` + l2.message + `
           typeof h2 == "object" && h2 !== null && (d = In(h2)), d = new a2(l2, d), r2.memoizedState = d.state !== null && d.state !== void 0 ? d.state : null, d.updater = Oc, r2.stateNode = d, d._reactInternals = r2, d = r2.stateNode, d.props = l2, d.state = r2.memoizedState, d.refs = {}, Ol(r2), h2 = a2.contextType, d.context = typeof h2 == "object" && h2 !== null ? In(h2) : Ka, d.state = r2.memoizedState, h2 = a2.getDerivedStateFromProps, typeof h2 == "function" && (Fu(r2, a2, h2, l2), d.state = r2.memoizedState), typeof a2.getDerivedStateFromProps == "function" || typeof d.getSnapshotBeforeUpdate == "function" || typeof d.UNSAFE_componentWillMount != "function" && typeof d.componentWillMount != "function" || (h2 = d.state, typeof d.componentWillMount == "function" && d.componentWillMount(), typeof d.UNSAFE_componentWillMount == "function" && d.UNSAFE_componentWillMount(), h2 !== d.state && Oc.enqueueReplaceState(d, d.state, null), Aa(r2, l2, d, c2), Li(), d.state = r2.memoizedState), typeof d.componentDidMount == "function" && (r2.flags |= 4194308), l2 = true;
         } else if (t2 === null) {
           d = r2.stateNode;
-          var y = r2.memoizedProps, R = Wr(a2, y);
-          d.props = R;
+          var y = r2.memoizedProps, R2 = Wr(a2, y);
+          d.props = R2;
           var L = d.context, j2 = a2.contextType;
           h2 = Ka, typeof j2 == "object" && j2 !== null && (h2 = In(j2));
           var A = a2.getDerivedStateFromProps;
           j2 = typeof A == "function" || typeof d.getSnapshotBeforeUpdate == "function", y = r2.pendingProps !== y, j2 || typeof d.UNSAFE_componentWillReceiveProps != "function" && typeof d.componentWillReceiveProps != "function" || (y || L !== h2) && Jd(r2, d, l2, h2), ma = false;
           var W2 = r2.memoizedState;
-          d.state = W2, Aa(r2, l2, d, c2), Li(), L = r2.memoizedState, y || W2 !== L || ma ? (typeof A == "function" && (Fu(r2, a2, A, l2), L = r2.memoizedState), (R = ma || ts(r2, a2, R, l2, W2, L, h2)) ? (j2 || typeof d.UNSAFE_componentWillMount != "function" && typeof d.componentWillMount != "function" || (typeof d.componentWillMount == "function" && d.componentWillMount(), typeof d.UNSAFE_componentWillMount == "function" && d.UNSAFE_componentWillMount()), typeof d.componentDidMount == "function" && (r2.flags |= 4194308)) : (typeof d.componentDidMount == "function" && (r2.flags |= 4194308), r2.memoizedProps = l2, r2.memoizedState = L), d.props = l2, d.state = L, d.context = h2, l2 = R) : (typeof d.componentDidMount == "function" && (r2.flags |= 4194308), l2 = false);
+          d.state = W2, Aa(r2, l2, d, c2), Li(), L = r2.memoizedState, y || W2 !== L || ma ? (typeof A == "function" && (Fu(r2, a2, A, l2), L = r2.memoizedState), (R2 = ma || ts(r2, a2, R2, l2, W2, L, h2)) ? (j2 || typeof d.UNSAFE_componentWillMount != "function" && typeof d.componentWillMount != "function" || (typeof d.componentWillMount == "function" && d.componentWillMount(), typeof d.UNSAFE_componentWillMount == "function" && d.UNSAFE_componentWillMount()), typeof d.componentDidMount == "function" && (r2.flags |= 4194308)) : (typeof d.componentDidMount == "function" && (r2.flags |= 4194308), r2.memoizedProps = l2, r2.memoizedState = L), d.props = l2, d.state = L, d.context = h2, l2 = R2) : (typeof d.componentDidMount == "function" && (r2.flags |= 4194308), l2 = false);
         } else {
-          d = r2.stateNode, Ha(t2, r2), h2 = r2.memoizedProps, j2 = Wr(a2, h2), d.props = j2, A = r2.pendingProps, W2 = d.context, L = a2.contextType, R = Ka, typeof L == "object" && L !== null && (R = In(L)), y = a2.getDerivedStateFromProps, (L = typeof y == "function" || typeof d.getSnapshotBeforeUpdate == "function") || typeof d.UNSAFE_componentWillReceiveProps != "function" && typeof d.componentWillReceiveProps != "function" || (h2 !== A || W2 !== R) && Jd(r2, d, l2, R), ma = false, W2 = r2.memoizedState, d.state = W2, Aa(r2, l2, d, c2), Li();
+          d = r2.stateNode, Ha(t2, r2), h2 = r2.memoizedProps, j2 = Wr(a2, h2), d.props = j2, A = r2.pendingProps, W2 = d.context, L = a2.contextType, R2 = Ka, typeof L == "object" && L !== null && (R2 = In(L)), y = a2.getDerivedStateFromProps, (L = typeof y == "function" || typeof d.getSnapshotBeforeUpdate == "function") || typeof d.UNSAFE_componentWillReceiveProps != "function" && typeof d.componentWillReceiveProps != "function" || (h2 !== A || W2 !== R2) && Jd(r2, d, l2, R2), ma = false, W2 = r2.memoizedState, d.state = W2, Aa(r2, l2, d, c2), Li();
           var V = r2.memoizedState;
-          h2 !== A || W2 !== V || ma || t2 !== null && t2.dependencies !== null && Ri(t2.dependencies) ? (typeof y == "function" && (Fu(r2, a2, y, l2), V = r2.memoizedState), (j2 = ma || ts(r2, a2, j2, l2, W2, V, R) || t2 !== null && t2.dependencies !== null && Ri(t2.dependencies)) ? (L || typeof d.UNSAFE_componentWillUpdate != "function" && typeof d.componentWillUpdate != "function" || (typeof d.componentWillUpdate == "function" && d.componentWillUpdate(l2, V, R), typeof d.UNSAFE_componentWillUpdate == "function" && d.UNSAFE_componentWillUpdate(l2, V, R)), typeof d.componentDidUpdate == "function" && (r2.flags |= 4), typeof d.getSnapshotBeforeUpdate == "function" && (r2.flags |= 1024)) : (typeof d.componentDidUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 4), typeof d.getSnapshotBeforeUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 1024), r2.memoizedProps = l2, r2.memoizedState = V), d.props = l2, d.state = V, d.context = R, l2 = j2) : (typeof d.componentDidUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 4), typeof d.getSnapshotBeforeUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 1024), l2 = false);
+          h2 !== A || W2 !== V || ma || t2 !== null && t2.dependencies !== null && Ri(t2.dependencies) ? (typeof y == "function" && (Fu(r2, a2, y, l2), V = r2.memoizedState), (j2 = ma || ts(r2, a2, j2, l2, W2, V, R2) || t2 !== null && t2.dependencies !== null && Ri(t2.dependencies)) ? (L || typeof d.UNSAFE_componentWillUpdate != "function" && typeof d.componentWillUpdate != "function" || (typeof d.componentWillUpdate == "function" && d.componentWillUpdate(l2, V, R2), typeof d.UNSAFE_componentWillUpdate == "function" && d.UNSAFE_componentWillUpdate(l2, V, R2)), typeof d.componentDidUpdate == "function" && (r2.flags |= 4), typeof d.getSnapshotBeforeUpdate == "function" && (r2.flags |= 1024)) : (typeof d.componentDidUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 4), typeof d.getSnapshotBeforeUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 1024), r2.memoizedProps = l2, r2.memoizedState = V), d.props = l2, d.state = V, d.context = R2, l2 = j2) : (typeof d.componentDidUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 4), typeof d.getSnapshotBeforeUpdate != "function" || h2 === t2.memoizedProps && W2 === t2.memoizedState || (r2.flags |= 1024), l2 = false);
         }
         return d = l2, ls(t2, r2), l2 = (r2.flags & 128) !== 0, d || l2 ? (d = r2.stateNode, a2 = l2 && typeof a2.getDerivedStateFromError != "function" ? null : d.render(), r2.flags |= 1, t2 !== null && l2 ? (r2.child = ri(r2, t2.child, null, c2), r2.child = ri(r2, null, a2, c2)) : wn(t2, r2, a2, c2), r2.memoizedState = d.state, t2 = r2.child) : t2 = gt(t2, r2, c2), t2;
       }
@@ -47093,8 +47095,8 @@ Error generating stack: ` + l2.message + `
             children: y
           }, c2), l2 = Eo(l2, c2, a2, null), y.return = r2, l2.return = r2, y.sibling = l2, r2.child = y, l2 = r2.child, l2.memoizedState = ss(a2), l2.childLanes = Ur(t2, h2, a2), r2.memoizedState = Qc, Mt(null, l2)) : (vo(r2), Uu(r2, y));
         }
-        var R = t2.memoizedState;
-        if (R !== null && (y = R.dehydrated, y !== null)) {
+        var R2 = t2.memoizedState;
+        if (R2 !== null && (y = R2.dehydrated, y !== null)) {
           if (d) r2.flags & 256 ? (vo(r2), r2.flags &= -257, r2 = et(t2, r2, a2)) : r2.memoizedState !== null ? (So(), r2.child = t2.child, r2.flags |= 128, r2 = null) : (So(), y = l2.fallback, c2 = r2.mode, l2 = mr({
             mode: "visible",
             children: l2.children
@@ -47105,17 +47107,17 @@ Error generating stack: ` + l2.message + `
             stack: null
           }), r2 = et(t2, r2, a2);
           else if (hn || po(t2, r2, a2, false), h2 = (a2 & t2.childLanes) !== 0, hn || h2) {
-            if (h2 = Ne, h2 !== null && (l2 = G(h2, a2), l2 !== 0 && l2 !== R.retryLane)) throw R.retryLane = l2, Ko(t2, l2), nt(h2, t2, l2), Mc;
+            if (h2 = Ne, h2 !== null && (l2 = G(h2, a2), l2 !== 0 && l2 !== R2.retryLane)) throw R2.retryLane = l2, Ko(t2, l2), nt(h2, t2, l2), Mc;
             Ns(y) || Gi(), r2 = et(t2, r2, a2);
-          } else Ns(y) ? (r2.flags |= 192, r2.child = t2.child, r2 = null) : (t2 = R.treeContext, Hn && (Ue = wh(y), bn = r2, ue = true, Do = null, Yt = false, t2 !== null && Ld(r2, t2)), r2 = Uu(r2, l2.children), r2.flags |= 4096);
+          } else Ns(y) ? (r2.flags |= 192, r2.child = t2.child, r2 = null) : (t2 = R2.treeContext, Hn && (Ue = wh(y), bn = r2, ue = true, Do = null, Yt = false, t2 !== null && Ld(r2, t2)), r2 = Uu(r2, l2.children), r2.flags |= 4096);
           return r2;
         }
-        return c2 ? (So(), y = l2.fallback, c2 = r2.mode, R = t2.child, d = R.sibling, l2 = Qr(R, {
+        return c2 ? (So(), y = l2.fallback, c2 = r2.mode, R2 = t2.child, d = R2.sibling, l2 = Qr(R2, {
           mode: "hidden",
           children: l2.children
-        }), l2.subtreeFlags = R.subtreeFlags & 65011712, d !== null ? y = Qr(d, y) : (y = Eo(y, c2, a2, null), y.flags |= 2), y.return = r2, l2.return = r2, l2.sibling = y, r2.child = l2, Mt(null, l2), l2 = r2.child, y = t2.child.memoizedState, y === null ? y = ss(a2) : (c2 = y.cachePool, c2 !== null ? (R = qt ? qe._currentValue : qe._currentValue2, c2 = c2.parent !== R ? {
-          parent: R,
-          pool: R
+        }), l2.subtreeFlags = R2.subtreeFlags & 65011712, d !== null ? y = Qr(d, y) : (y = Eo(y, c2, a2, null), y.flags |= 2), y.return = r2, l2.return = r2, l2.sibling = y, r2.child = l2, Mt(null, l2), l2 = r2.child, y = t2.child.memoizedState, y === null ? y = ss(a2) : (c2 = y.cachePool, c2 !== null ? (R2 = qt ? qe._currentValue : qe._currentValue2, c2 = c2.parent !== R2 ? {
+          parent: R2,
+          pool: R2
         } : c2) : c2 = Pu(), y = {
           baseLanes: y.baseLanes | a2,
           cachePool: c2
@@ -47709,11 +47711,11 @@ Error generating stack: ` + l2.message + `
                 var h2 = l2.inst, y = h2.destroy;
                 if (y !== void 0) {
                   h2.destroy = void 0, c2 = r2;
-                  var R = a2, L = y;
+                  var R2 = a2, L = y;
                   try {
                     L();
                   } catch (j2) {
-                    ve(c2, R, j2);
+                    ve(c2, R2, j2);
                   }
                 }
               }
@@ -48188,8 +48190,8 @@ Error generating stack: ` + l2.message + `
             break;
           case 22:
             c2 = t2.memoizedState !== null;
-            var h2 = a2 !== null && a2.memoizedState !== null, y = eo, R = sn;
-            if (eo = y || c2, sn = R || h2, tn(r2, t2), sn = R, eo = y, Mn(t2), l2 & 8192 && (r2 = t2.stateNode, r2._visibility = c2 ? r2._visibility & -2 : r2._visibility | 1, c2 && (a2 === null || h2 || eo || sn || Vt(t2)), $n)) {
+            var h2 = a2 !== null && a2.memoizedState !== null, y = eo, R2 = sn;
+            if (eo = y || c2, sn = R2 || h2, tn(r2, t2), sn = R2, eo = y, Mn(t2), l2 & 8192 && (r2 = t2.stateNode, r2._visibility = c2 ? r2._visibility & -2 : r2._visibility | 1, c2 && (a2 === null || h2 || eo || sn || Vt(t2)), $n)) {
               e: if (a2 = null, $n) for (r2 = t2; ; ) {
                 if (r2.tag === 5 || Gt && r2.tag === 26) {
                   if (a2 === null) {
@@ -48273,8 +48275,8 @@ Error generating stack: ` + l2.message + `
                   break;
                 case 3:
                 case 4:
-                  var R = a2.stateNode.containerInfo, L = Gu(t2);
-                  fs(t2, L, R);
+                  var R2 = a2.stateNode.containerInfo, L = Gu(t2);
+                  fs(t2, L, R2);
                   break;
                 default:
                   throw Error(F(161));
@@ -48347,8 +48349,8 @@ Error generating stack: ` + l2.message + `
               if (l2 = d, c2 = l2.updateQueue, c2 !== null) {
                 var y = l2.stateNode;
                 try {
-                  var R = c2.shared.hiddenCallbacks;
-                  if (R !== null) for (c2.shared.hiddenCallbacks = null, c2 = 0; c2 < R.length; c2++) Dd(R[c2], y);
+                  var R2 = c2.shared.hiddenCallbacks;
+                  if (R2 !== null) for (c2.shared.hiddenCallbacks = null, c2 = 0; c2 < R2.length; c2++) Dd(R2[c2], y);
                 } catch (L) {
                   ve(l2, l2.return, L);
                 }
@@ -48411,8 +48413,8 @@ Error generating stack: ` + l2.message + `
               try {
                 var d = r2.memoizedProps, h2 = d.id, y = d.onPostCommit;
                 typeof y == "function" && y(h2, r2.alternate === null ? "mount" : "update", t2.passiveEffectDuration, -0);
-              } catch (R) {
-                ve(r2, r2.return, R);
+              } catch (R2) {
+                ve(r2, r2.return, R2);
               }
             } else yt(t2, r2, a2, l2);
             break;
@@ -48436,24 +48438,24 @@ Error generating stack: ` + l2.message + `
       }
       function ra(t2, r2, a2, l2, c2) {
         for (c2 = c2 && ((r2.subtreeFlags & 10256) !== 0 || false), r2 = r2.child; r2 !== null; ) {
-          var d = t2, h2 = r2, y = a2, R = l2, L = h2.flags;
+          var d = t2, h2 = r2, y = a2, R2 = l2, L = h2.flags;
           switch (h2.tag) {
             case 0:
             case 11:
             case 15:
-              ra(d, h2, y, R, c2), Br(8, h2);
+              ra(d, h2, y, R2, c2), Br(8, h2);
               break;
             case 23:
               break;
             case 22:
               var j2 = h2.stateNode;
-              h2.memoizedState !== null ? j2._visibility & 2 ? ra(d, h2, y, R, c2) : oa(d, h2) : (j2._visibility |= 2, ra(d, h2, y, R, c2)), c2 && L & 2048 && To(h2.alternate, h2);
+              h2.memoizedState !== null ? j2._visibility & 2 ? ra(d, h2, y, R2, c2) : oa(d, h2) : (j2._visibility |= 2, ra(d, h2, y, R2, c2)), c2 && L & 2048 && To(h2.alternate, h2);
               break;
             case 24:
-              ra(d, h2, y, R, c2), c2 && L & 2048 && Qn(h2.alternate, h2);
+              ra(d, h2, y, R2, c2), c2 && L & 2048 && Qn(h2.alternate, h2);
               break;
             default:
-              ra(d, h2, y, R, c2);
+              ra(d, h2, y, R2, c2);
           }
           r2 = r2.sibling;
         }
@@ -48717,9 +48719,9 @@ Error generating stack: ` + l2.message + `
                 e: {
                   var y = t2;
                   c2 = $s;
-                  var R = Hn && y.current.memoizedState.isDehydrated;
-                  if (R && (la(y, h2).flags |= 256), h2 = Ji(y, h2, false), h2 !== 2) {
-                    if (Gf && !R) {
+                  var R2 = Hn && y.current.memoizedState.isDehydrated;
+                  if (R2 && (la(y, h2).flags |= 256), h2 = Ji(y, h2, false), h2 !== 2) {
+                    if (Gf && !R2) {
                       y.errorRecoveryDisabledLanes |= d, ii |= d, c2 = 4;
                       break e;
                     }
@@ -48765,16 +48767,16 @@ Error generating stack: ` + l2.message + `
         } while (true);
         ir(t2);
       }
-      function tc(t2, r2, a2, l2, c2, d, h2, y, R, L, j2, A, W2, V) {
+      function tc(t2, r2, a2, l2, c2, d, h2, y, R2, L, j2, A, W2, V) {
         if (t2.timeoutHandle = Lo, A = r2.subtreeFlags, A & 8192 || (A & 16785408) === 16785408) {
           A = oh(), lf(r2, d, A);
           var Oe = (d & 62914560) === d ? Vs - ze() : (d & 4194048) === d ? Zf - ze() : 0;
           if (Oe = ah(A, Oe), Oe !== null) {
-            no = d, t2.cancelPendingCommit = Oe(pf.bind(null, t2, r2, d, a2, l2, c2, h2, y, R, j2, A, null, W2, V)), Ro(t2, d, h2, !L);
+            no = d, t2.cancelPendingCommit = Oe(pf.bind(null, t2, r2, d, a2, l2, c2, h2, y, R2, j2, A, null, W2, V)), Ro(t2, d, h2, !L);
             return;
           }
         }
-        pf(t2, r2, d, a2, l2, c2, h2, y, R);
+        pf(t2, r2, d, a2, l2, c2, h2, y, R2);
       }
       function Qp(t2) {
         for (var r2 = t2; ; ) {
@@ -48856,7 +48858,7 @@ Error generating stack: ` + l2.message + `
         e: do
           try {
             if (_e !== 0 && de !== null) {
-              var y = de, R = Ht;
+              var y = de, R2 = Ht;
               switch (_e) {
                 case 8:
                   bs(), h2 = 6;
@@ -48867,13 +48869,13 @@ Error generating stack: ` + l2.message + `
                 case 6:
                   Ft.current === null && (r2 = true);
                   var L = _e;
-                  if (_e = 0, Ht = null, Qa(t2, y, R, L), a2 && ai) {
+                  if (_e = 0, Ht = null, Qa(t2, y, R2, L), a2 && ai) {
                     h2 = 0;
                     break e;
                   }
                   break;
                 default:
-                  L = _e, _e = 0, Ht = null, Qa(t2, y, R, L);
+                  L = _e, _e = 0, Ht = null, Qa(t2, y, R2, L);
               }
             }
             qp(), h2 = Xe;
@@ -48927,8 +48929,8 @@ Error generating stack: ` + l2.message + `
                       h2 = de.memoizedState;
                     case 5:
                     case 27:
-                      var y = de, R = y.type, L = y.pendingProps;
-                      if (h2 ? Tc(h2) : An(y.stateNode, R, L)) {
+                      var y = de, R2 = y.type, L = y.pendingProps;
+                      if (h2 ? Tc(h2) : An(y.stateNode, R2, L)) {
                         _e = 0, Ht = null;
                         var j2 = y.sibling;
                         if (j2 !== null) de = j2;
@@ -49034,7 +49036,7 @@ Error generating stack: ` + l2.message + `
         } while (t2 !== null);
         Xe = 6, de = null;
       }
-      function pf(t2, r2, a2, l2, c2, d, h2, y, R) {
+      function pf(t2, r2, a2, l2, c2, d, h2, y, R2) {
         t2.cancelPendingCommit = null;
         do
           rn();
@@ -49042,7 +49044,7 @@ Error generating stack: ` + l2.message + `
         if ((ce & 6) !== 0) throw Error(F(327));
         if (r2 !== null) {
           if (r2 === t2.current) throw Error(F(177));
-          if (d = r2.lanes | r2.childLanes, d |= $f, _p(t2, a2, d, h2, y, R), t2 === Ne && (de = Ne = null, he = 0), Sa = r2, Bo = t2, no = a2, Kc = d, ed = c2, $h = l2, (r2.subtreeFlags & 10256) !== 0 || (r2.flags & 10256) !== 0 ? (t2.callbackNode = null, t2.callbackPriority = 0, Nm(Ao, function() {
+          if (d = r2.lanes | r2.childLanes, d |= $f, _p(t2, a2, d, h2, y, R2), t2 === Ne && (de = Ne = null, he = 0), Sa = r2, Bo = t2, no = a2, Kc = d, ed = c2, $h = l2, (r2.subtreeFlags & 10256) !== 0 || (r2.flags & 10256) !== 0 ? (t2.callbackNode = null, t2.callbackPriority = 0, Nm(Ao, function() {
             return hf(), null;
           })) : (t2.callbackNode = null, t2.callbackPriority = 0), l2 = (r2.flags & 13878) !== 0, (r2.subtreeFlags & 13878) !== 0 || l2) {
             l2 = M.T, M.T = null, c2 = qr(), yn(2), h2 = ce, ce |= 4;
@@ -49285,11 +49287,11 @@ Error generating stack: ` + l2.message + `
           implementation: t2.implementation
         }, r2;
       }
-      function bf(t2, r2, a2, l2, c2, d, h2, y, R) {
-        this.tag = 1, this.containerInfo = t2, this.pingCache = this.current = this.pendingChildren = null, this.timeoutHandle = Lo, this.callbackNode = this.next = this.pendingContext = this.context = this.cancelPendingCommit = null, this.callbackPriority = 0, this.expirationTimes = mu(-1), this.entangledLanes = this.shellSuspendCounter = this.errorRecoveryDisabledLanes = this.expiredLanes = this.warmLanes = this.pingedLanes = this.suspendedLanes = this.pendingLanes = 0, this.entanglements = mu(0), this.hiddenUpdates = mu(null), this.identifierPrefix = l2, this.onUncaughtError = c2, this.onCaughtError = d, this.onRecoverableError = h2, this.pooledCache = null, this.pooledCacheLanes = 0, this.formState = R, this.incompleteTransitions = /* @__PURE__ */ new Map();
+      function bf(t2, r2, a2, l2, c2, d, h2, y, R2) {
+        this.tag = 1, this.containerInfo = t2, this.pingCache = this.current = this.pendingChildren = null, this.timeoutHandle = Lo, this.callbackNode = this.next = this.pendingContext = this.context = this.cancelPendingCommit = null, this.callbackPriority = 0, this.expirationTimes = mu(-1), this.entangledLanes = this.shellSuspendCounter = this.errorRecoveryDisabledLanes = this.expiredLanes = this.warmLanes = this.pingedLanes = this.suspendedLanes = this.pendingLanes = 0, this.entanglements = mu(0), this.hiddenUpdates = mu(null), this.identifierPrefix = l2, this.onUncaughtError = c2, this.onCaughtError = d, this.onRecoverableError = h2, this.pooledCache = null, this.pooledCacheLanes = 0, this.formState = R2, this.incompleteTransitions = /* @__PURE__ */ new Map();
       }
-      function xs(t2, r2, a2, l2, c2, d, h2, y, R, L, j2, A) {
-        return t2 = new bf(t2, r2, a2, h2, R, L, j2, A, y), r2 = 1, d === true && (r2 |= 24), d = Yn(3, null, null, r2), t2.current = d, d.stateNode = t2, r2 = Fd(), r2.refCount++, t2.pooledCache = r2, r2.refCount++, d.memoizedState = {
+      function xs(t2, r2, a2, l2, c2, d, h2, y, R2, L, j2, A) {
+        return t2 = new bf(t2, r2, a2, h2, R2, L, j2, A, y), r2 = 1, d === true && (r2 |= 24), d = Yn(3, null, null, r2), t2.current = d, d.stateNode = t2, r2 = Fd(), r2.refCount++, t2.pooledCache = r2, r2.refCount++, d.memoizedState = {
           element: l2,
           isDehydrated: a2,
           cache: r2
@@ -49688,16 +49690,16 @@ Error generating stack: ` + l2.message + `
           $$typeof: Vc,
           value: t2
         };
-      }, ie.createContainer = function(t2, r2, a2, l2, c2, d, h2, y, R, L) {
-        return xs(t2, r2, false, null, a2, l2, d, null, h2, y, R, L);
+      }, ie.createContainer = function(t2, r2, a2, l2, c2, d, h2, y, R2, L) {
+        return xs(t2, r2, false, null, a2, l2, d, null, h2, y, R2, L);
       }, ie.createHasPseudoClassSelector = function(t2) {
         return {
           $$typeof: qc,
           value: t2
         };
-      }, ie.createHydrationContainer = function(t2, r2, a2, l2, c2, d, h2, y, R, L, j2, A, W2, V) {
+      }, ie.createHydrationContainer = function(t2, r2, a2, l2, c2, d, h2, y, R2, L, j2, A, W2, V) {
         var _r2;
-        return t2 = xs(a2, l2, true, t2, c2, d, y, V, R, L, j2, A), t2.context = fc(null), a2 = t2.current, l2 = bt(), l2 = st(l2), c2 = Et(l2), c2.callback = (_r2 = r2) != null ? _r2 : null, Nr(a2, c2, l2), r2 = l2, t2.current.lanes = r2, xi(t2, r2), ir(t2), t2;
+        return t2 = xs(a2, l2, true, t2, c2, d, y, V, R2, L, j2, A), t2.context = fc(null), a2 = t2.current, l2 = bt(), l2 = st(l2), c2 = Et(l2), c2.callback = (_r2 = r2) != null ? _r2 : null, Nr(a2, c2, l2), r2 = l2, t2.current.lanes = r2, xi(t2, r2), ir(t2), t2;
       }, ie.createPortal = function(t2, r2, a2) {
         var l2 = 3 < arguments.length && arguments[3] !== void 0 ? arguments[3] : null;
         return {
@@ -49749,17 +49751,17 @@ Error generating stack: ` + l2.message + `
         for (r2 = t2.length - 1; 0 < r2; r2--) {
           a2 = t2[r2];
           for (var l2 = a2.x, c2 = l2 + a2.width, d = a2.y, h2 = d + a2.height, y = r2 - 1; 0 <= y; y--) if (r2 !== y) {
-            var R = t2[y], L = R.x, j2 = L + R.width, A = R.y, W2 = A + R.height;
+            var R2 = t2[y], L = R2.x, j2 = L + R2.width, A = R2.y, W2 = A + R2.height;
             if (l2 >= L && d >= A && c2 <= j2 && h2 <= W2) {
               t2.splice(r2, 1);
               break;
-            } else if (l2 !== L || a2.width !== R.width || W2 < d || A > h2) {
-              if (!(d !== A || a2.height !== R.height || j2 < l2 || L > c2)) {
-                L > l2 && (R.width += L - l2, R.x = l2), j2 < c2 && (R.width = c2 - L), t2.splice(r2, 1);
+            } else if (l2 !== L || a2.width !== R2.width || W2 < d || A > h2) {
+              if (!(d !== A || a2.height !== R2.height || j2 < l2 || L > c2)) {
+                L > l2 && (R2.width += L - l2, R2.x = l2), j2 < c2 && (R2.width = c2 - L), t2.splice(r2, 1);
                 break;
               }
             } else {
-              A > d && (R.height += A - d, R.y = d), W2 < h2 && (R.height = h2 - A), t2.splice(r2, 1);
+              A > d && (R2.height += A - d, R2.y = d), W2 < h2 && (R2.height = h2 - A), t2.splice(r2, 1);
               break;
             }
           }
@@ -49793,8 +49795,8 @@ Error generating stack: ` + l2.message + `
         var a2 = 0, l2 = [];
         t2 = [Vi(t2), 0];
         for (var c2 = 0; c2 < t2.length; ) {
-          var d = t2[c2++], h2 = d.tag, y = t2[c2++], R = r2[y];
-          if ((h2 !== 5 && h2 !== 26 && h2 !== 27 || !Jr(d)) && (ms(d, R) && (l2.push(nc(R)), y++, y > a2 && (a2 = y)), y < r2.length)) for (d = d.child; d !== null; ) t2.push(d, y), d = d.sibling;
+          var d = t2[c2++], h2 = d.tag, y = t2[c2++], R2 = r2[y];
+          if ((h2 !== 5 && h2 !== 26 && h2 !== 27 || !Jr(d)) && (ms(d, R2) && (l2.push(nc(R2)), y++, y > a2 && (a2 = y)), y < r2.length)) for (d = d.child; d !== null; ) t2.push(d, y), d = d.sibling;
         }
         if (a2 < r2.length) {
           for (t2 = []; a2 < r2.length; a2++) t2.push(nc(r2[a2]));
@@ -50797,7 +50799,7 @@ function j({ debounce: n, scroll: t2, polyfill: o2, offsetSize: i2 } = { debounc
   const [z, m2, s] = reactExports.useMemo(() => {
     const r2 = () => {
       if (!e2.current.element) return;
-      const { left: y, top: C, width: H, height: O, bottom: S, right: x2, x: B, y: R } = e2.current.element.getBoundingClientRect(), l2 = { left: y, top: C, width: H, height: O, bottom: S, right: x2, x: B, y: R };
+      const { left: y, top: C, width: H2, height: O, bottom: S, right: x2, x: B, y: R2 } = e2.current.element.getBoundingClientRect(), l2 = { left: y, top: C, width: H2, height: O, bottom: S, right: x2, x: B, y: R2 };
       e2.current.element instanceof HTMLElement && i2 && (l2.height = e2.current.element.offsetHeight, l2.width = e2.current.element.offsetWidth), Object.freeze(l2), w.current && !D(e2.current.lastBounds, l2) && h2(e2.current.lastBounds = l2);
     };
     return [r2, f ? g(r2, f) : r2, d ? g(r2, d) : r2];
@@ -54404,7 +54406,35 @@ const PerspectiveCamera2 = /* @__PURE__ */ reactExports.forwardRef(({
     ref: groupRef
   }, functional && children(fbo.texture)));
 });
+const camera = { "orthoSize": 12, "minDist": 3, "maxDist": 2500, "dragSensitivity": 6e-3, "defaultPreset": "chase", "presets": { "chase": { "position": [0, 4, 12], "target": [0, 0, 0] }, "top": { "position": [0, 16, 0.5], "target": [0, 0, 0] }, "side": { "position": [14, 2, 0], "target": [0, 0, 0] }, "cockpit": { "position": [0, 0.5, -1.5], "target": [0, 0, -20] } } };
+const projection = { "perspective": { "fov": 50, "near": 0.5, "far": 2500 }, "wide": { "fov": 80, "near": 0.5, "far": 2500 }, "ortho": { "frustumHalf": 12, "near": 0.5, "far": 2500 } };
+const horizon = { "radius": 200 };
+const ground = { "discRadius": 5e3, "y": -6 };
+const grid = { "size": 2e3, "divisions": 200, "y": -6, "color": "#00ff88", "opacity": 0.25 };
+const clouds = { "poolSize": 6, "spawnIntervalSec": 5, "cullDist": 350, "spawnAheadMin": 100, "spawnAheadMax": 250, "lateralMin": 30, "lateralMax": 110, "altMin": 20, "altMax": 75, "maxPuffs": 4 };
+const trees = { "count": 2e3, "areaRadius": 4e3, "cullDist": 3500, "trunkHeight": 1.4, "trunkTopRadius": 0.05, "trunkBottomRadius": 0.12, "crownRadius": 1, "crownHeight": 2.5 };
+const aircraft = { "targetSize": 8 };
+const velocityVector = { "arrowLength": 3 };
+const locations = { "alps": { "name": "Альпы (Монблан)", "lat": 45.832, "lon": 6.865, "zoom": 14 }, "protvino": { "name": "Протвино (Серпуховский р-н)", "lat": 54.883, "lon": 37.217, "zoom": 14 } };
+const defaultLocation = "alps";
+const sceneConfig = {
+  camera,
+  projection,
+  horizon,
+  ground,
+  grid,
+  clouds,
+  trees,
+  aircraft,
+  velocityVector,
+  locations,
+  defaultLocation
+};
 const aircraftPosition = new Vector3(0, 0, 0);
+const locationRef = {
+  lat: sceneConfig.locations[sceneConfig.defaultLocation].lat,
+  lon: sceneConfig.locations[sceneConfig.defaultLocation].lon
+};
 const groundTouch = {
   touched: false,
   since: 0,
@@ -54577,7 +54607,6 @@ function createImprovedState() {
     altitude: 0,
     vy: 0,
     throttle: 0.5,
-    // стартуем с 50%
     elevator: 0,
     ailerons: 0,
     rudder: 0,
@@ -54652,6 +54681,12 @@ function tickImprovedFdm(delta, state2, outFrame) {
   const speedWU = state2.speed * 0.5144 / 40;
   aircraftPosition.x += -Math.sin(headingRad) * speedWU * forwardHoriz * dt;
   aircraftPosition.z += -Math.cos(headingRad) * speedWU * forwardHoriz * dt;
+  const METERS_PER_DEG_LAT2 = 111320;
+  const dxMeters = aircraftPosition.x * 40;
+  const dnMeters = -aircraftPosition.z * 40;
+  const simLat = locationRef.lat + dnMeters / METERS_PER_DEG_LAT2;
+  const cosRefLat = Math.cos(locationRef.lat * DEG$2);
+  const simLon = locationRef.lon + dxMeters / (METERS_PER_DEG_LAT2 * cosRefLat);
   const worldY = state2.altitude * p2.altitudeScale + (p2.groundY + 3);
   aircraftPosition.y = worldY;
   const GROUND_Y2 = p2.groundY;
@@ -54672,6 +54707,8 @@ function tickImprovedFdm(delta, state2, outFrame) {
   outFrame.RollAngle = state2.rollAngle;
   outFrame.Heading1 = state2.heading;
   outFrame.MagneticHeading = state2.heading;
+  outFrame.Latitude = simLat;
+  outFrame.Longitude = simLon;
   outFrame.CAS = state2.speed;
   outFrame.Vy = state2.vy * 60;
   outFrame.RAltitude = altFt;
@@ -54725,6 +54762,7 @@ function resetImprovedState(state2) {
 function loadFdmParams() {
   return loadParams();
 }
+const flightPause = { paused: false };
 const DEG$1 = Math.PI / 180;
 const AircraftModel = reactExports.memo(({
   model,
@@ -54742,7 +54780,7 @@ const AircraftModel = reactExports.memo(({
   useFrame((_state, delta) => {
     var _a, _b2;
     const g2 = groupRef.current;
-    if (!g2) return;
+    if (!g2 || flightPause.paused) return;
     const override = aircraftControlsRef.current;
     const improved = useImprovedProp ?? false;
     if (improved) {
@@ -55232,10 +55270,13 @@ function createTileMaterial(data, mode) {
       wireframe: true
     });
   }
-  if (data.satelliteBitmap) {
-    const tex = new CanvasTexture(
-      data.satelliteBitmap
-    );
+  if (data.satelliteBitmap && data.satelliteBitmap.width > 0) {
+    const canvas = document.createElement("canvas");
+    canvas.width = data.satelliteBitmap.width;
+    canvas.height = data.satelliteBitmap.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(data.satelliteBitmap, 0, 0);
+    const tex = new CanvasTexture(canvas);
     tex.wrapS = tex.wrapT = ClampToEdgeWrapping;
     tex.minFilter = LinearMipmapLinearFilter;
     tex.magFilter = LinearFilter;
@@ -55281,6 +55322,14 @@ const TerrainTile = ({
     () => createTileMaterial(data, mode),
     [mode, data.satelliteBitmap]
   );
+  reactExports.useEffect(() => {
+    return () => {
+      geo.dispose();
+      mat.dispose();
+      const tex = mat.map;
+      if (tex) tex.dispose();
+    };
+  }, [geo, mat]);
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "mesh",
     {
@@ -55299,26 +55348,38 @@ const RealTerrainMesh = ({
   centerTile
 }) => {
   const groupRef = reactExports.useRef(null);
+  const fixedRef = reactExports.useRef(null);
   const refData = reactExports.useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
-    let refX2;
-    let refY2;
-    let tileWU2;
-    if (centerTile) {
-      refX2 = centerTile.x;
-      refY2 = centerTile.y;
-      const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
-      const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
-      tileWU2 = baseTileSize > 0 ? baseTileSize * 2 : 200;
-    } else {
-      const xs = tiles.map((t2) => t2.coord.x).sort((a2, b2) => a2 - b2);
-      const ys = tiles.map((t2) => t2.coord.y).sort((a2, b2) => a2 - b2);
-      refX2 = xs[Math.floor(xs.length / 2)];
-      refY2 = ys[Math.floor(ys.length / 2)];
-      const midIdx = Math.floor(tiles.length / 2);
-      const baseTileSize = tiles[midIdx].data.worldUnits;
-      tileWU2 = baseTileSize > 0 ? baseTileSize * 2 : 200;
+    if (fixedRef.current && centerTile) {
+      const dx = Math.abs(centerTile.x - fixedRef.current.refX);
+      const dy = Math.abs(centerTile.y - fixedRef.current.refY);
+      if (dx > 8 || dy > 8) {
+        fixedRef.current = null;
+      }
     }
+    if (!fixedRef.current) {
+      let refX3;
+      let refY3;
+      let tileWU3;
+      if (centerTile) {
+        refX3 = centerTile.x;
+        refY3 = centerTile.y;
+        const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
+        const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
+        tileWU3 = baseTileSize > 0 ? baseTileSize : 200;
+      } else {
+        const xs = tiles.map((t2) => t2.coord.x).sort((a2, b2) => a2 - b2);
+        const ys = tiles.map((t2) => t2.coord.y).sort((a2, b2) => a2 - b2);
+        refX3 = xs[Math.floor(xs.length / 2)];
+        refY3 = ys[Math.floor(ys.length / 2)];
+        const midIdx = Math.floor(tiles.length / 2);
+        const baseTileSize = tiles[midIdx].data.worldUnits;
+        tileWU3 = baseTileSize > 0 ? baseTileSize : 200;
+      }
+      fixedRef.current = { refX: refX3, refY: refY3, tileWU: tileWU3 };
+    }
+    const { refX: refX2, refY: refY2, tileWU: tileWU2 } = fixedRef.current;
     let globalMinElev2 = Infinity;
     for (const { data } of tiles) {
       if (data.minElevation < globalMinElev2) globalMinElev2 = data.minElevation;
@@ -55382,7 +55443,7 @@ const STATUS_LABELS = {
 };
 function TerrainLogPanel() {
   const [logs, setLogs] = reactExports.useState([]);
-  const [visible, setVisible] = reactExports.useState(true);
+  const [collapsed, setCollapsed] = reactExports.useState(false);
   const scrollRef = reactExports.useRef(null);
   reactExports.useEffect(() => {
     let mounted = true;
@@ -55405,55 +55466,53 @@ function TerrainLogPanel() {
     };
   }, []);
   reactExports.useEffect(() => {
-    if (scrollRef.current && visible) {
+    if (scrollRef.current && !collapsed) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [logs, visible]);
+  }, [logs, collapsed]);
   const displayLogs = logs.slice(-30);
   const hitCount = logs.filter((l2) => l2.status === "HIT").length;
   const missCount = logs.filter((l2) => l2.status === "MISS").length;
   const errorCount = logs.filter((l2) => l2.status === "ERROR" || l2.status === "TIMEOUT").length;
   const total = logs.length;
-  if (!visible) {
+  if (collapsed) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       "button",
       {
-        className: "absolute top-2 right-2 mt-[72px] text-[10px] text-white/40 hover:text-white/70\n                   bg-black/30 backdrop-blur-sm rounded px-1.5 py-0.5 z-10",
-        onClick: () => setVisible(true),
-        title: "Показать логи terrain",
-        children: "📋"
+        className: "absolute top-2 right-2 mt-[44px] z-20 text-[11px] text-white/80 hover:text-white\n                   bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded px-2 py-1 select-none\n                   whitespace-nowrap border border-white/15 hover:border-white/30 transition-colors",
+        onClick: () => setCollapsed(false),
+        title: "Развернуть логи terrain",
+        children: "📋 Terrain"
       }
     );
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
-      className: "absolute top-2 right-2 mt-[72px] z-10 select-none",
-      style: { width: "320px", maxHeight: "280px" },
+      className: "absolute top-2 right-2 mt-[44px] z-10 select-none",
+      style: { width: "320px" },
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-0.5", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-[10px] font-mono text-white/50", children: [
-            "Terrain Log ",
-            total > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-white/30", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-green-400/60", children: hitCount }),
-              "/",
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-400/60", children: missCount }),
-              errorCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-yellow-300/60", children: [
-                " !",
-                errorCount
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: "flex items-center justify-between mb-0.5 cursor-pointer hover:bg-white/5 rounded px-1 -mx-1",
+            onClick: () => setCollapsed(true),
+            title: "Свернуть логи",
+            children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-[10px] font-mono text-white/50 flex items-center gap-1", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[8px] text-white/30 inline-block", children: "▼" }),
+              "Terrain Log ",
+              total > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-white/30", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-green-400/60", children: hitCount }),
+                "/",
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-400/60", children: missCount }),
+                errorCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-yellow-300/60", children: [
+                  " !",
+                  errorCount
+                ] })
               ] })
             ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              className: "text-[10px] text-white/30 hover:text-white/70 leading-none px-1",
-              onClick: () => setVisible(false),
-              title: "Скрыть логи",
-              children: "✕"
-            }
-          )
-        ] }),
+          }
+        ),
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           "div",
           {
@@ -55632,12 +55691,16 @@ async function clearOldest() {
 }
 const CONFIG = {
   maxConcurrent: 6,
+  fetchTimeoutMs: 8e3,
   zoom: DEFAULT_ZOOM,
   /** Радиус загрузки в тайлах от центра (внутренний для новых) */
   loadRadius: 3,
   // 7×7
   /** Радиус удержания (keep) — держим больше для плавности во время загрузки и движения */
-  keepRadius: 4
+  keepRadius: 4,
+  // 9×9 overlap, удаляем только далеко за пределами
+  /** Порог смещения (в долях тайла) для триггера обновления */
+  moveThreshold: 0.3
 };
 class TerrainManagerImpl {
   constructor() {
@@ -55650,6 +55713,7 @@ class TerrainManagerImpl {
     this.lastLat = 0;
     this.lastLon = 0;
     this.isLoading = false;
+    this.isUpdating = false;
     this.loadQueue = [];
     this.clientSceneLog = [];
     this.everLoaded = /* @__PURE__ */ new Set();
@@ -55710,22 +55774,96 @@ class TerrainManagerImpl {
     this.abortController = new AbortController();
     this.loadQueue = [];
     this.everLoaded.clear();
+    this.isUpdating = false;
+    this.isLoading = false;
   }
   /** P0.1: публичный геттер для currentCenter */
   getCurrentCenter() {
     return this.currentCenter;
   }
   /**
+   * Загрузить ВСЕ кэшированные тайлы (из серверного дискового кэша).
+   * Запрашивает список у /api/terrain/cached и загружает каждый DEM.
+   * Тайлы загружаются из серверного кэша без обращения к Mapbox.
+   */
+  async loadAllCached(lat, lon, onProgress) {
+    if (!this.token) return 0;
+    try {
+      const resp = await fetch("/api/terrain/cached");
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const { tiles } = await resp.json();
+      if (!Array.isArray(tiles) || tiles.length === 0) return 0;
+      const center = latLonToTile(lat, lon, CONFIG.zoom);
+      const allowedKeys = /* @__PURE__ */ new Set();
+      for (let dx = -CONFIG.keepRadius; dx <= CONFIG.keepRadius; dx++) {
+        for (let dy = -CONFIG.keepRadius; dy <= CONFIG.keepRadius; dy++) {
+          allowedKeys.add(`${CONFIG.zoom}/${center.x + dx}/${center.y + dy}`);
+        }
+      }
+      const toLoad = [];
+      for (const { z, x: x2, y } of tiles) {
+        const key = `${z}/${x2}/${y}`;
+        if (!this.loadedTiles.has(key) && allowedKeys.has(key)) {
+          toLoad.push({ x: x2, y, z });
+        }
+      }
+      if (toLoad.length === 0) return 0;
+      const signal = this.abortController.signal;
+      this.isLoading = true;
+      let loaded = 0;
+      let cursor = 0;
+      const total = toLoad.length;
+      const processNext = async () => {
+        var _a;
+        while (cursor < total && !signal.aborted) {
+          const idx = cursor++;
+          const tile = toLoad[idx];
+          const key = `${tile.z}/${tile.x}/${tile.y}`;
+          try {
+            const data = await this.loadSingleTile(tile, signal);
+            if (data && !signal.aborted) {
+              this.loadedTiles.set(key, { coord: tile, data });
+              this.everLoaded.add(key);
+              (_a = this.onTileAdded) == null ? void 0 : _a.call(this, tile, data);
+              loaded++;
+              onProgress == null ? void 0 : onProgress(loaded, total);
+            }
+          } catch {
+          }
+        }
+      };
+      const workers = Math.min(CONFIG.maxConcurrent, total);
+      const promises = [];
+      for (let i2 = 0; i2 < workers; i2++) {
+        promises.push(processNext());
+      }
+      await Promise.allSettled(promises);
+      this.isLoading = false;
+      return loaded;
+    } catch (e2) {
+      console.warn("[TerrainManager] loadAllCached error:", e2);
+      this.isLoading = false;
+      return 0;
+    }
+  }
+  /**
    * Обновить позицию — лениво подгрузить новые тайлы, удалить далёкие.
    * Вызывается при каждом новом кадре телеметрии.
    */
   async updatePosition(lat, lon) {
-    var _a;
+    var _a, _b2;
     if (!this.token) return;
+    if (this.isUpdating) {
+      console.log("[TerrainManager] updatePosition SKIP: isUpdating");
+      return;
+    }
+    this.isUpdating = true;
+    console.log("[TerrainManager] updatePosition START lat=", lat, "lon=", lon);
     const center = latLonToTile(lat, lon, CONFIG.zoom);
     this.lastLat = lat;
     this.lastLon = lon;
     if (this.currentCenter && this.currentCenter.x === center.x && this.currentCenter.y === center.y) {
+      this.isUpdating = false;
       return;
     }
     this.currentCenter = center;
@@ -55744,16 +55882,6 @@ class TerrainManagerImpl {
         const key = `${CONFIG.zoom}/${center.x + dx}/${center.y + dy}`;
         keep.add(key);
       }
-    }
-    const toDelete = [];
-    for (const [key] of this.loadedTiles) {
-      if (!keep.has(key)) {
-        toDelete.push(key);
-      }
-    }
-    for (const key of toDelete) {
-      this.loadedTiles.delete(key);
-      this.logClientEvent({ type: "REMOVED-FROM-SCENE", tile: key });
     }
     const toRestoreFromCache = [];
     const toLoadFromNetwork = [];
@@ -55775,7 +55903,10 @@ class TerrainManagerImpl {
       toLoadFromNetwork: toLoadFromNetwork.length
     });
     console.log(`[TerrainClient] UPDATE-POSITION center=${center.z}/${center.x}/${center.y} loadRadius=${CONFIG.loadRadius} needed=[${neededStr}] restoreCache=${toRestoreFromCache.length} network=${toLoadFromNetwork.length}`);
-    if (toRestoreFromCache.length === 0 && toLoadFromNetwork.length === 0) return;
+    if (toRestoreFromCache.length === 0 && toLoadFromNetwork.length === 0) {
+      this.isUpdating = false;
+      return;
+    }
     const signal = this.abortController.signal;
     this.isLoading = true;
     for (const tile of toRestoreFromCache) {
@@ -55805,7 +55936,7 @@ class TerrainManagerImpl {
       let loaded = 0;
       const failedThisBatch = [];
       const processNext = async () => {
-        var _a2, _b2;
+        var _a2, _b3;
         while (this.loadQueue.length > 0 && !signal.aborted) {
           const tile = this.loadQueue.shift();
           const key = `${tile.z}/${tile.x}/${tile.y}`;
@@ -55821,7 +55952,7 @@ class TerrainManagerImpl {
                 from: "network"
               });
               (_a2 = this.onTileAdded) == null ? void 0 : _a2.call(this, tile, data);
-              (_b2 = this.onProgress) == null ? void 0 : _b2.call(this, { loaded, total });
+              (_b3 = this.onProgress) == null ? void 0 : _b3.call(this, { loaded, total });
               this.everLoaded.add(key);
             } else if (!signal.aborted) {
               failedThisBatch.push(tile);
@@ -55852,11 +55983,29 @@ class TerrainManagerImpl {
       }
     }
     this.isLoading = false;
+    if (signal.aborted) return;
+    const toDelete = [];
+    for (const [key] of this.loadedTiles) {
+      if (!keep.has(key)) {
+        toDelete.push(key);
+      }
+    }
+    for (const key of toDelete) {
+      this.loadedTiles.delete(key);
+      this.logClientEvent({ type: "REMOVED-FROM-SCENE", tile: key });
+    }
+    if (toDelete.length > 0) {
+      const remaining = this.getAllTiles();
+      if (remaining.length > 0) {
+        (_b2 = this.onTileAdded) == null ? void 0 : _b2.call(this, remaining[0].coord, remaining[0].data);
+      }
+    }
     const currentKeys = new Set(this.loadedTiles.keys());
     const missingInGrid = neededCoords.filter((t2) => !currentKeys.has(`${t2.z}/${t2.x}/${t2.y}`));
     if (missingInGrid.length > 0) {
       this.logClientEvent({ type: "COVERAGE-GAPS", stillMissing: missingInGrid.length, coords: missingInGrid });
     }
+    this.isUpdating = false;
   }
   /**
    * Загрузить один тайл (DEM + Satellite)
@@ -55919,24 +56068,36 @@ class TerrainManagerImpl {
       }
       let satelliteBitmap = null;
       try {
-        const response = await fetch(satelliteUrl(this.token, z, x2, y), {
-          signal
-        });
-        if (response.ok) {
-          const satBlob = await response.blob();
-          putTile(tileCacheKey("sat", z, x2, y), satBlob, { source: "sat", z, x: x2, y }).catch(() => {
+        if (forceCacheOnly) {
+          const satKey = tileCacheKey("sat", z, x2, y);
+          const satBlob = await getTile(satKey);
+          if (satBlob) {
+            try {
+              satelliteBitmap = await createImageBitmap(satBlob);
+            } catch {
+              satelliteBitmap = null;
+            }
+          }
+        } else {
+          const response = await fetch(satelliteUrl(this.token, z, x2, y), {
+            signal
           });
-          try {
-            satelliteBitmap = await createImageBitmap(satBlob);
-          } catch {
-            const response2 = await fetch(satelliteUrl(this.token, z, x2, y), {
-              signal
+          if (response.ok) {
+            const satBlob = await response.blob();
+            putTile(tileCacheKey("sat", z, x2, y), satBlob, { source: "sat", z, x: x2, y }).catch(() => {
             });
-            if (response2.ok) {
-              const freshBlob = await response2.blob();
-              putTile(tileCacheKey("sat", z, x2, y), freshBlob, { source: "sat", z, x: x2, y }).catch(() => {
+            try {
+              satelliteBitmap = await createImageBitmap(satBlob);
+            } catch {
+              const response2 = await fetch(satelliteUrl(this.token, z, x2, y), {
+                signal
               });
-              satelliteBitmap = await createImageBitmap(freshBlob);
+              if (response2.ok) {
+                const freshBlob = await response2.blob();
+                putTile(tileCacheKey("sat", z, x2, y), freshBlob, { source: "sat", z, x: x2, y }).catch(() => {
+                });
+                satelliteBitmap = await createImageBitmap(freshBlob);
+              }
             }
           }
         }
@@ -55997,11 +56158,14 @@ function useRealTerrain(lat, lon, enabled = false) {
     });
   }, []);
   const scheduleUpdate = reactExports.useCallback((currentLat, currentLon) => {
-    if (!enabledRef.current || !TerrainManager.isReady) return;
+    if (!enabledRef.current || !TerrainManager.isReady) {
+      console.log("[useRealTerrain] scheduleUpdate SKIP: enabled=", enabledRef.current, "ready=", TerrainManager.isReady);
+      return;
+    }
     const TILE_LAT = 0.021;
     const TILE_LON = 0.043;
-    const THRESHOLD_LAT = TILE_LAT * 0.4;
-    const THRESHOLD_LON = TILE_LON * 0.4;
+    const THRESHOLD_LAT = TILE_LAT * 0.25;
+    const THRESHOLD_LON = TILE_LON * 0.25;
     if (lastLatRef.current !== null && lastLonRef.current !== null) {
       const dLat = Math.abs(currentLat - lastLatRef.current);
       const dLon = Math.abs(currentLon - lastLonRef.current);
@@ -56046,17 +56210,29 @@ function useRealTerrain(lat, lon, enabled = false) {
     if (isFinite(currentLat) && isFinite(currentLon)) {
       scheduleUpdate(currentLat, currentLon);
     }
-    const interval = setInterval(() => {
-      if (!enabledRef.current) return;
-      const clat = lat ?? DEFAULT_LAT;
-      const clon = lon ?? DEFAULT_LON;
-      if (isFinite(clat) && isFinite(clon)) {
-        scheduleUpdate(clat, clon);
+    const METERS_PER_DEG_LAT2 = 111320;
+    let rafId;
+    let lastUpdateTime = 0;
+    const MIN_UPDATE_INTERVAL = 500;
+    const checkPosition = () => {
+      const now = performance.now();
+      if (now - lastUpdateTime >= MIN_UPDATE_INTERVAL) {
+        lastUpdateTime = now;
+        const cosRefLat = Math.cos(locationRef.lat * Math.PI / 180);
+        const dxMeters = aircraftPosition.x * 40;
+        const dnMeters = -aircraftPosition.z * 40;
+        const simLat = locationRef.lat + dnMeters / METERS_PER_DEG_LAT2;
+        const simLon = locationRef.lon + dxMeters / (METERS_PER_DEG_LAT2 * cosRefLat);
+        if (isFinite(simLat) && isFinite(simLon)) {
+          console.log("[useRealTerrain] rAF pos:", simLat.toFixed(4), simLon.toFixed(4), "loc:", locationRef.lat, locationRef.lon);
+          scheduleUpdate(simLat, simLon);
+        }
       }
-    }, 5e3);
+      rafId = requestAnimationFrame(checkPosition);
+    };
+    rafId = requestAnimationFrame(checkPosition);
     return () => {
-      clearInterval(interval);
-      if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
+      cancelAnimationFrame(rafId);
     };
   }, [lat, lon, enabled, scheduleUpdate]);
   reactExports.useEffect(() => {
@@ -56073,6 +56249,97 @@ function useRealTerrain(lat, lon, enabled = false) {
     tileCount: tiles.length,
     centerTile
   };
+}
+const METERS_PER_DEG_LAT = 111320;
+const WU_TO_M = 40;
+const MS_TO_KT = 1.94384;
+const LOAD_RADIUS = 3;
+function useMapBroadcaster(frame2) {
+  const frameRef = reactExports.useRef(frame2);
+  frameRef.current = frame2;
+  reactExports.useEffect(() => {
+    const channel = new BroadcastChannel(MAP_CHANNEL);
+    let raf = 0;
+    let last = performance.now();
+    let prevX = aircraftPosition.x;
+    let prevZ = aircraftPosition.z;
+    let lastTrack = 0;
+    let lastSpeed = 0;
+    let sendLog = 0;
+    const tick = () => {
+      const now = performance.now();
+      const dt = (now - last) / 1e3;
+      if (dt >= 0.1) {
+        last = now;
+        const dx = aircraftPosition.x - prevX;
+        const dz = aircraftPosition.z - prevZ;
+        if (Math.abs(dx) < 500 && Math.abs(dz) < 500 && dt > 0) {
+          const wuPerSec = Math.hypot(dx, dz) / dt;
+          if (wuPerSec > 1e-3) {
+            let tr = Math.atan2(dx, -dz) * 180 / Math.PI;
+            if (tr < 0) tr += 360;
+            lastTrack = tr;
+          }
+          lastSpeed = wuPerSec * WU_TO_M * MS_TO_KT;
+        }
+        prevX = aircraftPosition.x;
+        prevZ = aircraftPosition.z;
+        const cosRefLat = Math.cos(locationRef.lat * Math.PI / 180);
+        const simLat = locationRef.lat + -aircraftPosition.z * WU_TO_M / METERS_PER_DEG_LAT;
+        const simLon = locationRef.lon + aircraftPosition.x * WU_TO_M / (METERS_PER_DEG_LAT * cosRefLat);
+        const f = frameRef.current;
+        const hRaw = f.Heading1 ?? f.MagneticHeading ?? 0;
+        const heading = typeof hRaw === "number" && Number.isFinite(hRaw) ? hRaw : 0;
+        const sceneTiles = TerrainManager.getAllTiles().map((t2) => ({
+          x: t2.coord.x,
+          y: t2.coord.y,
+          z: t2.coord.z
+        }));
+        const center = TerrainManager.getCurrentCenter();
+        const needed = [];
+        if (center) {
+          for (let ddx = -LOAD_RADIUS; ddx <= LOAD_RADIUS; ddx++) {
+            for (let ddy = -LOAD_RADIUS; ddy <= LOAD_RADIUS; ddy++) {
+              needed.push({ x: center.x + ddx, y: center.y + ddy, z: center.z });
+            }
+          }
+        }
+        const tileWU = tileWorldUnits(14, locationRef.lat) || 200;
+        const offsetM = 10 * tileWU * WU_TO_M;
+        const cosLat = Math.cos(locationRef.lat * Math.PI / 180);
+        const cones = [
+          { lat: locationRef.lat, lon: locationRef.lon, color: "red", label: "R" },
+          { lat: locationRef.lat + offsetM / METERS_PER_DEG_LAT, lon: locationRef.lon, color: "blue", label: "B" },
+          { lat: locationRef.lat, lon: locationRef.lon + offsetM / (METERS_PER_DEG_LAT * cosLat), color: "green", label: "G" }
+        ];
+        const packet = {
+          lat: simLat,
+          lon: simLon,
+          track: lastTrack,
+          speed: lastSpeed,
+          heading,
+          sceneTiles,
+          needed,
+          cones
+        };
+        if (sendLog < 3) {
+          sendLog++;
+          console.log(
+            "[map-broadcast] send",
+            sendLog,
+            { lat: simLat, lon: simLon, track: lastTrack, speed: lastSpeed, scene: sceneTiles.length, needed: needed.length }
+          );
+        }
+        channel.postMessage(packet);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      channel.close();
+    };
+  }, []);
 }
 const Runway = reactExports.memo(() => {
   const runwayMat = reactExports.useMemo(
@@ -56235,8 +56502,8 @@ const Clouds = reactExports.memo(() => {
     const dt = Math.min(delta, 0.1);
     const ax = aircraftPosition.x;
     const az = aircraftPosition.z;
-    const clouds = pool.current;
-    for (const c2 of clouds) {
+    const clouds2 = pool.current;
+    for (const c2 of clouds2) {
       if (!c2.active) continue;
       const dx = c2.wx - ax;
       const dz = c2.wz - az;
@@ -56247,16 +56514,16 @@ const Clouds = reactExports.memo(() => {
     timer.current += dt;
     if (timer.current >= SPAWN_INTERVAL) {
       timer.current = 0;
-      const inactive = clouds.find((c2) => !c2.active);
+      const inactive = clouds2.find((c2) => !c2.active);
       if (inactive) spawnCloud(inactive);
     }
-    const activeCount = clouds.filter((c2) => c2.active).length;
+    const activeCount = clouds2.filter((c2) => c2.active).length;
     if (activeCount < 3) {
-      const slot = clouds.find((c2) => !c2.active);
+      const slot = clouds2.find((c2) => !c2.active);
       if (slot) spawnCloud(slot);
     }
     for (let i2 = 0; i2 < POOL_SIZE; i2++) {
-      const c2 = clouds[i2];
+      const c2 = clouds2[i2];
       for (let j2 = 0; j2 < MAX_PUFFS; j2++) {
         const mesh = meshRefs.current[i2][j2];
         if (!mesh) continue;
@@ -56344,9 +56611,9 @@ const Trees = reactExports.memo(() => {
     const az = aircraftPosition.z;
     const cullSq = CULL_DIST * CULL_DIST;
     const outerSq = AREA_RADIUS * AREA_RADIUS;
-    const trees = pool.current;
+    const trees2 = pool.current;
     for (let i2 = 0; i2 < TREE_COUNT; i2++) {
-      const t2 = trees[i2];
+      const t2 = trees2[i2];
       const trunk = trunkRefs.current[i2][0];
       const crown = trunkRefs.current[i2][1];
       if (!trunk || !crown) continue;
@@ -56391,9 +56658,18 @@ const Trees = reactExports.memo(() => {
   ] }, i2)) });
 });
 const RedTree = reactExports.memo(() => {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [20, -6 + 7.5, 40], castShadow: true, children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [0, -6 + 7.5, 0], castShadow: true, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("coneGeometry", { args: [6, 15, 6] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("meshStandardMaterial", { color: "red", roughness: 0.5 })
+  ] });
+});
+const R = 6;
+const H = 15;
+const GY = -6;
+const ColoredCone = reactExports.memo(({ color, x: x2 = 0, z = 0 }) => {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("mesh", { position: [x2, GY + H / 2, z], castShadow: true, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("coneGeometry", { args: [R, H, 6] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("meshStandardMaterial", { color, roughness: 0.5 })
   ] });
 });
 const GRID_SIZE = 2e3;
@@ -56429,10 +56705,6 @@ const WorldGroup = reactExports.memo(({ children }) => {
   });
   return /* @__PURE__ */ jsxRuntimeExports.jsx("group", { ref: groupRef, children });
 });
-const camera = { "orthoSize": 12, "minDist": 3, "maxDist": 500, "dragSensitivity": 6e-3, "defaultPreset": "chase", "presets": { "chase": { "position": [0, 4, 12], "target": [0, 0, 0] }, "top": { "position": [0, 16, 0.5], "target": [0, 0, 0] }, "side": { "position": [14, 2, 0], "target": [0, 0, 0] }, "cockpit": { "position": [0, 0.5, -1.5], "target": [0, 0, -20] } } };
-const sceneConfig = {
-  camera
-};
 const SC = sceneConfig.camera;
 function presetsFromConfig() {
   const out = {};
@@ -57413,7 +57685,12 @@ const ROTATE_BUTTONS = [
   { az: 0, po: 15, label: "▲" },
   { az: 0, po: -15, label: "▼" }
 ];
-const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => {
+const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey }) => {
+  const loc = sceneConfig.locations[locationKey];
+  const lat = (loc == null ? void 0 : loc.lat) ?? 0;
+  const zoom = (loc == null ? void 0 : loc.zoom) ?? 14;
+  const tileWU = tileWorldUnits(zoom, lat) || 200;
+  const TERRITORY_OFFSET = 10 * tileWU;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(CameraController, { ref: cameraRef }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("ambientLight", { intensity: 0.5 }),
@@ -57427,44 +57704,50 @@ const Scene2 = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled
           tiles: realTerrainData.tiles,
           mode: satelliteEnabled ? "realistic" : "schematic",
           centerTile: realTerrainData.centerTile
-        }
+        },
+        locationKey
       ) : /* @__PURE__ */ jsxRuntimeExports.jsx(GroundDisc, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsx(Runway, {}),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Clouds, { count: 40 }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Clouds, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsx(Trees, {}),
       /* @__PURE__ */ jsxRuntimeExports.jsx(RedTree, {}),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ColoredCone, { color: "blue", x: 0, z: -TERRITORY_OFFSET }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ColoredCone, { color: "green", x: TERRITORY_OFFSET, z: 0 }),
       showGrid && /* @__PURE__ */ jsxRuntimeExports.jsx(GridOverlay, {})
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(AircraftModel, { model, useImprovedFdm })
   ] });
 };
-const Aircraft3DCanvas = reactExports.memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos }) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-  Canvas,
-  {
-    gl: {
-      antialias: true,
-      powerPreference: "high-performance",
-      failIfMajorPerformanceCaveat: false
-    },
-    onCreated: (state2) => {
-      if (!state2.gl.getContextAttributes()) {
-        console.warn("[Aircraft3D] WebGL context creation failed");
-      }
-    },
-    onError: (err) => console.error("[Aircraft3D] Canvas error:", err),
-    children: [
-      projection === "ortho" ? /* @__PURE__ */ jsxRuntimeExports.jsx(OrthographicCamera2, { makeDefault: true, position: CAMERA_PRESETS.chase.position, zoom: 40, near: 0.1, far: 500 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(PerspectiveCamera2, { makeDefault: true, position: CAMERA_PRESETS.chase.position, fov: projection === "wide" ? 80 : 50, near: 0.1, far: 500 }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(Scene2, { model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos })
-    ]
-  }
-));
+const Aircraft3DCanvas = reactExports.memo(({ model, projection: projection2, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey }) => {
+  const PROJ = sceneConfig.projection;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    Canvas,
+    {
+      gl: {
+        antialias: true,
+        powerPreference: "high-performance",
+        failIfMajorPerformanceCaveat: false
+      },
+      onCreated: (state2) => {
+        if (!state2.gl.getContextAttributes()) {
+          console.warn("[Aircraft3D] WebGL context creation failed");
+        }
+      },
+      onError: (err) => console.error("[Aircraft3D] Canvas error:", err),
+      children: [
+        projection2 === "ortho" ? /* @__PURE__ */ jsxRuntimeExports.jsx(OrthographicCamera2, { makeDefault: true, position: CAMERA_PRESETS.chase.position, zoom: 40, near: 0.1, far: PROJ.ortho.far }) : /* @__PURE__ */ jsxRuntimeExports.jsx(PerspectiveCamera2, { makeDefault: true, position: CAMERA_PRESETS.chase.position, fov: projection2 === "wide" ? PROJ.wide.fov : PROJ.perspective.fov, near: 0.1, far: PROJ.perspective.far }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Scene2, { model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey })
+      ]
+    }
+  );
+});
 const LoadingOverlay = () => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 flex items-center justify-center text-gray-500 text-sm select-none pointer-events-none", children: "Загрузка 3D…" });
 const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
   const cameraRef = reactExports.useRef(null);
   const [selectedModel, setSelectedModel] = reactExports.useState(PRIMITIVE_MODEL);
   const [models, setModels] = reactExports.useState([PRIMITIVE_MODEL]);
   const [dialogOpen, setDialogOpen] = reactExports.useState(false);
-  const [projection, setProjection] = reactExports.useState("perspective");
+  const [projection2, setProjection] = reactExports.useState("perspective");
   const [showTouchdown, setShowTouchdown] = reactExports.useState(false);
   const [useImprovedFdm, setUseImprovedFdm] = reactExports.useState(() => getSavedFdm() === "improved");
   const [fdmDialogOpen, setFdmDialogOpen] = reactExports.useState(false);
@@ -57490,11 +57773,32 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
       return true;
     }
   });
+  const [loadAllCached, setLoadAllCached] = reactExports.useState({ loading: false, total: 0, done: 0 });
+  const [currentLocation, setCurrentLocation] = reactExports.useState(() => {
+    try {
+      return localStorage.getItem("pilot-3d-pfd:location") || sceneConfig.defaultLocation;
+    } catch {
+      return sceneConfig.defaultLocation;
+    }
+  });
   const realTerrain = useRealTerrain(
     frame2.Latitude,
     frame2.Longitude,
     realTerrainEnabled
   );
+  const [paused, setPaused] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    const onKey = (e2) => {
+      if (e2.code === "Space" && !e2.repeat) {
+        e2.preventDefault();
+        flightPause.paused = !flightPause.paused;
+        setPaused(flightPause.paused);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  useMapBroadcaster(frame2);
   reactExports.useEffect(() => {
     let rafId;
     const check = () => {
@@ -57562,7 +57866,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
       Aircraft3DCanvas,
       {
         model: selectedModel,
-        projection,
+        projection: projection2,
         cameraRef,
         useImprovedFdm,
         showGrid,
@@ -57573,10 +57877,15 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
           loading: realTerrain.loading,
           centerTile: realTerrain.centerTile
         },
-        aircraftPos: { x: 0, y: alt ?? 0, z: 0 }
+        aircraftPos: { x: 0, y: finite(alt), z: 0 },
+        locationKey: currentLocation
       }
     ) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(TouchControls, {}),
+    paused && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute inset-0 flex items-center justify-center pointer-events-none z-50", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-6xl font-bold text-white/20 select-none tracking-widest", children: "⏸ ПАУЗА" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute bottom-1/4 text-sm text-white/40 select-none", children: "Пробел — продолжить" })
+    ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute top-2 left-2 text-[11px] font-mono text-white/80 leading-tight pointer-events-none", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
         "PITCH ",
@@ -57631,7 +57940,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         "button",
         {
           title: key,
-          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\n                       backdrop-blur-sm transition-colors leading-none",
+          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\r\n                       backdrop-blur-sm transition-colors leading-none",
           onClick: () => setPreset(key),
           children: label
         },
@@ -57643,7 +57952,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         {
           title: PROJECTION_LABELS[key],
           className: `px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
-              ${projection === key ? "bg-cyan-600/50 text-white font-medium" : "bg-white/15 hover:bg-white/30 text-white/70"}`,
+              ${projection2 === key ? "bg-cyan-600/50 text-white font-medium" : "bg-white/15 hover:bg-white/30 text-white/70"}`,
           onClick: () => changeProjection(key),
           children: PROJECTION_LABELS[key]
         },
@@ -57680,7 +57989,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
         "button",
         {
           onClick: () => setFdmDialogOpen(true),
-          className: "px-1.5 py-0.5 text-[10px] rounded bg-white/15 hover:bg-cyan-600/50\n                       text-white/90 backdrop-blur-sm transition-colors leading-none",
+          className: "px-1.5 py-0.5 text-[10px] rounded bg-white/15 hover:bg-cyan-600/50\r\n                       text-white/90 backdrop-blur-sm transition-colors leading-none",
           title: "Настройки FDM",
           children: "⚙"
         }
@@ -57739,13 +58048,71 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
           title: satelliteEnabled ? "Со спутниковой текстурой" : "Без спутника (только рельеф)",
           children: "🛰"
         }
+      ),
+      realTerrainEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: async () => {
+            setLoadAllCached({ loading: true, total: 0, done: 0 });
+            const loaded = await TerrainManager.loadAllCached(locationRef.lat, locationRef.lon, (done, total) => {
+              setLoadAllCached((prev) => ({ ...prev, done, total }));
+            });
+            setLoadAllCached((prev) => ({ ...prev, loading: false, done: loaded }));
+          },
+          disabled: loadAllCached.loading,
+          className: `px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+              ${loadAllCached.loading ? "bg-yellow-600/50 text-white animate-pulse" : "bg-white/15 hover:bg-cyan-600/50 text-white/70"}`,
+          title: "Загрузить ВСЕ кэшированные тайлы (без интернета)",
+          children: [
+            "📦",
+            loadAllCached.loading && ` ${loadAllCached.done}/${loadAllCached.total}`
+          ]
+        }
+      ),
+      realTerrainEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mx-0.5 text-white/30 select-none", children: "│" }),
+        Object.entries(sceneConfig.locations).map(([id, loc]) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            onClick: () => {
+              locationRef.lat = loc.lat;
+              locationRef.lon = loc.lon;
+              aircraftPosition.set(0, 0, 0);
+              TerrainManager.clearAll();
+              setCurrentLocation(id);
+              try {
+                localStorage.setItem("pilot-3d-pfd:location", id);
+              } catch {
+              }
+            },
+            className: `px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none
+                  ${currentLocation === id ? "bg-cyan-600/50 text-white font-medium" : "bg-white/15 hover:bg-white/30 text-white/70"}`,
+            title: loc.name,
+            children: [
+              id === "alps" ? "🏔️" : "🌲",
+              " ",
+              loc.name.split(" ")[0]
+            ]
+          },
+          id
+        ))
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mx-0.5 text-white/30 select-none", children: "│" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          onClick: () => window.open("/map.html", "pilot-map", "width=1000,height=720"),
+          className: "px-1.5 py-0.5 text-[10px] rounded backdrop-blur-sm transition-colors leading-none bg-white/15 hover:bg-cyan-600/50 text-white/70",
+          title: "Открыть окно Карты тайлов",
+          children: "🗺"
+        }
       )
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "button",
       {
         onClick: () => setDialogOpen(true),
-        className: "absolute bottom-1.5 right-2 px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-white/30\n                   text-white/90 backdrop-blur-sm transition-colors leading-none",
+        className: "absolute bottom-1.5 right-2 px-2 py-0.5 text-[11px] rounded bg-white/15 hover:bg-white/30\r\n                   text-white/90 backdrop-blur-sm transition-colors leading-none",
         title: "Выбор модели",
         children: [
           "✈ ",
@@ -57779,14 +58146,14 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
       }
     ),
     showTouchdown && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 flex items-center justify-center pointer-events-none z-50", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-center", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[clamp(2rem,8vw,6rem)] font-black text-red-500/90\n                          [text-shadow:0_0_20px_rgba(239,68,68,0.6),0_0_60px_rgba(239,68,68,0.3)]\n                          tracking-[0.15em] animate-pulse", children: "TOUCHDOWN" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-[clamp(2rem,8vw,6rem)] font-black text-red-500/90\r\n                          [text-shadow:0_0_20px_rgba(239,68,68,0.6),0_0_60px_rgba(239,68,68,0.3)]\r\n                          tracking-[0.15em] animate-pulse", children: "TOUCHDOWN" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm font-mono text-white/60 mt-2 tracking-[0.1em]", children: "LANDING DETECTED" })
     ] }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1", children: [
       ROTATE_BUTTONS.map(({ az, po, label }, i2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
-          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\n                       backdrop-blur-sm transition-colors leading-none",
+          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\r\n                       backdrop-blur-sm transition-colors leading-none",
           onClick: () => rotateBy(az, po),
           children: label
         },
@@ -57795,7 +58162,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
-          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\n                     backdrop-blur-sm transition-colors leading-none ml-1",
+          className: "px-2 py-0.5 text-[13px] rounded bg-white/15 hover:bg-white/30 text-white/90\r\n                     backdrop-blur-sm transition-colors leading-none ml-1",
           onClick: resetView,
           children: "↺"
         }
@@ -57809,7 +58176,7 @@ const RealAircraft3DScene = reactExports.memo(({ frame: frame2 }) => {
 }, (prev, next) => {
   const pf = prev.frame;
   const nf = next.frame;
-  return pf.PitchAngle === nf.PitchAngle && pf.RollAngle === nf.RollAngle && pf.Heading1 === nf.Heading1 && pf.CAS === nf.CAS && pf.Vy === nf.Vy && pf.RAltitude === nf.RAltitude;
+  return pf.PitchAngle === nf.PitchAngle && pf.RollAngle === nf.RollAngle && pf.Heading1 === nf.Heading1 && pf.CAS === nf.CAS && pf.Vy === nf.Vy && pf.RAltitude === nf.RAltitude && pf.Latitude === nf.Latitude && pf.Longitude === nf.Longitude;
 });
 export {
   RealAircraft3DScene

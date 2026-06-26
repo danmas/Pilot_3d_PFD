@@ -8,6 +8,17 @@
 /** Имя Broadcast-канала между окнами. */
 export const MAP_CHANNEL = 'pilot-map-state';
 
+/** Канал для выбора тайла (двунаправленный: карта ↔ сцена). */
+export const TILE_SELECT_CHANNEL = 'pilot-tile-select';
+
+/** Сообщение выбора тайла. */
+export interface TileSelectMessage {
+  /** Выбранный тайл или null для снятия выделения. */
+  tile: TileKey | null;
+  /** Кто инициировал выбор. */
+  source: 'map' | 'scene';
+}
+
 /** Покадровый пакет состояния, отправляемый главным окном. */
 export interface MapStatePacket {
   /** Геопозиция самолёта (градусы). */

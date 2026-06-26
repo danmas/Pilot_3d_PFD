@@ -5,23 +5,25 @@
  * рендерит список TerrainTile компонентов. При добавлении тайла
  * создаётся геометрия только для него, а не для всей сетки.
  *
- * v2.14.1:
- *   - tileWU = baseTileSize (реальный размер 1×, синхронизация с FDM)
- *   - Центр по centerTile или медиане
- *   - fixedRef фиксируется при загрузке, не сбрасывается при полёте
- *     (только при смене локации >8 тайлов)
+ * v2.14.2:
+ *   - refX/refY = latLonToTile(locationRef.lat/lon) — фиксированная точка
+ *   - Красный конус (0,0) всегда соответствует locationRef на карте
+ *   - fixedRef сбрасывается только при смене локации (locationRef изменился)
  */
 
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
+import * as THREE from 'three';
 import type { TerrainTileData } from './TerrainManager';
-import { type TileCoord, tileCenterLatLon, tileWorldUnits } from './terrainTileUtils';
+import { type TileCoord, tileCenterLatLon, tileWorldUnits, getTileCornersLatLon, latLonToTile, DEFAULT_ZOOM } from './terrainTileUtils';
 import { TerrainTile } from './TerrainTile';
+import { locationRef } from '../aircraftPosition';
 
 interface RealTerrainMeshProps {
   tiles: Array<{ coord: TileCoord; data: TerrainTileData }> | null;
   opacity?: number;
   mode?: 'realistic' | 'schematic';
   centerTile?: TileCoord | null;
+  selectedTile?: TileCoord | null;
 }
 
 const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
@@ -29,49 +31,33 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
   opacity = 1,
   mode = 'realistic',
   centerTile,
+  selectedTile = null,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
 
-  // Fixed reference: вычисляется при первой загрузке тайлов
-  // и НЕ меняется при полёте (только при смене локации >8 тайлов).
-  // Все тайлы позиционируются относительно этого фиксированного ref.
-  // WorldGroup сдвигает весь мир через -aircraftPosition независимо.
+  // Fixed reference: always based on locationRef (the fixed geographic point).
+  // Red cone at (0,0) in WorldGroup corresponds to locationRef.lat/lon on the map.
+  // Only resets when the user switches location (locationRef changes).
   const fixedRef = useRef<{ refX: number; refY: number; tileWU: number } | null>(null);
 
   const refData = useMemo(() => {
     if (!tiles || tiles.length === 0) return null;
 
-    // Сброс fixedRef только при смене локации (далеко ушли от старого central tile)
-    if (fixedRef.current && centerTile) {
-      const dx = Math.abs(centerTile.x - fixedRef.current.refX);
-      const dy = Math.abs(centerTile.y - fixedRef.current.refY);
-      if (dx > 8 || dy > 8) {
+    // Reference tile is always based on locationRef (the fixed geographic point).
+    // This ensures the red cone at (0,0) in WorldGroup always corresponds to
+    // locationRef.lat/lon on the map, regardless of aircraft position.
+    const refTile = latLonToTile(locationRef.lat, locationRef.lon, DEFAULT_ZOOM);
+
+    // Reset fixedRef if locationRef has changed (user switched location)
+    if (fixedRef.current) {
+      if (fixedRef.current.refX !== refTile.x || fixedRef.current.refY !== refTile.y) {
         fixedRef.current = null;
       }
     }
 
     if (!fixedRef.current) {
-      let refX: number;
-      let refY: number;
-      let tileWU: number;
-
-      if (centerTile) {
-        refX = centerTile.x;
-        refY = centerTile.y;
-        const centerLatLon = tileCenterLatLon(centerTile.x, centerTile.y, centerTile.z);
-        const baseTileSize = tileWorldUnits(centerTile.z, centerLatLon.lat);
-        tileWU = baseTileSize > 0 ? baseTileSize : 200; // 1× = синхронизация с FDM
-      } else {
-        const xs = tiles.map(t => t.coord.x).sort((a, b) => a - b);
-        const ys = tiles.map(t => t.coord.y).sort((a, b) => a - b);
-        refX = xs[Math.floor(xs.length / 2)];
-        refY = ys[Math.floor(ys.length / 2)];
-        const midIdx = Math.floor(tiles.length / 2);
-        const baseTileSize = tiles[midIdx].data.worldUnits;
-        tileWU = baseTileSize > 0 ? baseTileSize : 200;
-      }
-
-      fixedRef.current = { refX, refY, tileWU };
+      const tileWU = tileWorldUnits(DEFAULT_ZOOM, locationRef.lat) || 200;
+      fixedRef.current = { refX: refTile.x, refY: refTile.y, tileWU };
     }
 
     const { refX, refY, tileWU } = fixedRef.current;
@@ -83,7 +69,7 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
     if (!isFinite(globalMinElev)) globalMinElev = 0;
 
     return { refX, refY, tileWU, globalMinElev };
-  }, [tiles, centerTile]);
+  }, [tiles]);
 
   const triangleStats = useMemo(() => {
     if (!tiles || !refData) return null;
@@ -107,6 +93,58 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
     }
   }, [tiles?.length, triangleStats, mode]);
 
+  // ── Геометрия рамки выделенного тайла (до early return!) ──
+  const selectionOutline = useMemo(() => {
+    if (!selectedTile || !refData) return null;
+    const halfW = refData.tileWU / 2;
+    // 4 ребра квадрата: NW→NE, NE→SE, SE→SW, SW→NW
+    const positions = new Float32Array([
+      -halfW, 0, -halfW,  halfW, 0, -halfW,
+       halfW, 0, -halfW,  halfW, 0,  halfW,
+       halfW, 0,  halfW, -halfW, 0,  halfW,
+      -halfW, 0,  halfW, -halfW, 0, -halfW,
+    ]);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    return geo;
+  }, [selectedTile, refData]);
+
+  // Освобождаем геометрию рамки
+  useEffect(() => {
+    return () => { selectionOutline?.dispose(); };
+  }, [selectionOutline]);
+
+  // ── Логирование на сервер при выборе тайла ──
+  useEffect(() => {
+    if (!selectedTile || !refData) return;
+    const { refX, refY, tileWU } = refData;
+    const halfW = tileWU / 2;
+    const offsetX = (selectedTile.x - refX) * tileWU;
+    const offsetZ = (selectedTile.y - refY) * tileWU;
+    const corners = getTileCornersLatLon(selectedTile.x, selectedTile.y, selectedTile.z);
+    const sceneCorners = [
+      { x: offsetX - halfW, z: offsetZ - halfW },  // NW
+      { x: offsetX + halfW, z: offsetZ - halfW },  // NE
+      { x: offsetX + halfW, z: offsetZ + halfW },  // SE
+      { x: offsetX - halfW, z: offsetZ + halfW },  // SW
+    ];
+    fetch('/api/terrain/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'SCENE-TILE-SELECTED',
+        coord: selectedTile,
+        corners,
+        sceneCorners,
+        ref: { x: refX, y: refY },
+        tileWU,
+        offset: { x: offsetX, z: offsetZ },
+        source: 'scene',
+      }),
+    }).catch(() => {});
+    console.log('[scene] tile selected:', selectedTile, { offsetX, offsetZ, tileWU, corners, sceneCorners });
+  }, [selectedTile, refData]);
+
   if (!tiles || tiles.length === 0 || !refData) return null;
 
   const { refX, refY, tileWU, globalMinElev } = refData;
@@ -125,6 +163,16 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
           globalMinElev={globalMinElev}
         />
       ))}
+      {/* Рамка выделенного тайла (синяя) */}
+      {selectionOutline && selectedTile && (() => {
+        const offsetX = (selectedTile.x - refX) * tileWU;
+        const offsetZ = (selectedTile.y - refY) * tileWU;
+        return (
+          <lineSegments geometry={selectionOutline} position={[offsetX, -4, offsetZ]}>
+            <lineBasicMaterial color="#3b82f6" linewidth={2} />
+          </lineSegments>
+        );
+      })()}
     </group>
   );
 };
