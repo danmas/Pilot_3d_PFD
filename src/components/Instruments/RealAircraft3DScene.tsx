@@ -28,6 +28,7 @@ import { ColoredCone } from './aircraft3d/ColoredCone';
 import { tileWorldUnits } from './aircraft3d/terrain/terrainTileUtils';
 import { GridOverlay } from './aircraft3d/GridOverlay';
 import { WorldGroup } from './aircraft3d/WorldGroup';
+import { FpsCounter } from './aircraft3d/FpsCounter';
 import { groundTouch, aircraftPosition, locationRef } from './aircraft3d/aircraftPosition';
 import { getSavedFdm, saveFdm, ImprovedFlightModel, SimpleFlightModel, applyFdmParamsToActive } from './aircraft3d/flightModel';
 import {
@@ -145,6 +146,7 @@ interface Aircraft3DCanvasProps {
   model: ModelEntry;
   projection: ProjectionType;
   cameraRef: React.RefObject<CameraControls | null>;
+  fpsRef: React.RefObject<HTMLDivElement | null>;
   useImprovedFdm?: boolean;
   showGrid?: boolean;
   realTerrainEnabled?: boolean;
@@ -159,7 +161,7 @@ interface Aircraft3DCanvasProps {
   selectedTile?: TileCoord | null;
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey, selectedTile }) => {
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, fpsRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey, selectedTile }) => {
   const PROJ = sceneConfig.projection;
   return (
   <Canvas
@@ -181,6 +183,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? PROJ.wide.fov : PROJ.perspective.fov} near={0.1} far={PROJ.perspective.far} />
     )}
     <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} locationKey={locationKey} selectedTile={selectedTile} />
+    <FpsCounter targetRef={fpsRef} />
   </Canvas>
   );
 });
@@ -195,6 +198,7 @@ const LoadingOverlay: React.FC = () => (
 /* ─── Real 3D Scene component ─── */
 const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }) => {
   const cameraRef = useRef<CameraControls>(null);
+  const fpsRef = useRef<HTMLDivElement | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModelEntry>(PRIMITIVE_MODEL);
   const [models, setModels] = useState<ModelEntry[]>([PRIMITIVE_MODEL]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -322,6 +326,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           model={selectedModel}
           projection={projection}
           cameraRef={cameraRef}
+          fpsRef={fpsRef}
           useImprovedFdm={useImprovedFdm}
           showGrid={showGrid}
           realTerrainEnabled={realTerrainEnabled}
@@ -356,6 +361,14 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
         <div>HDG <span className="text-cyan-400">{Math.round(heading).toString().padStart(3, '0')}°</span></div>
         <div>ALT <span className="text-orange-400">{fmt(alt, 0)} м</span></div>
         <div className="text-[9px] mt-1 opacity-40">FDM: {useImprovedFdm ? 'Improved' : 'Direct'}</div>
+      </div>
+
+      {/* FPS counter — updated from the Canvas render loop */}
+      <div
+        ref={fpsRef}
+        className="absolute top-20 right-2 text-[11px] font-mono text-white/80 leading-tight pointer-events-none text-right"
+      >
+        FPS —
       </div>
 
       {/* Terrain log panel — под ALT справа вверху */}
