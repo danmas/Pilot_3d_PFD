@@ -7,7 +7,7 @@
  *
  * НЕ регистрируется в PanelKit самостоятельно — регистрация в Aircraft3DInstrument.tsx.
  */
-import React, { useRef, useCallback, Suspense, useState, useEffect, memo } from 'react';
+import React, { useRef, useCallback, Suspense, useState, useEffect, useMemo, memo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei';
 import type { TelemetryFrame } from '../../types';
@@ -83,12 +83,11 @@ interface SceneProps {
     loading: boolean;
     centerTile: import('./aircraft3d/terrain/terrainTileUtils').TileCoord | null;
   } | null;
-  aircraftPos: { x: number; y: number; z: number };
   locationKey: string;
   selectedTile?: TileCoord | null;
 }
 
-const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey, selectedTile }) => {
+const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, locationKey, selectedTile }) => {
   // Размер 10 тайлов территории в WU (зависит от широты локации)
   const loc = sceneConfig.locations[locationKey as keyof typeof sceneConfig.locations];
   const lat = loc?.lat ?? 0;
@@ -156,20 +155,20 @@ interface Aircraft3DCanvasProps {
     loading: boolean;
     centerTile: import('./aircraft3d/terrain/terrainTileUtils').TileCoord | null;
   } | null;
-  aircraftPos: { x: number; y: number; z: number };
   locationKey: string;
   selectedTile?: TileCoord | null;
 }
 
-const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, fpsRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, aircraftPos, locationKey, selectedTile }) => {
+const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, projection, cameraRef, fpsRef, useImprovedFdm, showGrid, realTerrainEnabled, satelliteEnabled, realTerrainData, locationKey, selectedTile }) => {
   const PROJ = sceneConfig.projection;
   return (
   <Canvas
     gl={{
-      antialias: true,
+      antialias: sceneConfig.renderer.antialias,
       powerPreference: 'high-performance',
       failIfMajorPerformanceCaveat: false,
     }}
+    dpr={sceneConfig.renderer.dpr as [number, number]}
     onCreated={(state) => {
       if (!state.gl.getContextAttributes()) {
         console.warn('[Aircraft3D] WebGL context creation failed');
@@ -182,7 +181,7 @@ const Aircraft3DCanvas: React.FC<Aircraft3DCanvasProps> = memo(({ model, project
     ) : (
       <PerspectiveCamera makeDefault position={CAMERA_PRESETS.chase.position} fov={projection === 'wide' ? PROJ.wide.fov : PROJ.perspective.fov} near={0.1} far={PROJ.perspective.far} />
     )}
-    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} aircraftPos={aircraftPos} locationKey={locationKey} selectedTile={selectedTile} />
+    <Scene model={model} cameraRef={cameraRef} useImprovedFdm={useImprovedFdm} showGrid={showGrid} realTerrainEnabled={realTerrainEnabled} satelliteEnabled={satelliteEnabled} realTerrainData={realTerrainData} locationKey={locationKey} selectedTile={selectedTile} />
     <FpsCounter targetRef={fpsRef} />
   </Canvas>
   );
@@ -226,6 +225,16 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
     frame.Latitude as number | undefined,
     frame.Longitude as number | undefined,
     realTerrainEnabled,
+  );
+
+  // Стабильная ссылка на данные рельефа, чтобы memo(Aircraft3DCanvas) не сбрасывался каждый кадр
+  const realTerrainDataMemo = useMemo(
+    () => ({
+      tiles: realTerrain.tiles,
+      loading: realTerrain.loading,
+      centerTile: realTerrain.centerTile,
+    }),
+    [realTerrain.tiles, realTerrain.loading, realTerrain.centerTile]
   );
 
   // ── Пауза симуляции ──
@@ -331,12 +340,7 @@ const RealAircraft3DScene: React.FC<{ frame: TelemetryFrame }> = memo(({ frame }
           showGrid={showGrid}
           realTerrainEnabled={realTerrainEnabled}
           satelliteEnabled={satelliteEnabled}
-          realTerrainData={{
-            tiles: realTerrain.tiles,
-            loading: realTerrain.loading,
-            centerTile: realTerrain.centerTile,
-          }}
-          aircraftPos={{ x: 0, y: finite(alt), z: 0 }}
+          realTerrainData={realTerrainDataMemo}
           locationKey={currentLocation}
           selectedTile={selectedTile}
         />

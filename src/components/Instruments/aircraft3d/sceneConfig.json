@@ -24,6 +24,10 @@
     "discRadius": 5000,
     "y": -6
   },
+  "renderer": {
+    "antialias": false,
+    "dpr": [1, 1.5]
+  },
   "grid": {
     "size": 2000,
     "divisions": 200,
