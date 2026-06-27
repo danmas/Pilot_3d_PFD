@@ -10,7 +10,7 @@
  *   since: performance.now() момент касания (для таймера отображения)
  */
 import * as THREE from 'three';
-import sceneConfig from './sceneConfig.json';
+import sceneConfig from '@/scene-config.json';
 
 /** Накопленная позиция (XZ — горизонтальная плоскость, Y — высота). */
 export const aircraftPosition = new THREE.Vector3(0, 0, 0);

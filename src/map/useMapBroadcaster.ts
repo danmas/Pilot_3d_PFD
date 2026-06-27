@@ -13,11 +13,13 @@ import { aircraftPosition, locationRef } from '../components/Instruments/aircraf
 import { TerrainManager } from '../components/Instruments/aircraft3d/terrain/TerrainManager';
 import { MAP_CHANNEL, type MapStatePacket, type TileKey, type ConeMarker } from './mapProtocol';
 import { tileWorldUnits } from '../components/Instruments/aircraft3d/terrain/terrainTileUtils';
+import sceneConfig from '@/scene-config.json';
 
 const METERS_PER_DEG_LAT = 111320;
 const WU_TO_M = 40; // 1 World Unit ≈ 40 м
 const MS_TO_KT = 1.94384;
-const LOAD_RADIUS = 3; // 7×7 — совпадает с TerrainManager.loadRadius
+const terrainConfig = (sceneConfig as any).terrain ?? { loadRadius: 3, keepRadius: 4 };
+const LOAD_RADIUS = terrainConfig.loadRadius; // совпадает с TerrainManager.loadRadius
 
 export function useMapBroadcaster(frame: TelemetryFrame): void {
   const frameRef = useRef(frame);
@@ -73,7 +75,7 @@ export function useMapBroadcaster(frame: TelemetryFrame): void {
           z: t.coord.z,
         }));
 
-        // Ожидаемая сетка 7×7
+        // Ожидаемая сетка вокруг центра
         const center = TerrainManager.getCurrentCenter();
         const needed: TileKey[] = [];
         if (center) {

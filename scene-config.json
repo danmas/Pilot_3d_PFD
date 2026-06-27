@@ -28,6 +28,10 @@
     "antialias": false,
     "dpr": [1, 1.5]
   },
+  "terrain": {
+    "loadRadius": 7,
+    "keepRadius": 10
+  },
   "grid": {
     "size": 2000,
     "divisions": 200,

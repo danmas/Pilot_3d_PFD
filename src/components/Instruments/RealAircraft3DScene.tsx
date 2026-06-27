@@ -38,7 +38,7 @@ import {
   type CameraControls,
   type ProjectionType,
 } from './aircraft3d/CameraController';
-import sceneConfig from './aircraft3d/sceneConfig.json';
+import sceneConfig from '@/scene-config.json';
 import { PRIMITIVE_MODEL, type ModelEntry, fetchModels } from './aircraft3d/modelConfig';
 import { ModelDialog } from './aircraft3d/ModelDialog';
 import TouchControls from '../Controls/TouchControls';

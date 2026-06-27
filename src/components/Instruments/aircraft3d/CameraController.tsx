@@ -19,7 +19,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
 import { aircraftControlsRef } from '../../../aircraftControlsRef';
-import sceneConfig from './sceneConfig.json';
+import sceneConfig from '@/scene-config.json';
 
 const SC = sceneConfig.camera;
 const PR = sceneConfig.projection;

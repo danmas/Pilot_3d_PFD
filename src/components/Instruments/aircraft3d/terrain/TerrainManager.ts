@@ -21,6 +21,7 @@ import {
   type TileCoord,
 } from './terrainTileUtils';
 import { getTile, putTile } from './TerrainCache';
+import sceneConfig from '@/scene-config.json';
 
 export interface TerrainTileData {
   heights: Float32Array;
@@ -40,14 +41,16 @@ export interface TileLoadProgress {
 type TileAddedCallback = (coord: TileCoord, data: TerrainTileData) => void;
 type ProgressCallback = (progress: TileLoadProgress) => void;
 
+const terrainConfig = (sceneConfig as any).terrain ?? { loadRadius: 3, keepRadius: 4 };
+
 const CONFIG = {
   maxConcurrent: 6,
   fetchTimeoutMs: 8_000,
   zoom: DEFAULT_ZOOM,
   /** Радиус загрузки в тайлах от центра (внутренний для новых) */
-  loadRadius: 3, // 7×7
+  loadRadius: terrainConfig.loadRadius,
   /** Радиус удержания (keep) — держим больше для плавности во время загрузки и движения */
-  keepRadius: 4, // 9×9 overlap, удаляем только далеко за пределами
+  keepRadius: terrainConfig.keepRadius,
   /** Порог смещения (в долях тайла) для триггера обновления */
   moveThreshold: 0.3,
 };
