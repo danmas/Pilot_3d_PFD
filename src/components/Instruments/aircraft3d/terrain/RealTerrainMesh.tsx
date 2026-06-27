@@ -72,9 +72,16 @@ const MergedSchematicTerrain: React.FC<MergedSchematicTerrainProps> = ({ tiles, 
     const removedCount = Array.from(keysRef.current).filter((k) => !currentKeys.has(k)).length;
 
     const buildGeometries = (list: Array<{ coord: TileCoord; data: TerrainTileData }>) =>
-      list.map(({ coord, data }) =>
-        createTileGeometry(data, coord, tileWU, refX, refY, globalMinElev, SCHEMATIC_SEG_X, SCHEMATIC_SEG_Z)
-      );
+      list.map(({ coord, data }) => {
+        const geo = createTileGeometry(data, coord, tileWU, refX, refY, globalMinElev, SCHEMATIC_SEG_X, SCHEMATIC_SEG_Z);
+        // createTileGeometry возвращает геометрию в локальных координатах тайла;
+        // перед слиянием сдвигаем вершины на мировой offset тайла, иначе все тайлы
+        // наложатся друг на друга в одном квадрате.
+        const offsetX = geo.userData.offsetX as number;
+        const offsetZ = geo.userData.offsetZ as number;
+        geo.translate(offsetX, 0, offsetZ);
+        return geo;
+      });
 
     let nextGeom: THREE.BufferGeometry | null = null;
 

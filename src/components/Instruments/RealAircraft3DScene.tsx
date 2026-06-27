@@ -126,7 +126,7 @@ const Scene: React.FC<SceneProps> = ({ model, cameraRef, useImprovedFdm, showGri
 
       <Runway />
       <Clouds />
-      <Trees />
+      {!realTerrainEnabled && <Trees />}
       <RedTree />
       <ColoredCone color="red" x={0} z={0} />
       <ColoredCone color="blue" x={0} z={-TERRITORY_OFFSET} />
