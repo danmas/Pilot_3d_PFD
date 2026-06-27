@@ -14,8 +14,8 @@
 
 | Файл | Порт | Режим | Назначение |
 |------|------|-------|------------|
-| `server/server.js` | 3410 | production (pm2) | Единый сервер: статика dist/ + terrain API + SPA fallback |
-| `server/terrain-proxy.js` | 3409 | development (npm run dev) | Отдельный прокси для Vite dev server |
+| `server/server.js` | 3410 | production (pm2) | Единый сервер: статика dist/ + terrain API + WebSocket + SPA fallback |
+| `server/terrain-proxy.js` | 3409 | development (npm run dev) | Отдельный прокси для Vite dev server + WebSocket |
 
 В production `server.js` заменяет Vite и terrain-proxy одним процессом.
 В development `npm run dev` запускает только Vite, а `terrain-proxy.js` запускается отдельно.
@@ -27,8 +27,12 @@
 node server/terrain-proxy.js
 
 # 2. Vite проксирует /api/terrain/* → http://localhost:3409
+#    и /ws/terrain → ws://localhost:3409
 #    Настроено в vite.config.ts:
-#      proxy: { '/api/terrain': { target: 'http://localhost:3409' } }
+#      proxy: {
+#        '/api/terrain': { target: 'http://localhost:3409' },
+#        '/ws/terrain': { target: 'ws://localhost:3409', ws: true }
+#      }
 
 # 3. npm run dev — Vite на 3410, проксирует terrain-запросы на 3409
 npm run dev
@@ -173,6 +177,7 @@ module.exports = {
 | GET | `/api/terrain/tile/:z/:x/:y?type=dem\|sat` | Прокси-тайл |
 | GET | `/api/terrain/quota` | Статистика квоты |
 | GET | `/api/terrain/logs?limit=N` | Последние N записей лога (макс 500) |
+| WS | `/ws/terrain` | Бинарный WebSocket для батчевой загрузки тайлов |
 
 ### Лог загрузок
 
@@ -199,6 +204,29 @@ function satelliteUrl(token, z, x, y): string {
 ```
 
 Токен Mapbox **не передаётся клиенту** — он живёт только на сервере в `.env`.
+
+## WebSocket-протокол
+
+Бинарный формат запроса/ответа между клиентом и сервером.
+
+**Запрос клиента → сервер:**
+```
+[reqId: 4 bytes uint32 BE]
+[count: 2 bytes uint16 BE]
+count * [z: 1 byte][x: 4 bytes uint32 BE][y: 4 bytes uint32 BE][type: 1 byte]
+```
+`type`: `0` — DEM, `1` — SAT.
+
+**Ответ сервера → клиент (по одному фрейму на тайл):**
+```
+[reqId: 4 bytes uint32 BE]
+[z: 1 byte][x: 4 bytes uint32 BE][y: 4 bytes uint32 BE][type: 1 byte]
+[payloadLen: 4 bytes uint32 BE]
+[payload: payloadLen bytes]
+```
+`payloadLen === 0` означает ошибку или отсутствие тайла.
+
+Реализация: [`server/terrain-ws.js`](../server/terrain-ws.js) и [`TerrainWebSocketClient.ts`](../src/components/Instruments/aircraft3d/terrain/TerrainWebSocketClient.ts).
 
 ## Тестирование
 

@@ -15,7 +15,8 @@
 - **Слияние схематичных тайлов** в один mesh (`MergedSchematicLodGroup`).
 - **Отключение леса (`Trees`)** при включённом реальном ландшафте.
 - **Кольцевой LOD** для terrain с уменьшением разрешения геометрии и текстур на дальних кольцах.
-- **Вынесение `loadRadius`, `keepRadius`, `maxConcurrent` и LOD** в `scene-config.json`.
+- **Вынесение `loadRadius`, `keepRadius`, `maxConcurrent`, `transport` и LOD** в `scene-config.json`.
+- **WebSocket-транспорт** для батчевой загрузки тайлов вместо отдельных HTTP-запросов, что обходит лимит браузера в 6 соединений на домен.
 
 ## Выявленные узкие места
 

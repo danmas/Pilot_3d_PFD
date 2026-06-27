@@ -154,7 +154,7 @@
 | `camera` | Пресеты камеры, чувствительность, ограничения расстояния |
 | `projection` | FOV и near/far для перспективы/широкого угла/ортографии |
 | `renderer` | `antialias`, `dpr` — настройки WebGL-рендерера и производительности |
-| `terrain` | `loadRadius`, `keepRadius`, `maxConcurrent`, `lod[]` — радиусы загрузки, параллелизм и кольца LOD |
+| `terrain` | `loadRadius`, `keepRadius`, `maxConcurrent`, `transport`, `lod[]` — радиусы загрузки, транспорт, параллелизм и кольца LOD |
 | `trees` | Количество деревьев, радиус области, параметры мешей |
 | `clouds` | Пул облаков, интервал спавна, дистанция куллинга |
 | `locations` | Список стартовых локаций (lat/lon/zoom) |
@@ -166,6 +166,7 @@
   "loadRadius": 17,
   "keepRadius": 20,
   "maxConcurrent": 12,
+  "transport": "websocket",
   "lod": [
     { "ring": 2,  "segX": 32, "segZ": 64, "textureScale": 1.0,  "fillOpacity": 0.5 },
     { "ring": 5,  "segX": 16, "segZ": 32, "textureScale": 0.5,  "fillOpacity": 0.3 },
@@ -179,6 +180,7 @@
 - `segX` / `segZ` — разрешение геометрии тайла.
 - `textureScale` — масштаб спутниковой текстуры при создании `CanvasTexture` (1 = оригинал 512×512).
 - `fillOpacity` — интенсивность зелёной заливки тайла на 2D-карте.
+- `transport` — транспорт загрузки тайлов: `"http"` или `"websocket"`. WebSocket загружает тайлы пачками по одному постоянному соединению, что обходит лимит браузера в 6 параллельных HTTP-соединений.
 
 > ⚠️ После изменения `scene-config.json` необходимо перезапустить `npm run dev`, так как значения читаются при загрузке модулей.
 

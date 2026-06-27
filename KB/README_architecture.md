@@ -195,6 +195,25 @@ Sources → telemetryRef → setFrame() → Component(frame)
   - **отсутствующие тайлы** — красный пунктир (динамический радиус из `scene-config.json`, не фиксированный 7×7);
   - маркер самолёта + вектор скорости, компас N/Ю, авто-центр + кнопка ⊕.
 
+### 4.9 Загрузка terrain-тайлов (v2.18.0)
+
+Тайлы высот (DEM) и спутниковые тайлы (SAT) можно загружать двумя способами:
+
+| Транспорт | Путь | Назначение |
+|-----------|------|------------|
+| HTTP | `GET /api/terrain/tile/:z/:x/:y?type=dem\|sat` | Классический прокси, 6 параллельных соединений на домен |
+| WebSocket | `ws://host/ws/terrain` | Одно постоянное соединение, батчевая загрузка, автоматический fallback на HTTP |
+
+Конфигурация транспорта — поле `terrain.transport` в [`scene-config.json`](../scene-config.json). WebSocket активируется при `"transport": "websocket"`.
+
+Серверная реализация:
+- [`server/terrain-tile-loader.js`](../server/terrain-tile-loader.js) — общий загрузчик (кэш, Mapbox, квота).
+- [`server/terrain-ws.js`](../server/terrain-ws.js) — бинарный WebSocket-эндпоинт.
+
+Клиентская реализация:
+- [`TerrainWebSocketClient.ts`](../src/components/Instruments/aircraft3d/terrain/TerrainWebSocketClient.ts) — батчевой WS-клиент с fallback.
+- [`TerrainManager.ts`](../src/components/Instruments/aircraft3d/terrain/TerrainManager.ts) — выбирает транспорт по конфигу.
+
 ---
 
 ## 5. Управление (Controls)
