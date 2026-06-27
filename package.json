@@ -1,11 +1,11 @@
 {
   "name": "pilot-3d-pfd",
   "private": true,
-  "version": "2.18.0",
+  "version": "2.18.1",
   "type": "module",
   "description": "Merged 3D Flight Viewer + PFD — bridge, viewer, and KPI in one project. Single npm run dev starts UDP bridge, SSE streams, HTTP API, capture and React PFD on port 3410.",
   "scripts": {
-    "predev": "node scripts/kill-port.js 3410",
+    "predev": "node scripts/predev.js",
     "dev": "vite --strictPort",
     "build": "node prebuild.mjs && vite build && node -e \"const v=require('./package.json').version; const fs=require('fs'); fs.writeFileSync('.last-built-version', v)\"",
     "preview": "vite preview",

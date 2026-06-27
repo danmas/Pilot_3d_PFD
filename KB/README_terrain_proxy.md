@@ -22,20 +22,28 @@
 
 ### Development setup
 
+В dev-режиме `npm run dev` автоматически поднимает terrain-proxy перед стартом Vite (`predev` → `scripts/predev.js`).
+
 ```bash
-# 1. Запустить terrain-proxy на порту 3409 (отдельный терминал)
-node server/terrain-proxy.js
-
-# 2. Vite проксирует /api/terrain/* → http://localhost:3409
-#    и /ws/terrain → ws://localhost:3409
-#    Настроено в vite.config.ts:
-#      proxy: {
-#        '/api/terrain': { target: 'http://localhost:3409' },
-#        '/ws/terrain': { target: 'ws://localhost:3409', ws: true }
-#      }
-
-# 3. npm run dev — Vite на 3410, проксирует terrain-запросы на 3409
 npm run dev
+```
+
+Ручной запуск (если нужен отдельный процесс):
+
+```bash
+node server/terrain-proxy.js
+```
+
+Vite проксирует:
+- `/api/terrain/*` → `http://localhost:3409`
+- `/ws/terrain` → `ws://localhost:3409`
+
+Настроено в `vite.config.ts`:
+```ts
+proxy: {
+  '/api/terrain': { target: 'http://localhost:3409' },
+  '/ws/terrain': { target: 'ws://localhost:3409', ws: true }
+}
 ```
 
 **Важно:** terrain-proxy читает токен из `.env` (не `.env.local`). Токен должен быть в обоих файлах.
