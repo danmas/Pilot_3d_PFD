@@ -71,6 +71,11 @@ export default defineConfig(({mode}) => {
           target: 'http://localhost:3409',
           changeOrigin: true,
         },
+        '/ws/terrain': {
+          target: 'ws://localhost:3409',
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
     build: {

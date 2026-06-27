@@ -31,6 +31,9 @@
   "terrain": {
     "loadRadius": 17,
     "keepRadius": 20,
+    "maxConcurrent": 12,
+    "transport_OLD": "http",
+    "transport": "websocket",
     "lod": [
       { "ring": 2, "segX": 32, "segZ": 64, "textureScale": 1.0, "fillOpacity": 0.5 },
       { "ring": 5, "segX": 16, "segZ": 32, "textureScale": 0.5, "fillOpacity": 0.3 },

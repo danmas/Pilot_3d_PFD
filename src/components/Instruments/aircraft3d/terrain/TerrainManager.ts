@@ -21,6 +21,7 @@ import {
   type TileCoord,
 } from './terrainTileUtils';
 import { getTile, putTile } from './TerrainCache';
+import { TerrainWebSocketClient, type TileType } from './TerrainWebSocketClient';
 import sceneConfig from '@/scene-config.json';
 
 export interface TerrainTileData {
@@ -44,7 +45,7 @@ type ProgressCallback = (progress: TileLoadProgress) => void;
 const terrainConfig = (sceneConfig as any).terrain ?? { loadRadius: 3, keepRadius: 4 };
 
 const CONFIG = {
-  maxConcurrent: 6,
+  maxConcurrent: terrainConfig.maxConcurrent ?? 6,
   fetchTimeoutMs: 8_000,
   zoom: DEFAULT_ZOOM,
   /** Радиус загрузки в тайлах от центра (внутренний для новых) */
@@ -53,7 +54,11 @@ const CONFIG = {
   keepRadius: terrainConfig.keepRadius,
   /** Порог смещения (в долях тайла) для триггера обновления */
   moveThreshold: 0.3,
+  /** Транспорт: 'http' или 'websocket' */
+  transport: terrainConfig.transport === 'websocket' ? 'websocket' : 'http',
 };
+
+const wsClient = CONFIG.transport === 'websocket' ? new TerrainWebSocketClient() : null;
 
 class TerrainManagerImpl {
   private token: string = '';
@@ -103,6 +108,10 @@ class TerrainManagerImpl {
 
   init(token: string): void {
     this.token = token;
+    wsClient?.setToken(token);
+    if (wsClient) {
+      wsClient.connect().catch(() => { /* fallback to HTTP is automatic */ });
+    }
     this.abortController?.abort();
     this.abortController = new AbortController();
   }
@@ -150,6 +159,7 @@ class TerrainManagerImpl {
     this.everLoaded.clear();
     this.isUpdating = false;
     this.isLoading = false;
+    wsClient?.close();
   }
 
   /** P0.1: публичный геттер для currentCenter */
@@ -434,6 +444,16 @@ class TerrainManagerImpl {
    *                        Используется для тайлов, которые уже были успешно загружены раньше (everLoaded).
    *                        Это гарантирует требование "не грузить из инета, если уже загружали".
    */
+  private async fetchTileBlob(type: TileType, z: number, x: number, y: number): Promise<Blob | null> {
+    if (wsClient?.isOpen()) {
+      return wsClient.fetchTile(z, x, y, type);
+    }
+    const url = type === 'dem' ? terrainRgbUrl(this.token, z, x, y) : satelliteUrl(this.token, z, x, y);
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return response.blob();
+  }
+
   private async loadSingleTile(
     tile: TileCoord,
     signal: AbortSignal,
@@ -465,18 +485,23 @@ class TerrainManagerImpl {
       } else {
         // Всегда идём к прокси для дем, чтобы использовать серверный кэш если есть.
         // Retry once on 5xx (transient Mapbox or proxy upstream hiccup) to avoid holes.
-        let demResponse: Response | null = null;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          demResponse = await fetch(terrainRgbUrl(this.token, z, x, y), { signal });
-          if (demResponse.ok) break;
-          if (attempt === 0 && demResponse.status >= 500) {
-            await new Promise(r => setTimeout(r, 150));
-            continue;
+        if (wsClient?.isOpen()) {
+          demBlob = await this.fetchTileBlob('dem', z, x, y);
+        } else {
+          let demResponse: Response | null = null;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            demResponse = await fetch(terrainRgbUrl(this.token, z, x, y), { signal });
+            if (demResponse.ok) break;
+            if (attempt === 0 && demResponse.status >= 500) {
+              await new Promise(r => setTimeout(r, 150));
+              continue;
+            }
+            throw new Error(`DEM fetch failed: ${demResponse.status}`);
           }
-          throw new Error(`DEM fetch failed: ${demResponse.status}`);
+          if (!demResponse || !demResponse.ok) throw new Error('DEM fetch failed');
+          demBlob = await demResponse.blob();
         }
-        if (!demResponse || !demResponse.ok) throw new Error('DEM fetch failed');
-        demBlob = await demResponse.blob();
+        if (!demBlob) throw new Error('DEM fetch failed');
         putTile(demKey, demBlob, { source: 'dem', z, x, y }).catch(() => {});
         demImage = await createImageBitmap(demBlob);
       }
@@ -518,22 +543,17 @@ class TerrainManagerImpl {
           }
         } else {
           // Запрашиваем у прокси — сервер отдаст из дискового кэша, если тайл уже загружали.
-          const response = await fetch(satelliteUrl(this.token, z, x, y), {
-            signal,
-          });
-          if (response.ok) {
-            const satBlob = await response.blob();
-            putTile(tileCacheKey('sat', z, x, y), satBlob, { source: 'sat', z, x, y }).catch(() => {});
+          const satBlob = await this.fetchTileBlob('sat', z, x, y);
+          if (satBlob) {
+            const satKey = tileCacheKey('sat', z, x, y);
+            putTile(satKey, satBlob, { source: 'sat', z, x, y }).catch(() => {});
             try {
               satelliteBitmap = await createImageBitmap(satBlob);
             } catch {
               // Если bitmap плохой, пробуем ещё раз (прокси должен отдать из кэша, без инета)
-              const response2 = await fetch(satelliteUrl(this.token, z, x, y), {
-                signal,
-              });
-              if (response2.ok) {
-                const freshBlob = await response2.blob();
-                putTile(tileCacheKey('sat', z, x, y), freshBlob, { source: 'sat', z, x, y }).catch(() => {});
+              const freshBlob = await this.fetchTileBlob('sat', z, x, y);
+              if (freshBlob) {
+                putTile(satKey, freshBlob, { source: 'sat', z, x, y }).catch(() => {});
                 satelliteBitmap = await createImageBitmap(freshBlob);
               }
             }

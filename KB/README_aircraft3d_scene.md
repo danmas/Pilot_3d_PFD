@@ -143,6 +143,47 @@
 
 ---
 
+## 7. Конфигурация сцены (`scene-config.json`)
+
+Файл расположен в корне проекта: [`scene-config.json`](../scene-config.json).
+
+Основные секции:
+
+| Секция | Назначение |
+|--------|------------|
+| `camera` | Пресеты камеры, чувствительность, ограничения расстояния |
+| `projection` | FOV и near/far для перспективы/широкого угла/ортографии |
+| `renderer` | `antialias`, `dpr` — настройки WebGL-рендерера и производительности |
+| `terrain` | `loadRadius`, `keepRadius`, `maxConcurrent`, `lod[]` — радиусы загрузки, параллелизм и кольца LOD |
+| `trees` | Количество деревьев, радиус области, параметры мешей |
+| `clouds` | Пул облаков, интервал спавна, дистанция куллинга |
+| `locations` | Список стартовых локаций (lat/lon/zoom) |
+
+### Пример секции terrain
+
+```json
+"terrain": {
+  "loadRadius": 17,
+  "keepRadius": 20,
+  "maxConcurrent": 12,
+  "lod": [
+    { "ring": 2,  "segX": 32, "segZ": 64, "textureScale": 1.0,  "fillOpacity": 0.5 },
+    { "ring": 5,  "segX": 16, "segZ": 32, "textureScale": 0.5,  "fillOpacity": 0.3 },
+    { "ring": 7,  "segX":  8, "segZ": 16, "textureScale": 0.25, "fillOpacity": 0.2 },
+    { "ring": 17, "segX":  4, "segZ":  8, "textureScale": 0.1,  "fillOpacity": 0.1 }
+  ]
+}
+```
+
+- `ring` — максимальное расстояние от центрального тайла (по Чебышёву), на котором действует уровень.
+- `segX` / `segZ` — разрешение геометрии тайла.
+- `textureScale` — масштаб спутниковой текстуры при создании `CanvasTexture` (1 = оригинал 512×512).
+- `fillOpacity` — интенсивность зелёной заливки тайла на 2D-карте.
+
+> ⚠️ После изменения `scene-config.json` необходимо перезапустить `npm run dev`, так как значения читаются при загрузке модулей.
+
+---
+
 ## Связанная документация
 
 *   [README_aircraft3d.md](../src/components/Instruments/aircraft3d/README_aircraft3d.md) — Полная документация компонента

@@ -10,69 +10,27 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import {
+  CACHE_DIR,
+  LOG_FILE,
+  cacheFilePath,
+  getQuota,
+  appendLog,
+  loadTileBuffer,
+} from './terrain-tile-loader.js';
+import { setupTerrainWebSocket } from './terrain-ws.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 dotenv.config({ path: path.join(ROOT, '.env') });
 
 const DIST_DIR = path.join(ROOT, 'dist');
-const CACHE_DIR = path.join(ROOT, 'cache', 'terrain');
-const QUOTA_FILE = path.join(ROOT, 'cache', 'terrain-quota.json');
-const LOG_FILE = path.join(ROOT, 'cache', 'terrain', 'access.log');
 const PORT = 3410;
 
 const MAPBOX_TOKEN = process.env.VITE_MAPBOX_TOKEN || process.env.MAPBOX_TOKEN;
 if (!MAPBOX_TOKEN) {
   console.error('[server] ERROR: No VITE_MAPBOX_TOKEN in .env');
   process.exit(1);
-}
-
-// ─── Log ───
-function appendLog(entry) {
-  try {
-    const dir = path.dirname(LOG_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + '\n');
-  } catch {}
-}
-
-// ─── Quota ───
-let quota = loadQuota();
-function loadQuota() {
-  try {
-    if (fs.existsSync(QUOTA_FILE)) {
-      const data = JSON.parse(fs.readFileSync(QUOTA_FILE, 'utf-8'));
-      const now = new Date();
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-      if (data.month === currentMonth) return data;
-    }
-  } catch {}
-  return { month: currentMonth(), dem: 0, sat: 0, total: 0 };
-}
-function currentMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-}
-function saveQuota() {
-  try {
-    const dir = path.dirname(QUOTA_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(QUOTA_FILE, JSON.stringify(quota, null, 2));
-  } catch {}
-}
-function incrementQuota(type) {
-  const cm = currentMonth();
-  if (quota.month !== cm) quota = { month: cm, dem: 0, sat: 0, total: 0 };
-  if (type === 'dem') quota.dem++;
-  if (type === 'sat') quota.sat++;
-  quota.total++;
-  saveQuota();
-}
-function cacheFilePath(z, x, y, type) {
-  const ext = type === 'dem' ? 'png' : 'webp';
-  const dir = path.join(CACHE_DIR, String(z), String(x));
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, `${y}-${type}.${ext}`);
 }
 
 // ─── Express ───
@@ -123,8 +81,7 @@ app.post('/api/terrain/log', (req, res) => {
 
 // GET /api/terrain/quota
 app.get('/api/terrain/quota', (req, res) => {
-  const cm = currentMonth();
-  if (quota.month !== cm) { quota = { month: cm, dem: 0, sat: 0, total: 0 }; saveQuota(); }
+  const quota = getQuota();
   res.json({
     month: quota.month, dem: quota.dem, sat: quota.sat,
     total: quota.total, limit: 50000,
@@ -173,69 +130,22 @@ app.get('/api/terrain/tile/:z/:x/:y', async (req, res) => {
     return res.status(429).json({ error: 'Quota near limit', quota: { used: quota.total, limit: 50000 } });
   }
 
-  // 3. Proxy to Mapbox
-  const url = type === 'dem'
-    ? `https://api.mapbox.com/v4/mapbox.terrain-rgb/${zN}/${xN}/${yN}.pngraw?access_token=${MAPBOX_TOKEN}`
-    : `https://api.mapbox.com/v4/mapbox.satellite/${zN}/${xN}/${yN}.jpg90?access_token=${MAPBOX_TOKEN}`;
-
-  try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!resp.ok) {
-      // Лог: ERROR — Mapbox вернул ошибку
-      appendLog({
-        t: new Date().toISOString(),
-        coord: { z: zN, x: xN, y: yN },
-        type,
-        status: 'ERROR',
-        error: `Mapbox: ${resp.status}`,
-        quotaTotal: quota.total,
-      });
-      return res.status(resp.status).json({ error: `Mapbox: ${resp.status}` });
+  const buffer = await loadTileBuffer(zN, xN, yN, type);
+  if (!buffer) {
+    const quota = getQuota();
+    if (quota.total >= 45000) {
+      return res.status(429).json({ error: 'Quota near limit', quota: { used: quota.total, limit: 50000 } });
     }
-
-    const ct = resp.headers.get('content-type') || (type === 'dem' ? 'image/png' : 'image/jpeg');
-    const buffer = Buffer.from(await resp.arrayBuffer());
-
-    // Cache
-    try { fs.writeFileSync(cached, buffer); } catch {}
-    incrementQuota(type);
-
-    // Лог: MISS — загружено из Mapbox
-    appendLog({
-      t: new Date().toISOString(),
-      coord: { z: zN, x: xN, y: yN },
-      type,
-      status: 'MISS',
-      quotaTotal: quota.total,
-    });
-
-    console.log(`[tile] ${type} ${z}/${x}/${y} — cached (quota: ${quota.total}/50000)`);
-    res.setHeader('Content-Type', ct);
-    res.setHeader('X-Cache', 'MISS');
-    res.send(buffer);
-  } catch (err) {
-    if (err.name === 'TimeoutError') {
-      appendLog({
-        t: new Date().toISOString(),
-        coord: { z: zN, x: xN, y: yN },
-        type,
-        status: 'TIMEOUT',
-        error: 'Mapbox timeout',
-        quotaTotal: quota.total,
-      });
-      return res.status(504).json({ error: 'Mapbox timeout' });
-    }
-    console.error(`[tile] Error ${z}/${x}/${y}:`, err.message);
-    appendLog({
-      t: new Date().toISOString(),
-      coord: { z: zN, x: xN, y: yN },
-      type,
-      status: 'ERROR',
-      error: err.message,
-      quotaTotal: quota.total,
-    });
-    res.status(502).json({ error: 'Upstream failed' });
+    return res.status(502).json({ error: 'Upstream failed' });
   }
+
+  const ct = type === 'dem' ? 'image/png' : 'image/jpeg';
+  const cachedPath = cacheFilePath(zN, xN, yN, type);
+  const isHit = fs.existsSync(cachedPath);
+
+  res.setHeader('Content-Type', ct);
+  res.setHeader('X-Cache', isHit ? 'HIT' : 'MISS');
+  res.send(buffer);
 });
 
 // ─── Static files (SPA fallback) ───
@@ -265,10 +175,13 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(DIST_DIR, 'index.html'));
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
+  const quota = getQuota();
   console.log(`[server] Static: ${DIST_DIR}`);
   console.log(`[server] Terrain cache: ${CACHE_DIR}`);
   console.log(`[server] Log: ${LOG_FILE}`);
   console.log(`[server] Quota: ${quota.total}/50000 (${quota.month})`);
   console.log(`[server] Listening on http://0.0.0.0:${PORT}`);
 });
+
+setupTerrainWebSocket(server);

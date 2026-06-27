@@ -7,6 +7,16 @@
 - Update rates: Sample 30 FPS, Replay 25 FPS, Live — event-driven (SSE)
 - Scene: 8 meshes (primitive aircraft), 3 materials, 1 custom shader (HorizonSphere), shadows enabled
 
+## Уже реализованные оптимизации (2026-06-26)
+
+- **FPS-индикатор** в углу 3D-сцены (`FpsCounter.tsx`).
+- **Системные настройки WebGL** в `scene-config.json`: `renderer.antialias`, `renderer.dpr`.
+- **React.memo + стабилизация пропсов** в `RealAircraft3DScene` и `TerrainTile`.
+- **Слияние схематичных тайлов** в один mesh (`MergedSchematicLodGroup`).
+- **Отключение леса (`Trees`)** при включённом реальном ландшафте.
+- **Кольцевой LOD** для terrain с уменьшением разрешения геометрии и текстур на дальних кольцах.
+- **Вынесение `loadRadius`, `keepRadius`, `maxConcurrent` и LOD** в `scene-config.json`.
+
 ## Выявленные узкие места
 
 ### Критические

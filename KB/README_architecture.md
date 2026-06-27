@@ -187,8 +187,13 @@ Sources → telemetryRef → setFrame() → Component(frame)
 
 Отдельное окно браузера (`map.html` → `src/map/main.tsx`), открывается из 3D-сцены кнопкой 🗺. Схематичная карта на Leaflet (без тайл-слоя). Получает состояние сцены через **BroadcastChannel** (`pilot-map-state`) — главное окно не передаёт данные на сервер, окно карты ничего не вычисляет.
 
-- `useMapBroadcaster(frame)` — вызывается в `RealAircraft3DScene`, rAF-цикл ~10 Гц: читает `aircraftPosition` + `locationRef` + `TerrainManager` и отправляет `MapStatePacket { lat, lon, track, speed, heading, sceneTiles, needed }`.
-- `MapApp.tsx` — слои: сцена (зелёный), кэш сервера (серый, `/api/terrain/cached`), отсутствующие 7×7 (красный пунктир); маркер самолёта + вектор скорости; компас N/Ю; авто-центр + кнопка ⊕.
+- `useMapBroadcaster(frame)` — вызывается в `RealAircraft3DScene`, rAF-цикл ~10 Гц: читает `aircraftPosition` + `locationRef` + `TerrainManager` и отправляет `MapStatePacket { lat, lon, track, speed, heading, sceneTiles, needed, centerTile }`.
+  - `centerTile` — центральный тайл сетки, нужен для отображения колец LOD на карте.
+- `MapApp.tsx` — слои:
+  - **сцена** — зелёные прямоугольники, интенсивность заливки зависит от кольца LOD вокруг `centerTile`;
+  - **кэш сервера** — серый (`/api/terrain/cached`);
+  - **отсутствующие тайлы** — красный пунктир (динамический радиус из `scene-config.json`, не фиксированный 7×7);
+  - маркер самолёта + вектор скорости, компас N/Ю, авто-центр + кнопка ⊕.
 
 ---
 
