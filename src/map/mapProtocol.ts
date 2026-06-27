@@ -32,8 +32,10 @@ export interface MapStatePacket {
   heading: number;
   /** Тайлы, сейчас находящиеся в сцене (TerrainManager.getAllTiles). */
   sceneTiles: TileKey[];
-  /** Ожидаемая сетка 7×7 вокруг центра (needed). */
+  /** Ожидаемая сетка вокруг центра (needed). */
   needed: TileKey[];
+  /** Центральный тайл сетки (для отображения колец LOD на карте). */
+  centerTile: TileKey | null;
   /** Цветные конусы-маркеры (статичные, в геокоординатах). */
   cones: ConeMarker[];
 }

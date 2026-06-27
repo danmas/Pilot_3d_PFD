@@ -29,8 +29,14 @@
     "dpr": [1, 1.5]
   },
   "terrain": {
-    "loadRadius": 7,
-    "keepRadius": 10
+    "loadRadius": 17,
+    "keepRadius": 20,
+    "lod": [
+      { "ring": 2, "segX": 32, "segZ": 64, "textureScale": 1.0, "fillOpacity": 0.5 },
+      { "ring": 5, "segX": 16, "segZ": 32, "textureScale": 0.5, "fillOpacity": 0.3 },
+      { "ring": 7, "segX":  8, "segZ": 16, "textureScale": 0.25, "fillOpacity": 0.2 },
+      { "ring": 17, "segX":  4, "segZ": 8, "textureScale": 0.1, "fillOpacity": 0.10 }
+    ]
   },
   "grid": {
     "size": 2000,

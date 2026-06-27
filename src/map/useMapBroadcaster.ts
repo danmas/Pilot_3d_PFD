@@ -105,6 +105,7 @@ export function useMapBroadcaster(frame: TelemetryFrame): void {
           heading,
           sceneTiles,
           needed,
+          centerTile: TerrainManager.getCurrentCenter(),
           cones,
         };
         if (sendLog < 3) {

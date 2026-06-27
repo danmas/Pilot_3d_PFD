@@ -23,6 +23,38 @@ export interface TileCoord {
   z: number;
 }
 
+/** Описание одного уровня LOD для ландшафта. */
+export interface TerrainLodLevel {
+  /** Максимальное расстояние от центрального тайла (по Чебышёву) для этого уровня */
+  ring: number;
+  /** Число сегментов геометрии по X */
+  segX: number;
+  /** Число сегментов геометрии по Z */
+  segZ: number;
+  /** Масштаб спутниковой текстуры (1 = оригинал) */
+  textureScale: number;
+  /** Прозрачность заливки тайла на 2D-карте (0..1) */
+  fillOpacity?: number;
+}
+
+/**
+ * Выбирает уровень LOD для тайла по его удалённости от центра сетки.
+ * Расстояние — по Чебышёву: max(|dx|, |dy|), что соответствует квадратным кольцам.
+ */
+export function getTerrainLod(
+  coord: TileCoord,
+  center: TileCoord | null | undefined,
+  lod: TerrainLodLevel[],
+): TerrainLodLevel {
+  const fallback = lod[lod.length - 1];
+  if (!center) return fallback;
+  const dist = Math.max(Math.abs(coord.x - center.x), Math.abs(coord.y - center.y));
+  for (const level of lod) {
+    if (dist <= level.ring) return level;
+  }
+  return fallback;
+}
+
 /**
  * Конвертация lat/lon в tile x/y/z (Slippy Map).
  *

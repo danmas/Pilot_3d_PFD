@@ -15,9 +15,19 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { TerrainTileData } from './TerrainManager';
-import { type TileCoord, tileCenterLatLon, tileWorldUnits, getTileCornersLatLon, latLonToTile, DEFAULT_ZOOM } from './terrainTileUtils';
+import {
+  type TileCoord,
+  type TerrainLodLevel,
+  tileCenterLatLon,
+  tileWorldUnits,
+  getTileCornersLatLon,
+  latLonToTile,
+  DEFAULT_ZOOM,
+  getTerrainLod,
+} from './terrainTileUtils';
 import TerrainTile, { createTileGeometry } from './TerrainTile';
 import { locationRef } from '../aircraftPosition';
+import sceneConfig from '@/scene-config.json';
 
 interface RealTerrainMeshProps {
   tiles: Array<{ coord: TileCoord; data: TerrainTileData }> | null;
@@ -27,8 +37,12 @@ interface RealTerrainMeshProps {
   selectedTile?: TileCoord | null;
 }
 
-const SCHEMATIC_SEG_X = 16;
-const SCHEMATIC_SEG_Z = 32;
+const terrainConfig = (sceneConfig as any).terrain ?? { loadRadius: 3, keepRadius: 4 };
+const LOD_LEVELS: TerrainLodLevel[] = terrainConfig.lod ?? [
+  { ring: 2, segX: 32, segZ: 64, textureScale: 1.0 },
+  { ring: 5, segX: 16, segZ: 32, textureScale: 0.5 },
+  { ring: 7, segX: 8, segZ: 16, textureScale: 0.25 },
+];
 
 const schematicMaterial = new THREE.MeshStandardMaterial({
   color: '#22c55e',
@@ -40,81 +54,47 @@ const schematicMaterial = new THREE.MeshStandardMaterial({
   wireframe: true,
 });
 
-interface MergedSchematicTerrainProps {
+interface MergedSchematicLodGroupProps {
   tiles: Array<{ coord: TileCoord; data: TerrainTileData }>;
+  segX: number;
+  segZ: number;
   refData: { refX: number; refY: number; tileWU: number; globalMinElev: number };
 }
 
 /**
- * Один mesh для всех schematic-тайлов.
- * Геометрия наращивается инкрементально при добавлении тайла;
- * при удалении тайла перестраивается с нуля.
+ * Один mesh для группы schematic-тайлов одного уровня LOD.
+ * Тайлы с одинаковым segX/segZ объединяются в один BufferGeometry,
+ * что даёт один draw call на уровень LOD.
  */
-const MergedSchematicTerrain: React.FC<MergedSchematicTerrainProps> = ({ tiles, refData }) => {
+const MergedSchematicLodGroup: React.FC<MergedSchematicLodGroupProps> = ({ tiles, segX, segZ, refData }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const geomRef = useRef<THREE.BufferGeometry | null>(null);
-  const keysRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (tiles.length === 0) {
-      geomRef.current?.dispose();
-      geomRef.current = null;
-      keysRef.current.clear();
-      if (meshRef.current) {
-        meshRef.current.geometry = new THREE.BufferGeometry();
-      }
-      return;
-    }
-
+  const geom = useMemo(() => {
+    if (tiles.length === 0) return null;
     const { tileWU, refX, refY, globalMinElev } = refData;
-    const currentKeys = new Set(tiles.map(({ coord }) => `${coord.z}/${coord.x}/${coord.y}`));
-    const added = tiles.filter(({ coord }) => !keysRef.current.has(`${coord.z}/${coord.x}/${coord.y}`));
-    const removedCount = Array.from(keysRef.current).filter((k) => !currentKeys.has(k)).length;
-
-    const buildGeometries = (list: Array<{ coord: TileCoord; data: TerrainTileData }>) =>
-      list.map(({ coord, data }) => {
-        const geo = createTileGeometry(data, coord, tileWU, refX, refY, globalMinElev, SCHEMATIC_SEG_X, SCHEMATIC_SEG_Z);
-        // createTileGeometry возвращает геометрию в локальных координатах тайла;
-        // перед слиянием сдвигаем вершины на мировой offset тайла, иначе все тайлы
-        // наложатся друг на друга в одном квадрате.
-        const offsetX = geo.userData.offsetX as number;
-        const offsetZ = geo.userData.offsetZ as number;
-        geo.translate(offsetX, 0, offsetZ);
-        return geo;
-      });
-
-    let nextGeom: THREE.BufferGeometry | null = null;
-
-    if (removedCount > 0 || !geomRef.current) {
-      const geoms = buildGeometries(tiles);
-      nextGeom = geoms.length > 0 ? mergeGeometries(geoms) : null;
-      geoms.forEach((g) => g.dispose());
-    } else if (added.length > 0) {
-      const newGeoms = buildGeometries(added);
-      if (newGeoms.length > 0) {
-        nextGeom = geomRef.current ? mergeGeometries([geomRef.current, ...newGeoms]) : mergeGeometries(newGeoms);
-      }
-      newGeoms.forEach((g) => g.dispose());
-    }
-
-    if (nextGeom) {
-      geomRef.current?.dispose();
-      geomRef.current = nextGeom;
-      if (meshRef.current) {
-        meshRef.current.geometry = nextGeom;
-      }
-    }
-
-    keysRef.current = currentKeys;
-  }, [tiles, refData]);
+    const geoms = tiles.map(({ coord, data }) => {
+      const geo = createTileGeometry(data, coord, tileWU, refX, refY, globalMinElev, segX, segZ);
+      const offsetX = geo.userData.offsetX as number;
+      const offsetZ = geo.userData.offsetZ as number;
+      geo.translate(offsetX, 0, offsetZ);
+      return geo;
+    });
+    const merged = mergeGeometries(geoms);
+    geoms.forEach((g) => g.dispose());
+    return merged;
+  }, [tiles, segX, segZ, refData]);
 
   useEffect(() => {
-    return () => {
-      geomRef.current?.dispose();
-    };
-  }, []);
+    if (meshRef.current && geom) {
+      meshRef.current.geometry = geom;
+    }
+  }, [geom]);
 
-  if (tiles.length === 0) return null;
+  useEffect(() => {
+    return () => { geom?.dispose(); };
+  }, [geom]);
+
+  if (!geom) return null;
 
   return (
     <mesh
@@ -171,18 +151,23 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
     return { refX, refY, tileWU, globalMinElev };
   }, [tiles]);
 
+  const tileLods = useMemo(() => {
+    if (!tiles) return [];
+    return tiles.map(({ coord }) => getTerrainLod(coord, centerTile, LOD_LEVELS));
+  }, [tiles, centerTile]);
+
   const triangleStats = useMemo(() => {
     if (!tiles || !refData) return null;
     let total = 0;
-    for (const { data } of tiles) {
-      const maxSegX = mode === 'schematic' ? 16 : 32;
-      const maxSegZ = mode === 'schematic' ? 32 : 64;
-      const segX = Math.min(data.width, Math.max(maxSegX, 8));
-      const segZ = Math.min(data.height, Math.max(maxSegZ, 8));
+    for (let i = 0; i < tiles.length; i++) {
+      const { data } = tiles[i];
+      const lod = tileLods[i];
+      const segX = Math.min(data.width, Math.max(lod?.segX ?? (mode === 'schematic' ? 16 : 32), 8));
+      const segZ = Math.min(data.height, Math.max(lod?.segZ ?? (mode === 'schematic' ? 32 : 64), 8));
       total += segX * segZ * 2;
     }
     return total;
-  }, [tiles, mode, refData]);
+  }, [tiles, tileLods, mode, refData]);
 
   React.useEffect(() => {
     if (triangleStats !== null) {
@@ -249,23 +234,54 @@ const RealTerrainMesh: React.FC<RealTerrainMeshProps> = ({
 
   const { refX, refY, tileWU, globalMinElev } = refData;
 
+  // Стабильные группы тайлов по уровням LOD — чтобы merged-геометрия не перестраивалась каждый рендер.
+  const schematicGroups = useMemo(() => {
+    if (mode !== 'schematic') return [] as Array<{ level: TerrainLodLevel; tiles: Array<{ coord: TileCoord; data: TerrainTileData }> }>;
+    const groups = new Map<string, { level: TerrainLodLevel; tiles: Array<{ coord: TileCoord; data: TerrainTileData }> }>();
+    tiles.forEach((t, i) => {
+      const lod = tileLods[i];
+      const key = `${lod.segX}x${lod.segZ}`;
+      if (!groups.has(key)) {
+        groups.set(key, { level: lod, tiles: [] });
+      }
+      groups.get(key)!.tiles.push(t);
+    });
+    return Array.from(groups.values());
+  }, [mode, tiles, tileLods]);
+
   return (
     <group ref={groupRef}>
       {mode === 'schematic' ? (
-        <MergedSchematicTerrain tiles={tiles} refData={refData} />
+        <>
+          {schematicGroups.map(({ level, tiles: groupTiles }) => (
+            <MergedSchematicLodGroup
+              key={`schematic-${level.segX}x${level.segZ}`}
+              tiles={groupTiles}
+              segX={level.segX}
+              segZ={level.segZ}
+              refData={refData}
+            />
+          ))}
+        </>
       ) : (
-        tiles.map(({ coord, data }) => (
-          <TerrainTile
-            key={`${coord.z}/${coord.x}/${coord.y}-${mode}`}
-            coord={coord}
-            data={data}
-            mode={mode}
-            tileWU={tileWU}
-            refX={refX}
-            refY={refY}
-            globalMinElev={globalMinElev}
-          />
-        ))
+        tiles.map(({ coord, data }, i) => {
+          const lod = tileLods[i];
+          return (
+            <TerrainTile
+              key={`${coord.z}/${coord.x}/${coord.y}-${mode}-${lod.segX}x${lod.segZ}`}
+              coord={coord}
+              data={data}
+              mode={mode}
+              segX={lod.segX}
+              segZ={lod.segZ}
+              textureScale={lod.textureScale}
+              tileWU={tileWU}
+              refX={refX}
+              refY={refY}
+              globalMinElev={globalMinElev}
+            />
+          );
+        })
       )}
       {/* Рамка выделенного тайла (синяя) */}
       {selectionOutline && selectedTile && (() => {

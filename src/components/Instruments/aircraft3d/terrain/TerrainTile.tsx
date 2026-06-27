@@ -28,6 +28,12 @@ interface TerrainTileProps {
   refY: number;
   /** Глобальный минимум высот по всей сетке (для стыковки) */
   globalMinElev: number;
+  /** Число сегментов по X (если не задано — берётся из режима) */
+  segX?: number;
+  /** Число сегментов по Z (если не задано — берётся из режима) */
+  segZ?: number;
+  /** Масштаб спутниковой текстуры: 1 = оригинал, 0.5 = половина и т.д. */
+  textureScale?: number;
 }
 
 /**
@@ -108,6 +114,7 @@ function createTileGeometry(
 function createTileMaterial(
   data: TerrainTileData,
   mode: 'realistic' | 'schematic',
+  textureScale = 1,
 ): THREE.MeshStandardMaterial {
   if (mode === 'schematic') {
     return new THREE.MeshStandardMaterial({
@@ -125,11 +132,17 @@ function createTileMaterial(
   if (data.satelliteBitmap && data.satelliteBitmap.width > 0) {
     // ImageBitmap нельзя напрямую в CanvasTexture — он transfer'ится в WebGL
     // и обнуляется, ломая mipmap'ы. Рисуем на canvas как для DEM.
+    // Для дальних колец уменьшаем разрешение текстуры согласно textureScale.
+    const bitmap = data.satelliteBitmap;
+    const scale = Math.max(0.01, Math.min(1, textureScale));
+    const w = Math.max(1, Math.floor(bitmap.width * scale));
+    const h = Math.max(1, Math.floor(bitmap.height * scale));
+
     const canvas = document.createElement('canvas');
-    canvas.width = data.satelliteBitmap.width;
-    canvas.height = data.satelliteBitmap.height;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(data.satelliteBitmap, 0, 0);
+    ctx.drawImage(bitmap, 0, 0, w, h);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -167,22 +180,25 @@ const TerrainTile: React.FC<TerrainTileProps> = ({
   refX,
   refY,
   globalMinElev,
+  segX: segXProp,
+  segZ: segZProp,
+  textureScale = 1,
 }) => {
-  // P0: разные сегменты для разных режимов
-  const maxSegX = mode === 'schematic' ? 16 : 32;
-  const maxSegZ = mode === 'schematic' ? 32 : 64;
-  const segX = Math.min(data.width, Math.max(maxSegX, 8));
-  const segZ = Math.min(data.height, Math.max(maxSegZ, 8));
+  // LOD: разрешение может задаваться извне; если нет — берём дефолт для режима.
+  const defaultSegX = mode === 'schematic' ? 16 : 32;
+  const defaultSegZ = mode === 'schematic' ? 32 : 64;
+  const segX = Math.min(data.width, Math.max(segXProp ?? defaultSegX, 8));
+  const segZ = Math.min(data.height, Math.max(segZProp ?? defaultSegZ, 8));
 
   const geo = useMemo(
     () => createTileGeometry(data, coord, tileWU, refX, refY, globalMinElev, segX, segZ),
-    // Пересоздавать только при смене режима или координат
+    // Пересоздавать при смене режима, координат или LOD
     [coord.z, coord.x, coord.y, mode, tileWU, refX, refY, globalMinElev, segX, segZ],
   );
 
   const mat = useMemo(
-    () => createTileMaterial(data, mode),
-    [mode, data.satelliteBitmap],
+    () => createTileMaterial(data, mode, textureScale),
+    [mode, data.satelliteBitmap, textureScale],
   );
 
   // Освобождаем GPU-ресурсы при размонтировании тайла (geometry + material + texture)

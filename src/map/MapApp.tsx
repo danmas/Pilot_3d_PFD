@@ -23,8 +23,21 @@ import {
   tileKey,
   tileBounds,
 } from './mapProtocol';
+import {
+  type TerrainLodLevel,
+  getTerrainLod,
+} from '../components/Instruments/aircraft3d/terrain/terrainTileUtils';
+import sceneConfig from '@/scene-config.json';
 
 const CACHE_REFRESH_MS = 5000;
+
+const LOD_LEVELS: TerrainLodLevel[] = ((sceneConfig as any).terrain?.lod ?? [
+  { ring: 2, segX: 32, segZ: 64, textureScale: 1.0 },
+  { ring: 5, segX: 16, segZ: 32, textureScale: 0.5 },
+  { ring: 7, segX: 8, segZ: 16, textureScale: 0.25 },
+]) as TerrainLodLevel[];
+
+const LOD_STROKE_OPACITY = [0.95, 0.75, 0.55];
 
 /** SVG силуэта самолёта (нос вверх — север). */
 const PLANE_SVG = `<svg viewBox="0 0 24 24"><path d="M12 2 L13.5 9 L22 12 L13.5 12 L13.5 19 L16 21 L16 22 L12 21 L8 22 L8 21 L10.5 19 L10.5 12 L2 12 L10.5 9 Z"/></svg>`;
@@ -97,11 +110,21 @@ export function MapApp() {
     const needed = p?.needed ?? [];
     const sceneSet = new Set(sceneTiles.map(tileKey));
 
-    // Сцена — зелёный (кликабельные)
+    // Сцена — зелёный с интенсивностью по кольцу LOD (кликабельные)
     sceneLayerRef.current?.clearLayers();
+    const center = p?.centerTile ?? null;
     for (const t of sceneTiles) {
+      const lod = getTerrainLod(t, center, LOD_LEVELS);
+      const lodIndex = LOD_LEVELS.findIndex((l) => l.ring === lod.ring && l.segX === lod.segX && l.segZ === lod.segZ);
+      const level = lodIndex >= 0 ? lodIndex : LOD_LEVELS.length - 1;
       L.rectangle(tileBounds(t), {
-        color: '#22c55e', weight: 1.5, fill: false, interactive: true,
+        color: '#22c55e',
+        weight: 1.5,
+        opacity: LOD_STROKE_OPACITY[level] ?? 0.55,
+        fill: true,
+        fillColor: '#22c55e',
+        fillOpacity: lod.fillOpacity ?? 0.10,
+        interactive: true,
       }).addTo(sceneLayerRef.current!).on('click', () => onTileClick(t));
     }
 
